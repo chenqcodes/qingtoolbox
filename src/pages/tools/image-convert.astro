@@ -4,20 +4,20 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
 <ToolLayout
   title="图片格式互转"
-  description="图片格式在线互转工具，支持 WebP、JPG、PNG、ICO 本地转换，可调整 JPEG/WebP 质量与 ICO 尺寸。"
+  description="图片格式在线互转工具，支持多图批量 WebP、JPG、PNG、ICO 本地转换，下载保留原文件名。"
   currentSlug="image-convert"
 >
   <h1 slot="header">图片格式互转</h1>
-  <p class="intro">WebP、JPG、PNG、ICO 本地互转，图片不会上传服务器。</p>
+  <p class="intro">支持多图批量互转 WebP / JPG / PNG / ICO，本地下载，文件名保留原名并改后缀。</p>
 
-  <div class="compress-workspace">
+  <div class="compress-workspace batch-workspace" id="convert-wrap">
     <div class="compress-panel">
-      <div class="field-label">原图（点击上传）</div>
+      <div class="field-label">原图（可多选）</div>
       <label class="img-slot img-slot-upload" id="convert-drop">
-        <input type="file" id="convert-file" accept="image/*,.ico" />
-        <span id="convert-placeholder">点击或拖拽上传图片</span>
-        <img id="convert-preview" alt="" hidden />
+        <input type="file" id="convert-file" accept="image/*,.ico" multiple />
+        <span id="convert-placeholder">点击或拖拽上传，可多选</span>
       </label>
+      <div class="batch-grid cols-1" id="convert-src-grid"></div>
       <div class="img-meta" id="convert-meta">—</div>
     </div>
 
@@ -49,61 +49,57 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
         </select>
       </div>
       <div class="btn-row compress-btn-row">
-        <button class="btn" id="btn-convert">转换</button>
-        <a class="btn btn-secondary" id="btn-convert-dl" download hidden>下载</a>
+        <button class="btn" id="btn-convert" type="button">全部转换</button>
+        <button class="btn btn-secondary" id="btn-convert-dl" type="button" hidden>批量下载</button>
+        <button class="btn btn-secondary" id="btn-convert-clear" type="button" hidden>清空</button>
       </div>
       <div id="convert-msg"></div>
     </div>
 
     <div class="compress-panel">
-      <div class="field-label">转换后</div>
-      <div class="img-slot" id="convert-output"><span>等待转换</span></div>
+      <div class="field-label">转换后（多图预览）</div>
+      <div class="batch-grid cols-1" id="convert-out-grid">
+        <span class="img-meta" style="grid-column:1/-1">等待转换</span>
+      </div>
       <div class="img-meta" id="convert-out-meta">—</div>
     </div>
   </div>
 </ToolLayout>
 
 <script>
+  import {
+    canvasToBlob,
+    extFromMime,
+    fmtSize,
+    gridColsClass,
+    loadImageFromFile,
+    outputName,
+    revokeItemUrls,
+    zipAndDownload,
+    type BatchItem,
+  } from '../../scripts/image-batch';
+
+  const wrap = document.getElementById('convert-wrap')!;
   const fileInput = document.getElementById('convert-file') as HTMLInputElement;
   const drop = document.getElementById('convert-drop')!;
-  const placeholder = document.getElementById('convert-placeholder')!;
-  const preview = document.getElementById('convert-preview') as HTMLImageElement;
+  const srcGrid = document.getElementById('convert-src-grid')!;
+  const outGrid = document.getElementById('convert-out-grid')!;
   const meta = document.getElementById('convert-meta')!;
   const outMeta = document.getElementById('convert-out-meta')!;
   const format = document.getElementById('convert-format') as HTMLSelectElement;
   const quality = document.getElementById('convert-quality') as HTMLInputElement;
   const qualityVal = document.getElementById('convert-quality-val')!;
   const icoSize = document.getElementById('ico-size') as HTMLSelectElement;
-  const output = document.getElementById('convert-output')!;
-  const download = document.getElementById('btn-convert-dl') as HTMLAnchorElement;
+  const btnDl = document.getElementById('btn-convert-dl') as HTMLButtonElement;
+  const btnClear = document.getElementById('btn-convert-clear') as HTMLButtonElement;
   const msg = document.getElementById('convert-msg')!;
 
-  let currentFile: File | null = null;
-  let imageUrl = '';
-  let width = 0;
-  let height = 0;
-
-  function fmtSize(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-  }
+  let items: BatchItem[] = [];
+  let activeId = '';
 
   function showMsg(text: string, type: 'error' | 'success') {
     msg.className = `msg ${type}`;
     msg.textContent = text;
-  }
-
-  function blobToDataUrl(blob: Blob) {
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  function canvasToBlob(canvas: HTMLCanvasElement, mime: string, q: number) {
-    return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => b ? resolve(b) : reject(new Error('转换失败')), mime, q));
   }
 
   async function makeIco(png: Blob, size: number) {
@@ -124,79 +120,163 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     return new Blob([header, pngBytes], { type: 'image/x-icon' });
   }
 
-  async function convert() {
-    if (!currentFile) {
+  function setGridClass(el: HTMLElement, n: number) {
+    el.className = `batch-grid ${gridColsClass(n)}`;
+  }
+
+  function renderGrids() {
+    wrap.classList.toggle('has-files', items.length > 0);
+    setGridClass(srcGrid, items.length);
+    setGridClass(outGrid, items.length || 1);
+
+    srcGrid.innerHTML = items.map((it) => {
+      const st = it.status == 'done' ? '完成' : it.status == 'error' ? '失败' : '待处理';
+      const cls = [
+        'batch-thumb',
+        it.id == activeId ? 'is-active' : '',
+        it.status == 'done' ? 'is-done' : '',
+        it.status == 'error' ? 'is-error' : '',
+      ].filter(Boolean).join(' ');
+      return `<button type="button" class="${cls}" data-id="${it.id}">
+        <img src="${it.srcUrl || ''}" alt="" />
+        <span class="batch-thumb-st">${st}</span>
+        <span class="batch-thumb-cap">${it.file.name}</span>
+      </button>`;
+    }).join('');
+
+    const done = items.filter((i) => i.status == 'done' && i.previewUrl);
+    if (!items.length) {
+      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">等待转换</span>';
+    } else if (!done.length) {
+      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">处理中…</span>';
+    } else {
+      outGrid.innerHTML = items.map((it) => {
+        if (it.status != 'done' || !it.previewUrl) {
+          return `<div class="batch-thumb is-error" data-id="${it.id}">
+            <span class="batch-thumb-st">${it.status == 'error' ? '失败' : '…'}</span>
+            <span class="batch-thumb-cap">${it.file.name}</span>
+          </div>`;
+        }
+        const isIco = format.value == 'image/x-icon';
+        const cls = `batch-thumb is-done${it.id == activeId ? ' is-active' : ''}`;
+        return `<button type="button" class="${cls}" data-id="${it.id}">
+          ${isIco ? '<span class="batch-thumb-cap">ICO</span>' : `<img src="${it.previewUrl}" alt="" />`}
+          <span class="batch-thumb-st">完成</span>
+          <span class="batch-thumb-cap">${it.outName || it.file.name}</span>
+        </button>`;
+      }).join('');
+    }
+
+    meta.textContent = items.length ? `共 ${items.length} 张` : '—';
+    const active = items.find((i) => i.id == activeId && i.status == 'done');
+    outMeta.textContent = active?.blob
+      ? `${active.outName} · ${fmtSize(active.blob.size)}`
+      : (done.length ? `已完成 ${done.length}/${items.length}` : '—');
+    btnClear.hidden = items.length == 0;
+    btnDl.hidden = done.length == 0;
+  }
+
+  async function convertOne(it: BatchItem) {
+    const img = await loadImageFromFile(it.file);
+    const toIco = format.value == 'image/x-icon';
+    const size = toIco ? Number(icoSize.value) : Math.max(img.width, img.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = toIco ? size : img.width;
+    canvas.height = toIco ? size : img.height;
+    const ctx = canvas.getContext('2d')!;
+    if (format.value == 'image/jpeg') {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (toIco) {
+      const ratio = Math.min(size / img.width, size / img.height);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    } else {
+      ctx.drawImage(img, 0, 0);
+    }
+    const q = Number(quality.value) / 100;
+    const ext = extFromMime(format.value);
+    const png = await canvasToBlob(canvas, 'image/png', q);
+    const blob = toIco ? await makeIco(png, size) : await canvasToBlob(canvas, format.value, q);
+    if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+    it.blob = blob;
+    it.outName = outputName(it.file.name, ext);
+    it.previewUrl = URL.createObjectURL(blob);
+    it.status = 'done';
+  }
+
+  async function convertAll() {
+    if (!items.length) {
       showMsg('请先上传图片', 'error');
       return;
     }
-    const img = new Image();
-    img.onload = async () => {
-      const toIco = format.value == 'image/x-icon';
-      const size = toIco ? Number(icoSize.value) : Math.max(img.width, img.height);
-      const canvas = document.createElement('canvas');
-      canvas.width = toIco ? size : img.width;
-      canvas.height = toIco ? size : img.height;
-      const ctx = canvas.getContext('2d')!;
-      if (format.value == 'image/jpeg') {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    showMsg('转换中…', 'success');
+    for (const it of items) {
+      try {
+        await convertOne(it);
+      } catch {
+        it.status = 'error';
       }
-      if (toIco) {
-        const ratio = Math.min(size / img.width, size / img.height);
-        const w = Math.round(img.width * ratio);
-        const h = Math.round(img.height * ratio);
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-      } else {
-        ctx.drawImage(img, 0, 0);
-      }
-      const q = Number(quality.value) / 100;
-      const ext = format.value == 'image/jpeg' ? 'jpg' : format.value == 'image/x-icon' ? 'ico' : format.value.split('/')[1];
-      const png = await canvasToBlob(canvas, 'image/png', q);
-      const blob = toIco ? await makeIco(png, size) : await canvasToBlob(canvas, format.value, q);
-      const dataUrl = await blobToDataUrl(blob);
-      output.innerHTML = toIco ? '<span>ICO 文件已生成</span>' : `<img src="${dataUrl}" alt="" />`;
-      download.href = dataUrl;
-      download.download = `converted.${ext}`;
-      download.hidden = false;
-      outMeta.textContent = `${toIco ? `${size}×${size}` : `${canvas.width}×${canvas.height}`} · ${fmtSize(blob.size)} · ${ext.toUpperCase()}`;
-      showMsg('转换完成', 'success');
-    };
-    img.onerror = () => showMsg('图片读取失败，请换一张图片', 'error');
-    img.src = imageUrl;
+      renderGrids();
+    }
+    if (!activeId || !items.find((i) => i.id == activeId && i.status == 'done')) {
+      activeId = items.find((i) => i.status == 'done')?.id || '';
+    }
+    renderGrids();
+    const ok = items.filter((i) => i.status == 'done').length;
+    showMsg(`完成 ${ok}/${items.length}`, ok ? 'success' : 'error');
   }
 
-  function useFile(file: File) {
-    currentFile = file;
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-    imageUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      width = img.width;
-      height = img.height;
-      placeholder.hidden = true;
-      preview.src = imageUrl;
-      preview.hidden = false;
-      meta.textContent = `${file.name} · ${width}×${height} · ${fmtSize(file.size)}`;
-      convert();
-    };
-    img.onerror = () => showMsg('图片读取失败，请换一张图片', 'error');
-    img.src = imageUrl;
+  function addFiles(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/') || /\.ico$/i.test(f.name));
+    for (const file of arr) {
+      items.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        status: 'pending',
+        srcUrl: URL.createObjectURL(file),
+      });
+    }
+    if (!activeId && items.length) activeId = items[0].id;
+    renderGrids();
+    convertAll();
   }
+
+  function onGridClick(e: Event) {
+    const btn = (e.target as HTMLElement).closest('[data-id]') as HTMLElement | null;
+    if (!btn?.dataset.id) return;
+    activeId = btn.dataset.id;
+    renderGrids();
+  }
+  srcGrid.addEventListener('click', onGridClick);
+  outGrid.addEventListener('click', onGridClick);
 
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files?.[0];
-    if (file) useFile(file);
+    if (fileInput.files?.length) addFiles(fileInput.files);
+    fileInput.value = '';
   });
   drop.addEventListener('dragover', (e) => e.preventDefault());
   drop.addEventListener('drop', (e) => {
     e.preventDefault();
-    const file = e.dataTransfer?.files?.[0];
-    if (file) useFile(file);
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
   });
-  quality.addEventListener('input', () => {
-    qualityVal.textContent = `${quality.value}%`;
+  quality.addEventListener('input', () => { qualityVal.textContent = `${quality.value}%`; });
+  document.getElementById('btn-convert')!.addEventListener('click', convertAll);
+  format.addEventListener('change', convertAll);
+  icoSize.addEventListener('change', convertAll);
+  btnDl.addEventListener('click', async () => {
+    const done = items.filter((i) => i.status == 'done' && i.blob && i.outName)
+      .map((i) => ({ name: i.outName!, blob: i.blob! }));
+    await zipAndDownload(done, 'converted-images.zip');
   });
-  document.getElementById('btn-convert')!.addEventListener('click', convert);
-  format.addEventListener('change', convert);
-  icoSize.addEventListener('change', convert);
+  btnClear.addEventListener('click', () => {
+    items.forEach(revokeItemUrls);
+    items = [];
+    activeId = '';
+    renderGrids();
+    msg.textContent = '';
+    msg.className = '';
+  });
 </script>

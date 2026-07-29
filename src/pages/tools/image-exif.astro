@@ -14,10 +14,11 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     <div class="exif-panel">
       <label class="field-label">选择图片</label>
       <label class="img-slot img-slot-upload" id="exif-upload-wrap">
-        <input type="file" id="exif-file" accept="image/*" />
-        <span id="exif-placeholder">点击或拖入图片</span>
+        <input type="file" id="exif-file" accept="image/*" multiple />
+        <span id="exif-placeholder">点击或拖入，可多选</span>
         <img id="exif-preview" alt="" style="display:none;max-width:100%;max-height:100%;object-fit:contain" />
       </label>
+      <div class="batch-list" id="exif-list"></div>
       <div class="img-meta" id="exif-file-meta">—</div>
       <div class="exif-tip" id="exif-privacy-tip" style="display:none"></div>
       <p class="exif-links">
@@ -254,9 +255,45 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     }
   }
 
+  const listEl = document.getElementById('exif-list')!;
+  let files: File[] = [];
+  let active = 0;
+  let previewUrl = '';
+
+  function renderFileList() {
+    listEl.innerHTML = files.map((f, i) =>
+      `<button type="button" class="batch-item ${i == active ? 'is-active' : ''}" data-i="${i}">
+        <span class="batch-item-name">${f.name}</span>
+        <span class="batch-item-st">${i + 1}/${files.length}</span>
+      </button>`
+    ).join('');
+  }
+
+  async function showFile(i: number) {
+    if (!files[i]) return;
+    active = i;
+    renderFileList();
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    await parseFile(files[i]);
+    previewUrl = preview.src;
+  }
+
+  function addFiles(list: FileList | File[]) {
+    const arr = Array.from(list).filter((f) => f.type.startsWith('image/'));
+    if (!arr.length) return;
+    files = files.concat(arr);
+    showFile(files.length - arr.length);
+  }
+
+  listEl.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.batch-item') as HTMLElement | null;
+    if (!btn) return;
+    showFile(Number(btn.dataset.i));
+  });
+
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files?.[0];
-    if (file) parseFile(file);
+    if (fileInput.files?.length) addFiles(fileInput.files);
+    fileInput.value = '';
   });
 
   uploadWrap.addEventListener('dragover', (e) => {
@@ -267,7 +304,6 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   uploadWrap.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadWrap.classList.remove('drag-over');
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.type.startsWith('image/')) parseFile(file);
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
   });
 </script>

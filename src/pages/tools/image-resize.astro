@@ -4,20 +4,20 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
 <ToolLayout
   title="图片改尺寸与裁剪"
-  description="图片改尺寸与裁剪在线工具，支持调整宽高、等比缩放、常用比例裁剪与 JPG、PNG、WebP 本地导出。"
+  description="图片改尺寸与裁剪在线工具，支持多图批量调整宽高、等比缩放、常用比例裁剪与 JPG、PNG、WebP 本地导出。"
   currentSlug="image-resize"
 >
   <h1 slot="header">图片改尺寸</h1>
-  <p class="intro">本地调整图片宽高、比例与裁剪区域，支持导出 JPG、PNG、WebP，图片不会上传服务器。</p>
+  <p class="intro">支持多图批量改尺寸与裁剪，统一设置宽高与比例，本地下载并保留原文件名。</p>
 
-  <div class="compress-workspace resize-workspace">
+  <div class="compress-workspace batch-workspace resize-workspace" id="resize-wrap">
     <div class="compress-panel">
-      <div class="field-label">原图（点击上传）</div>
-      <label class="img-slot img-slot-upload resize-preview-slot" id="resize-drop">
-        <input type="file" id="resize-file" accept="image/*" />
-        <span id="resize-placeholder">点击或拖拽上传图片</span>
-        <img id="resize-preview" alt="原图预览" hidden />
+      <div class="field-label">原图（可多选）</div>
+      <label class="img-slot img-slot-upload" id="resize-drop">
+        <input type="file" id="resize-file" accept="image/*" multiple />
+        <span id="resize-placeholder">点击或拖拽上传，可多选</span>
       </label>
+      <div class="batch-grid cols-1" id="resize-src-grid"></div>
       <div class="img-meta" id="resize-meta">—</div>
     </div>
 
@@ -57,7 +57,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
       <label class="resize-check">
         <input type="checkbox" id="resize-lock" checked />
-        <span>锁定原图比例</span>
+        <span>锁定比例</span>
       </label>
 
       <div>
@@ -77,20 +77,21 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       </div>
 
       <div class="btn-row compress-btn-row">
-        <button class="btn" id="btn-resize">生成图片</button>
-        <a class="btn btn-secondary" id="btn-resize-dl" download="resized.jpg" hidden>下载</a>
+        <button class="btn" id="btn-resize" type="button">全部处理</button>
+        <button class="btn btn-secondary" id="btn-resize-dl" type="button" hidden>批量下载</button>
+        <button class="btn btn-secondary" id="btn-resize-clear" type="button" hidden>清空</button>
       </div>
       <div id="resize-msg"></div>
     </div>
 
     <div class="compress-panel">
-      <div class="field-label">处理后</div>
-      <div class="img-slot resize-preview-slot" id="resize-output"><span>等待生成</span></div>
+      <div class="field-label">处理后（多图预览）</div>
+      <div class="batch-grid cols-1" id="resize-out-grid">
+        <span class="img-meta" style="grid-column:1/-1">等待处理</span>
+      </div>
       <div class="img-meta" id="resize-out-meta">—</div>
     </div>
   </div>
-
-  <div class="compress-summary" id="resize-summary" style="display:none"></div>
 
   <section class="section">
     <h2>适合什么场景？</h2>
@@ -103,12 +104,24 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 </ToolLayout>
 
 <script>
+  import {
+    canvasToBlob,
+    extFromMime,
+    fmtSize,
+    gridColsClass,
+    loadImageFromFile,
+    outputName,
+    revokeItemUrls,
+    zipAndDownload,
+    type BatchItem,
+  } from '../../scripts/image-batch';
+
+  const wrap = document.getElementById('resize-wrap')!;
   const fileInput = document.getElementById('resize-file') as HTMLInputElement;
   const drop = document.getElementById('resize-drop')!;
-  const placeholder = document.getElementById('resize-placeholder')!;
-  const preview = document.getElementById('resize-preview') as HTMLImageElement;
+  const srcGrid = document.getElementById('resize-src-grid')!;
+  const outGrid = document.getElementById('resize-out-grid')!;
   const meta = document.getElementById('resize-meta')!;
-  const out = document.getElementById('resize-output')!;
   const outMeta = document.getElementById('resize-out-meta')!;
   const mode = document.getElementById('resize-mode') as HTMLSelectElement;
   const preset = document.getElementById('resize-preset') as HTMLSelectElement;
@@ -118,33 +131,19 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const format = document.getElementById('resize-format') as HTMLSelectElement;
   const quality = document.getElementById('resize-quality') as HTMLInputElement;
   const qualityVal = document.getElementById('resize-quality-val')!;
-  const download = document.getElementById('btn-resize-dl') as HTMLAnchorElement;
+  const btnDl = document.getElementById('btn-resize-dl') as HTMLButtonElement;
+  const btnClear = document.getElementById('btn-resize-clear') as HTMLButtonElement;
   const msg = document.getElementById('resize-msg')!;
-  const summary = document.getElementById('resize-summary')!;
 
-  let currentFile: File | null = null;
-  let imageUrl = '';
-  let outputUrl = '';
-  let img = new Image();
-  let origW = 0;
-  let origH = 0;
+  let items: BatchItem[] = [];
+  let activeId = '';
+  let lockRatioW = 0;
+  let lockRatioH = 0;
   let debounceTimer: ReturnType<typeof setTimeout>;
-
-  function fmtSize(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-  }
 
   function showMsg(text: string, type: 'error' | 'success') {
     msg.className = `msg ${type}`;
     msg.textContent = text;
-  }
-
-  function canvasToBlob(target: HTMLCanvasElement, mime: string, q: number) {
-    return new Promise<Blob>((resolve, reject) => {
-      target.toBlob((blob) => blob ? resolve(blob) : reject(new Error('生成失败')), mime, q);
-    });
   }
 
   function setSize(w: number, h: number) {
@@ -152,33 +151,20 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     heightInput.value = String(Math.max(1, Math.round(h)));
   }
 
-  function applyPreset() {
-    if (!origW || !origH) return;
-    const value = preset.value;
-    if (value == 'custom') return;
-    if (value == 'avatar') {
-      setSize(512, 512);
-      mode.value = 'crop';
-      lock.checked = false;
-      render();
-      return;
-    }
-    if (value == 'cover') {
-      setSize(1280, 720);
-      mode.value = 'crop';
-      lock.checked = false;
-      render();
-      return;
-    }
-    const [rw, rh] = value.split(':').map(Number);
-    const base = Math.min(origW, 1280);
-    setSize(base, Math.round(base * rh / rw));
-    mode.value = 'crop';
-    lock.checked = false;
-    render();
+  function getOutSize(fallbackW: number, fallbackH: number) {
+    const outW = Math.max(1, Math.round(Number(widthInput.value) || fallbackW));
+    const outH = Math.max(1, Math.round(Number(heightInput.value) || fallbackH));
+    return { w: outW, h: outH };
   }
 
-  function drawSource(ctx: CanvasRenderingContext2D, outW: number, outH: number) {
+  function drawSource(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    origW: number,
+    origH: number,
+    outW: number,
+    outH: number,
+  ) {
     if (mode.value == 'fit') {
       ctx.drawImage(img, 0, 0, outW, outH);
       return;
@@ -191,10 +177,64 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
   }
 
-  async function render() {
-    if (!currentFile || !origW || !origH) return;
-    const outW = Math.max(1, Math.round(Number(widthInput.value) || origW));
-    const outH = Math.max(1, Math.round(Number(heightInput.value) || origH));
+  function setGridClass(el: HTMLElement, n: number) {
+    el.className = `batch-grid ${gridColsClass(n)}`;
+  }
+
+  function renderGrids() {
+    wrap.classList.toggle('has-files', items.length > 0);
+    setGridClass(srcGrid, items.length);
+    setGridClass(outGrid, items.length || 1);
+
+    srcGrid.innerHTML = items.map((it) => {
+      const st = it.status == 'done' ? '完成' : it.status == 'error' ? '失败' : '待处理';
+      const cls = [
+        'batch-thumb',
+        it.id == activeId ? 'is-active' : '',
+        it.status == 'done' ? 'is-done' : '',
+        it.status == 'error' ? 'is-error' : '',
+      ].filter(Boolean).join(' ');
+      return `<button type="button" class="${cls}" data-id="${it.id}">
+        <img src="${it.srcUrl || ''}" alt="" />
+        <span class="batch-thumb-st">${st}</span>
+        <span class="batch-thumb-cap">${it.file.name}</span>
+      </button>`;
+    }).join('');
+
+    const done = items.filter((i) => i.status == 'done' && i.previewUrl);
+    if (!items.length) {
+      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">等待处理</span>';
+    } else if (!done.length) {
+      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">处理中…</span>';
+    } else {
+      outGrid.innerHTML = items.map((it) => {
+        if (it.status != 'done' || !it.previewUrl) {
+          return `<div class="batch-thumb is-error" data-id="${it.id}">
+            <span class="batch-thumb-st">${it.status == 'error' ? '失败' : '…'}</span>
+            <span class="batch-thumb-cap">${it.file.name}</span>
+          </div>`;
+        }
+        const cls = `batch-thumb is-done${it.id == activeId ? ' is-active' : ''}`;
+        return `<button type="button" class="${cls}" data-id="${it.id}">
+          <img src="${it.previewUrl}" alt="" />
+          <span class="batch-thumb-st">完成</span>
+          <span class="batch-thumb-cap">${it.outName || it.file.name}</span>
+        </button>`;
+      }).join('');
+    }
+
+    meta.textContent = items.length ? `共 ${items.length} 张` : '—';
+    const active = items.find((i) => i.id == activeId && i.status == 'done');
+    outMeta.textContent = active?.blob
+      ? `${active.outName} · ${fmtSize(active.blob.size)}${active.meta ? ` · ${active.meta}` : ''}`
+      : (done.length ? `已完成 ${done.length}/${items.length}` : '—');
+    btnClear.hidden = items.length == 0;
+    btnDl.hidden = done.length == 0;
+  }
+
+  async function resizeOne(it: BatchItem) {
+    const img = await loadImageFromFile(it.file);
+    const { w: outW, h: outH } = getOutSize(img.width, img.height);
     const canvas = document.createElement('canvas');
     canvas.width = outW;
     canvas.height = outH;
@@ -205,99 +245,167 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     } else {
       ctx.clearRect(0, 0, outW, outH);
     }
-    drawSource(ctx, outW, outH);
-
-    try {
-      const mime = format.value;
-      const q = Number(quality.value) / 100;
-      const blob = await canvasToBlob(canvas, mime, q);
-      if (outputUrl) URL.revokeObjectURL(outputUrl);
-      outputUrl = URL.createObjectURL(blob);
-      out.innerHTML = `<img src="${outputUrl}" alt="处理后的图片预览" />`;
-      download.href = outputUrl;
-      const ext = mime == 'image/jpeg' ? 'jpg' : mime.split('/')[1];
-      download.download = `resized-${outW}x${outH}.${ext}`;
-      download.hidden = false;
-      outMeta.textContent = `${outW}×${outH} px · ${fmtSize(blob.size)} · ${ext.toUpperCase()}`;
-      summary.style.display = 'flex';
-      summary.innerHTML = `
-        <span>原图：<strong>${origW}×${origH}</strong> · ${currentFile.name}</span>
-        <span>输出：<strong>${outW}×${outH}</strong> · ${mode.value == 'crop' ? '裁剪填充' : '完整缩放'}</span>
-        <span>格式：<strong>${ext.toUpperCase()}</strong> · 质量 ${quality.value}%</span>
-      `;
-      showMsg('图片已生成', 'success');
-    } catch {
-      showMsg('生成失败，请换一张图片试试', 'error');
-    }
+    drawSource(ctx, img, img.width, img.height, outW, outH);
+    const mime = format.value;
+    const q = Number(quality.value) / 100;
+    const blob = await canvasToBlob(canvas, mime, q);
+    const ext = extFromMime(mime);
+    if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+    it.blob = blob;
+    it.outName = outputName(it.file.name, ext, `-${outW}x${outH}`);
+    it.previewUrl = URL.createObjectURL(blob);
+    it.status = 'done';
+    it.meta = `${outW}×${outH} · ${mode.value == 'crop' ? '裁剪' : '缩放'}`;
   }
 
-  function renderSoon() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(render, 220);
-  }
-
-  function useFile(file: File) {
-    if (!file.type.startsWith('image/')) {
-      showMsg('请上传图片文件', 'error');
+  async function resizeAll() {
+    if (!items.length) {
+      showMsg('请先上传图片', 'error');
       return;
     }
-    currentFile = file;
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-    imageUrl = URL.createObjectURL(file);
-    img = new Image();
-    img.onload = () => {
-      origW = img.width;
-      origH = img.height;
-      placeholder.hidden = true;
-      preview.src = imageUrl;
-      preview.hidden = false;
-      setSize(origW, origH);
-      preset.value = 'custom';
-      lock.checked = true;
-      mode.value = 'fit';
-      meta.textContent = `${file.name} · ${origW}×${origH} px · ${fmtSize(file.size)}`;
-      render();
-    };
-    img.onerror = () => showMsg('图片读取失败，请换一张图片', 'error');
-    img.src = imageUrl;
+    showMsg('处理中…', 'success');
+    for (const it of items) {
+      it.status = 'pending';
+      try {
+        await resizeOne(it);
+      } catch {
+        it.status = 'error';
+        it.error = '失败';
+      }
+      renderGrids();
+    }
+    if (!activeId || !items.find((i) => i.id == activeId && i.status == 'done')) {
+      activeId = items.find((i) => i.status == 'done')?.id || '';
+    }
+    renderGrids();
+    const ok = items.filter((i) => i.status == 'done').length;
+    showMsg(`完成 ${ok}/${items.length}`, ok ? 'success' : 'error');
   }
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files?.[0];
-    if (file) useFile(file);
-  });
+  function scheduleResize() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(resizeAll, 280);
+  }
 
+  async function initSizeFromFile(file: File) {
+    const img = await loadImageFromFile(file);
+    setSize(img.width, img.height);
+    lockRatioW = img.width;
+    lockRatioH = img.height;
+    lock.checked = true;
+    preset.value = 'custom';
+    mode.value = 'fit';
+  }
+
+  function applyPreset() {
+    const value = preset.value;
+    if (value == 'custom') return;
+    if (value == 'avatar') {
+      setSize(512, 512);
+      mode.value = 'crop';
+      lock.checked = false;
+      resizeAll();
+      return;
+    }
+    if (value == 'cover') {
+      setSize(1280, 720);
+      mode.value = 'crop';
+      lock.checked = false;
+      resizeAll();
+      return;
+    }
+    const [rw, rh] = value.split(':').map(Number);
+    const base = lockRatioW > 0 ? Math.min(lockRatioW, 1280) : 1280;
+    setSize(base, Math.round(base * rh / rw));
+    mode.value = 'crop';
+    lock.checked = false;
+    resizeAll();
+  }
+
+  async function addFiles(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    const isFirst = items.length == 0;
+    for (const file of arr) {
+      items.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        status: 'pending',
+        srcUrl: URL.createObjectURL(file),
+      });
+    }
+    if (!activeId && items.length) activeId = items[0].id;
+    if (isFirst && arr.length) {
+      try {
+        await initSizeFromFile(arr[0]);
+      } catch {
+        showMsg('图片读取失败', 'error');
+      }
+    }
+    renderGrids();
+    resizeAll();
+  }
+
+  function onGridClick(e: Event) {
+    const btn = (e.target as HTMLElement).closest('[data-id]') as HTMLElement | null;
+    if (!btn?.dataset.id) return;
+    activeId = btn.dataset.id;
+    renderGrids();
+  }
+  srcGrid.addEventListener('click', onGridClick);
+  outGrid.addEventListener('click', onGridClick);
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files?.length) addFiles(fileInput.files);
+    fileInput.value = '';
+  });
   drop.addEventListener('dragover', (e) => e.preventDefault());
   drop.addEventListener('drop', (e) => {
     e.preventDefault();
-    const file = e.dataTransfer?.files?.[0];
-    if (file) useFile(file);
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
   });
 
   widthInput.addEventListener('input', () => {
-    if (lock.checked && origW && origH) {
+    if (lock.checked && lockRatioW && lockRatioH) {
       const w = Number(widthInput.value);
-      if (w > 0) heightInput.value = String(Math.round(origH * (w / origW)));
+      if (w > 0) heightInput.value = String(Math.round(lockRatioH * (w / lockRatioW)));
     }
     preset.value = 'custom';
-    renderSoon();
+    scheduleResize();
   });
 
   heightInput.addEventListener('input', () => {
-    if (lock.checked && origW && origH) {
+    if (lock.checked && lockRatioW && lockRatioH) {
       const h = Number(heightInput.value);
-      if (h > 0) widthInput.value = String(Math.round(origW * (h / origH)));
+      if (h > 0) widthInput.value = String(Math.round(lockRatioW * (h / lockRatioH)));
     }
     preset.value = 'custom';
-    renderSoon();
+    scheduleResize();
   });
 
   preset.addEventListener('change', applyPreset);
-  mode.addEventListener('change', renderSoon);
-  format.addEventListener('change', renderSoon);
+  mode.addEventListener('change', resizeAll);
+  format.addEventListener('change', resizeAll);
   quality.addEventListener('input', () => {
     qualityVal.textContent = quality.value + '%';
-    renderSoon();
+    scheduleResize();
   });
-  document.getElementById('btn-resize')!.addEventListener('click', render);
+  document.getElementById('btn-resize')!.addEventListener('click', resizeAll);
+  btnDl.addEventListener('click', async () => {
+    const done = items.filter((i) => i.status == 'done' && i.blob && i.outName)
+      .map((i) => ({ name: i.outName!, blob: i.blob! }));
+    await zipAndDownload(done, 'resized-images.zip');
+  });
+  btnClear.addEventListener('click', () => {
+    items.forEach(revokeItemUrls);
+    items = [];
+    activeId = '';
+    lockRatioW = 0;
+    lockRatioH = 0;
+    widthInput.value = '';
+    heightInput.value = '';
+    preset.value = 'custom';
+    renderGrids();
+    msg.textContent = '';
+    msg.className = '';
+  });
 </script>

@@ -1672,6 +1672,121 @@ body.json-page-full {
   align-items: start;
 }
 
+.batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.batch-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.batch-item.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+}
+
+.batch-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+
+.batch-item-st {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+/* 多图缩略图网格：张数越多格子越小 */
+.batch-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  align-content: start;
+}
+.batch-grid.cols-1 { grid-template-columns: 1fr; }
+.batch-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.batch-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.batch-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.batch-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: pointer;
+  padding: 0;
+  display: block;
+  width: 100%;
+}
+.batch-thumb.is-active {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.batch-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.batch-thumb .batch-thumb-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 5px;
+  font-size: 0.68rem;
+  font-family: var(--mono);
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.72));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.batch-thumb .batch-thumb-st {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.batch-thumb.is-error .batch-thumb-st { background: #c0392b; }
+.batch-thumb.is-done .batch-thumb-st { background: #1e8449; }
+
+.batch-workspace .img-slot-upload {
+  aspect-ratio: auto;
+  min-height: 88px;
+  max-height: 120px;
+}
+.batch-workspace.has-files .img-slot-upload {
+  min-height: 64px;
+  max-height: 72px;
+}
+
 .compress-panel {
   background: var(--surface);
   border: 1px solid var(--border);

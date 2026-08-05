@@ -11,11 +11,11 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   <p class="intro">选择多份 PDF，调整顺序后合并下载。可设置「每个文件出现次数」（例如 2 个文件各出现 2 次 → 按 A、A、B、B 合成 1 份）。本地处理；单文件建议不超过 50MB，加密 PDF 暂不支持。</p>
 
   <div class="tool-panel">
-    <label class="img-slot img-slot-upload" id="pdf-drop">
+    <label class="img-slot img-slot-upload pdf-drop" id="pdf-drop">
       <input type="file" id="pdf-files" accept="application/pdf,.pdf" multiple />
-      <span>点击或拖拽上传 PDF（可多选）</span>
+      <span class="pdf-drop-text" id="pdf-drop-text">点击或拖拽上传 PDF（可多选）</span>
     </label>
-    <ul class="pdf-file-list" id="pdf-list"></ul>
+    <ul class="pdf-card-list" id="pdf-list"></ul>
     <label class="field-label" for="pdf-copies" style="margin-top:12px;display:block">每个文件出现次数</label>
     <input type="number" id="pdf-copies" min="1" max="99" value="1" />
     <p class="field-hint" id="pdf-copies-hint">1 = 各出现一次后直接合并</p>
@@ -33,44 +33,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   </p>
 </ToolLayout>
 
-<style>
-  .pdf-file-list {
-    list-style: none;
-    margin: 12px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .pdf-file-list li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    font-size: 0.85rem;
-  }
-  .pdf-file-list .name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--mono);
-  }
-  .pdf-file-list button {
-    border: 1px solid var(--border);
-    background: #fff;
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 2px 8px;
-    font-size: 12px;
-  }
-</style>
-
 <script>
-  import { downloadBlob, mergePdfs, pdfErrorMessage } from '../../scripts/pdf-batch';
+  import { downloadBlob, mergeOutputName, mergePdfs, pdfErrorMessage } from '../../scripts/pdf-batch';
   import { fmtSize } from '../../scripts/image-batch';
 
   const input = document.getElementById('pdf-files') as HTMLInputElement;
@@ -78,6 +42,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const msg = document.getElementById('pdf-msg')!;
   const copiesEl = document.getElementById('pdf-copies') as HTMLInputElement;
   const hintEl = document.getElementById('pdf-copies-hint')!;
+  const dropText = document.getElementById('pdf-drop-text')!;
   const btnMerge = document.getElementById('btn-merge') as HTMLButtonElement;
   const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
   const drop = document.getElementById('pdf-drop')!;
@@ -109,15 +74,24 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   function render() {
     listEl.innerHTML = files
       .map(
-        (f, i) => `<li data-i="${i}">
-        <span class="name">${f.name}（${fmtSize(f.size)}）</span>
-        <button type="button" data-act="up" ${i == 0 ? 'disabled' : ''}>上移</button>
-        <button type="button" data-act="down" ${i == files.length - 1 ? 'disabled' : ''}>下移</button>
-        <button type="button" data-act="del">移除</button>
+        (f, i) => `<li class="pdf-card" data-i="${i}">
+        <span class="pdf-badge" aria-hidden="true">PDF</span>
+        <div class="pdf-card-body">
+          <div class="pdf-card-name" title="${f.name}">${f.name}</div>
+          <div class="pdf-card-meta">${fmtSize(f.size)} · 第 ${i + 1} 个</div>
+        </div>
+        <div class="pdf-card-ops">
+          <button type="button" data-act="up" ${i == 0 ? 'disabled' : ''}>上移</button>
+          <button type="button" data-act="down" ${i == files.length - 1 ? 'disabled' : ''}>下移</button>
+          <button type="button" data-act="del">移除</button>
+        </div>
       </li>`,
       )
       .join('');
-    // 1 个文件也可合并（配合出现次数>1 做多份拷贝）
+    drop.classList.toggle('has-file', files.length > 0);
+    dropText.textContent = files.length
+      ? `已选 ${files.length} 个，点击或拖拽继续添加`
+      : '点击或拖拽上传 PDF（可多选）';
     btnMerge.disabled = files.length == 0;
     btnClear.disabled = files.length == 0;
     updateHint();
@@ -174,11 +148,12 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     btnMerge.disabled = true;
     const n = copies();
     copiesEl.value = String(n);
+    const outName = mergeOutputName(files, n);
     setMsg(n > 1 ? `合并中（每个文件 ×${n}）…` : '合并中…');
     try {
       const blob = await mergePdfs(files, n);
-      downloadBlob(blob, 'merged.pdf');
-      setMsg(`已下载 merged.pdf（${files.length} 文件 × ${n}）`, true);
+      downloadBlob(blob, outName);
+      setMsg(`已下载 ${outName}`, true);
     } catch (err) {
       setMsg(pdfErrorMessage(err));
     }

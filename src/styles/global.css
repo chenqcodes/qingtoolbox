@@ -1813,6 +1813,94 @@ body.json-page-full {
   overflow: hidden;
 }
 
+/* PDF 工具：矮上传条，文字居中 */
+.pdf-drop.img-slot {
+  aspect-ratio: auto;
+  min-height: 0;
+  height: 72px;
+  padding: 0 16px;
+  text-align: center;
+}
+.pdf-drop .pdf-drop-text {
+  display: block;
+  width: 100%;
+  text-align: center;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.pdf-drop.has-file {
+  height: 52px;
+  font-size: 0.82rem;
+}
+
+.pdf-card-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pdf-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, #e11d48 6%);
+}
+.pdf-badge {
+  flex-shrink: 0;
+  width: 40px;
+  height: 48px;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #f87171, #dc2626);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+}
+.pdf-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.pdf-card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdf-card-meta {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.pdf-card-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.pdf-card-ops button {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pdf-card-ops button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .img-slot img {
   max-width: 100%;
   max-height: 100%;

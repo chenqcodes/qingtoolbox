@@ -11,11 +11,12 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   <p class="intro">上传一份 PDF，可按页拆成多个文件（zip），或按页码范围导出。单文件建议不超过 50MB；加密 PDF 暂不支持。</p>
 
   <div class="tool-panel">
-    <label class="img-slot img-slot-upload" id="pdf-drop">
+    <label class="img-slot img-slot-upload pdf-drop" id="pdf-drop">
       <input type="file" id="pdf-file" accept="application/pdf,.pdf" />
-      <span id="pdf-placeholder">点击或拖拽上传 PDF</span>
+      <span class="pdf-drop-text" id="pdf-drop-text">点击或拖拽上传 PDF</span>
     </label>
-    <p class="img-meta" id="pdf-meta">—</p>
+    <div id="pdf-card-wrap" hidden></div>
+    <p class="img-meta" id="pdf-meta" hidden>—</p>
 
     <div class="size-input-row" style="margin-top:12px">
       <div>
@@ -50,12 +51,14 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     loadPdf,
     pdfErrorMessage,
     splitPdfPerPage,
+    stemName,
     zipAndDownload,
   } from '../../scripts/pdf-batch';
   import { fmtSize } from '../../scripts/image-batch';
 
   const input = document.getElementById('pdf-file') as HTMLInputElement;
-  const placeholder = document.getElementById('pdf-placeholder')!;
+  const dropText = document.getElementById('pdf-drop-text')!;
+  const cardWrap = document.getElementById('pdf-card-wrap')!;
   const meta = document.getElementById('pdf-meta')!;
   const msg = document.getElementById('pdf-msg')!;
   const fromEl = document.getElementById('page-from') as HTMLInputElement;
@@ -79,20 +82,39 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     btnClear.disabled = busy || !file;
   }
 
+  function renderCard() {
+    if (!file) {
+      cardWrap.hidden = true;
+      cardWrap.innerHTML = '';
+      drop.classList.remove('has-file');
+      dropText.textContent = '点击或拖拽上传 PDF';
+      meta.hidden = true;
+      return;
+    }
+    drop.classList.add('has-file');
+    dropText.textContent = '点击或拖拽可更换文件';
+    cardWrap.hidden = false;
+    cardWrap.innerHTML = `<div class="pdf-card">
+      <span class="pdf-badge" aria-hidden="true">PDF</span>
+      <div class="pdf-card-body">
+        <div class="pdf-card-name" title="${file.name}">${file.name}</div>
+        <div class="pdf-card-meta">${fmtSize(file.size)}${pageCount ? ` · 共 ${pageCount} 页` : ''}</div>
+      </div>
+    </div>`;
+  }
+
   async function setFile(f: File | null) {
     file = f;
     pageCount = 0;
     if (!f) {
-      placeholder.textContent = '点击或拖拽上传 PDF';
-      meta.textContent = '—';
+      renderCard();
       setBusy(false);
       btnRange.disabled = true;
       btnAll.disabled = true;
       btnClear.disabled = true;
       return;
     }
-    placeholder.textContent = f.name;
-    meta.textContent = fmtSize(f.size);
+    renderCard();
     setBusy(true);
     setMsg('读取页数…');
     try {
@@ -102,12 +124,12 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       toEl.value = String(pageCount);
       fromEl.max = String(pageCount);
       toEl.max = String(pageCount);
-      meta.textContent = `${fmtSize(f.size)} · 共 ${pageCount} 页`;
+      renderCard();
       setMsg('');
     } catch (err) {
       file = null;
-      placeholder.textContent = '点击或拖拽上传 PDF';
-      meta.textContent = '—';
+      pageCount = 0;
+      renderCard();
       setMsg(pdfErrorMessage(err));
     }
     setBusy(false);
@@ -158,8 +180,10 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     setMsg('按页拆分中…');
     try {
       const parts = await splitPdfPerPage(file);
-      await zipAndDownload(parts, `${file.name.replace(/\.pdf$/i, '') || 'split'}-pages.zip`);
-      setMsg(`已导出 ${parts.length} 页`, true);
+      const stem = stemName(file.name);
+      const zipName = `${stem}-共${parts.length}页.zip`;
+      await zipAndDownload(parts, zipName);
+      setMsg(`已导出 ${zipName}`, true);
     } catch (err) {
       setMsg(pdfErrorMessage(err));
     }

@@ -32,6 +32,18 @@ export async function loadPdf(file: File) {
   }
 }
 
+/** 合并下载名：首文件名 + 数量/次数后缀 */
+export function mergeOutputName(files: File[], copiesPerFile = 1) {
+  const stem = stemName(files[0]?.name || 'merged');
+  const n = files.length;
+  const c = Math.max(1, Math.floor(Number(copiesPerFile)) || 1);
+  if (n <= 0) return 'merged.pdf';
+  if (n == 1 && c == 1) return `${stem}.pdf`;
+  if (n == 1) return `${stem}-重复${c}次.pdf`;
+  if (c == 1) return `${stem}-等${n}个合并.pdf`;
+  return `${stem}-等${n}个-各${c}次合并.pdf`;
+}
+
 /** 每个文件连续重复 times 次（1=不重复）。顺序：A×n, B×n */
 export function expandFilesByRepeat(files: File[], times: number) {
   const n = Math.max(1, Math.min(99, Math.floor(Number(times)) || 1));

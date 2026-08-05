@@ -64,19 +64,25 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     font-weight: 400;
   }
   .py-preview {
-    min-height: 120px;
-    line-height: 2.2;
-    font-size: 1.15rem;
+    min-height: 200px;
+    padding: 8px 4px;
+    line-height: 2.85;
+    font-size: 1.85rem;
     word-break: break-word;
   }
   .py-preview ruby {
     ruby-align: center;
-    margin: 0 1px;
+    margin: 0 3px;
   }
   .py-preview rt {
-    font-size: 0.55em;
-    color: var(--muted, #666);
+    font-size: 0.62em;
+    line-height: 1.2;
+    color: var(--muted, #555);
     font-family: var(--mono, ui-monospace, monospace);
+    font-weight: 500;
+  }
+  .py-preview .img-meta {
+    font-size: 0.95rem;
   }
 </style>
 

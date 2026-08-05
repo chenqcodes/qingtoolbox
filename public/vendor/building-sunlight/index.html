@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>楼盘采光可视化 - 日照模拟系统</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <link rel="stylesheet" href="css/viewer.css">
+</head>
+
+<body>
+    <div id="empty-state" data-i18n="viewer.emptyState">请导入 JSON，或点「新规划配置」描楼</div>
+
+    <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+        <div class="loading-panel" role="status" aria-live="polite">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <span id="loadingText" data-i18n="viewer.importLoading">正在加载项目...</span>
+        </div>
+    </div>
+
+    <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
+        <div class="drop-target" data-i18n="viewer.dropJsonHint">松开以导入项目 JSON</div>
+    </div>
+
+    <!-- GitHub 图标链接 -->
+    <a href="https://github.com/SeanWong17/building-sunlight-simulator" target="_blank" rel="noopener noreferrer"
+        class="github-link" title="View on GitHub" aria-label="View source on GitHub">
+        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+            <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+        </svg>
+    </a>
+
+    <div id="controls">
+        <button class="sidebar-toggle" id="sidebarToggle" title="收起/展开" aria-label="切换侧边栏"></button>
+
+        <div class="panel-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h2 data-i18n="viewer.pageTitle">☀️ 楼盘采光模拟</h2>
+                <div class="lang-switcher">
+                    <button class="lang-btn" data-lang="zh">中文</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="statusBlock">
+                <label data-i18n="viewer.statusLabel">当前状态</label>
+                <div style="font-size: 13px; color: #555; line-height: 1.5;">
+                    <span data-i18n="viewer.statusCoord">坐标对齐规划图</span><br>
+                    <span data-i18n="viewer.statusOrientation">方位：</span><span id="orientationText"
+                        style="color:#e74c3c;font-weight:800;">图纸向上为北</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="viewer.step1">1. 导入或新建</label>
+                <div class="data-entry-row">
+                    <div class="file-upload">
+                        <button type="button" id="btnImportJson" class="file-upload-btn" data-i18n="viewer.selectJson">📂 导入 JSON</button>
+                        <input type="file" id="jsonInput" accept=".json">
+                    </div>
+                    <div class="file-upload">
+                        <a id="btnNewPlan" class="file-upload-btn file-upload-btn-alt" href="/vendor/building-sunlight/plan-start.html"
+                            data-i18n="viewer.newPlan">✏️ 新规划配置</a>
+                    </div>
+                </div>
+                <p class="share-hint" data-i18n="viewer.shareHint">
+                    导入与规划配置共用同一套 JSON。好友互传：下载 JSON 发给对方导入即可。
+                </p>
+                <div class="share-actions">
+                    <button type="button" id="btnCopyShare" class="btn-outline-sm" data-i18n="viewer.copyShare">复制分享说明</button>
+                    <a id="btnMailShare" class="btn-outline-sm" href="#" data-i18n="viewer.mailShare">发邮件给站点</a>
+                </div>
+                <p class="share-mail muted" id="shareMailLine">投稿/收录示例：tools@cqzzz.top</p>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="viewer.step2">2. 项目位置</label>
+                <div class="location-config">
+                    <div class="location-row">
+                        <div class="field">
+                            <span data-i18n="viewer.selectCity">选择城市</span>
+                            <select id="citySelect">
+                                <option value="" data-i18n="common.loading">-- 加载中 --</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <span data-i18n="viewer.inputLatitude">手动输入纬度</span>
+                            <input type="number" id="latitudeInput" value="36.65" step="0.01" min="-90" max="90">
+                        </div>
+                    </div>
+                    <div class="location-row">
+                        <div class="field">
+                            <span data-i18n="viewer.inputLongitude">手动输入经度</span>
+                            <input type="number" id="longitudeInput" value="117.12" step="0.01" min="-180" max="180">
+                        </div>
+                        <div class="field">
+                            <span data-i18n="viewer.inputTimeZone">IANA 时区</span>
+                            <input type="text" id="timeZoneInput" value="Asia/Shanghai" autocomplete="off"
+                                spellcheck="false">
+                        </div>
+                    </div>
+                    <div class="lat-display" id="latDisplay">当前: 北纬 36.65°</div>
+                    <div class="lat-display" id="northAngleDisplay">北向角: 0°</div>
+                    <div class="field" style="margin-top:10px;">
+                        <span data-i18n="viewer.northAngle">北向角(度)</span>
+                        <input type="number" id="northAngleInput" value="0" step="0.1" min="-180" max="180">
+                        <div class="muted" style="margin-top:5px;" data-i18n="viewer.northAngleHint">
+                            相对图纸向上，顺时针为正；修改后会重新校正模型与日照。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="seasonSelect" data-i18n="viewer.step3">3. 选择日期</label>
+                <select id="seasonSelect">
+                    <option value="december-solstice" selected>冬至</option>
+                    <option value="march-equinox">春分</option>
+                    <option value="june-solstice">夏至</option>
+                    <option value="september-equinox">秋分</option>
+                    <option value="custom" data-i18n="viewer.customDate">自定义日期</option>
+                </select>
+                <div id="customDatePicker" style="display:none; margin-top:8px;">
+                    <input type="date" id="customDateInput"
+                        style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label data-i18n="viewer.displayRange">显示范围</label>
+                <div class="inline-row" title="勾选后仅显示 isThisCommunity=true 的楼栋">
+                    <input type="checkbox" id="toggleOwnOnly">
+                    <span data-i18n="viewer.ownOnly">只显示本小区</span>
+                </div>
+                <button type="button" id="btnMapPreview" class="btn-outline-sm" style="margin-top:10px;width:100%;">
+                    🗺 地图对照
+                </button>
+            </div>
+
+            <div class="control-group" id="timeBlock">
+                <label for="timeSlider" data-i18n="viewer.timeLabel">当地民用时间 (06:00 - 18:00)</label>
+                <input type="range" id="timeSlider" min="6" max="18" step="0.05" value="10">
+                <div class="time-display" id="timeText">10:00</div>
+            </div>
+
+            <!-- 日照分析功能 -->
+            <div class="control-group sunlight-analysis">
+                <label data-i18n="viewer.step4">4. 日照分析</label>
+                <div class="analysis-config">
+                    <div class="field analysis-reference-field">
+                        <span data-i18n="viewer.referenceHours">参考时长（小时）</span>
+                        <input type="number" id="referenceHoursInput" value="2" min="0.1" max="12" step="0.1">
+                    </div>
+                    <button id="calcSunlightBtn" class="calc-btn" data-i18n="viewer.calcButton">🔬 计算日照时长</button>
+                    <div id="calcProgress" class="calc-progress" style="display:none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span id="progressText" data-i18n="viewer.calculating">计算中...</span>
+                        <button id="cancelSunlightBtn" type="button" class="cancel-calc-btn" title="取消计算"
+                            aria-label="取消计算">×</button>
+                    </div>
+                    <div class="inline-row" style="margin-top: 10px;">
+                        <input type="checkbox" id="toggleHeatmap" disabled>
+                        <span data-i18n="viewer.showHeatmap">显示日照热力图</span>
+                    </div>
+                    <div id="heatmapLegend" class="heatmap-legend" style="display:none;">
+                        <div class="legend-bar"></div>
+                        <div class="legend-labels">
+                            <span data-i18n="viewer.legendHours.0">0h</span>
+                            <span data-i18n="viewer.legendHours.1">4h</span>
+                            <span data-i18n="viewer.legendHours.2">8h</span>
+                        </div>
+                    </div>
+                    <div id="sunlightStats" class="sunlight-stats" style="display:none;"></div>
+                    <button id="exportAnalysisBtn" class="export-analysis-btn" type="button" disabled
+                        data-i18n="viewer.exportAnalysisButton">⇩ 导出项目与结果</button>
+                    <div id="precomputedStatus" class="precomputed-status" aria-live="polite"></div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <span data-i18n="viewer.tip">💡 提示: 拖动查看阴影变化</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="timeDock" aria-label="时间控制" role="group" style="display:none;">
+        <span class="timeLabel">时间</span>
+        <input type="range" id="timeSliderDock" min="6" max="18" step="0.05" value="10">
+        <span class="timeValue" id="timeTextDock">10:00</span>
+    </div>
+
+    <!-- 点击建筑物时显示的信息面板 -->
+    <div id="unitInfoPanel" class="unit-info-panel" style="display:none;">
+        <div class="unit-info-header">
+            <span id="unitInfoTitle" data-i18n="viewer.unitInfo">户型信息</span>
+            <button id="closeUnitInfo">×</button>
+        </div>
+        <div id="unitInfoContent"></div>
+    </div>
+
+    <div id="canvas-container" aria-label="3D canvas"></div>
+
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <script src="vendor/three-r128/three.min.js"></script>
+    <script src="vendor/three-r128/OrbitControls.js"></script>
+    <script src="examples/sample_data.js" onerror="console.log('未找到默认示例数据，请手动上传')"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/cities.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/site-bridge.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="js/map-preview.js"></script>
+    <script src="js/sunlight-worker.js"></script>
+    <script src="js/viewer.js"></script>
+</body>
+
+</html>

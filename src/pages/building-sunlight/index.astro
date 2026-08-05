@@ -1,0 +1,145 @@
+---
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="description"
+      content="楼盘日照模拟：全屏查看小区阴影与分户日照估算，可进入规划配置描楼栋，浏览器本地运行。"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>楼盘日照 · 阴影与分户日照估算 | 轻工具箱</title>
+    <style>
+      :root {
+        --void: #030508;
+        --cyan: #00e8ff;
+        --cyan-dim: rgba(0, 232, 255, 0.35);
+        --amber: #ffc857;
+        --panel: rgba(4, 10, 18, 0.88);
+        --line: rgba(0, 232, 255, 0.18);
+        --text: #e8f4ff;
+        --muted: rgba(232, 244, 255, 0.55);
+        --font-d: 'Oxanium', system-ui, sans-serif;
+        --font-m: 'IBM Plex Mono', ui-monospace, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; height: 100%; overflow: hidden;
+        background: var(--void); color: var(--text);
+        font-family: var(--font-d);
+      }
+      #bs-frame {
+        position: fixed; inset: 0; width: 100%; height: 100%;
+        border: 0; background: #111;
+      }
+      .bs-hud {
+        position: fixed; top: 12px; left: 12px; z-index: 20;
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        max-width: calc(100vw - 24px);
+        padding: 8px 10px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+      }
+      .bs-hud a, .bs-hud button {
+        font-family: var(--font-d);
+        font-size: 0.82rem;
+        color: var(--void);
+        background: var(--cyan);
+        border: none;
+        border-radius: 6px;
+        padding: 0.4rem 0.7rem;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .bs-hud a.secondary, .bs-hud button.secondary {
+        background: transparent;
+        color: var(--cyan);
+        border: 1px solid var(--cyan-dim);
+      }
+      .bs-hud .brand {
+        font-family: var(--font-m);
+        font-size: 0.78rem;
+        color: var(--amber);
+        margin-right: 4px;
+      }
+      .bs-note {
+        position: fixed; bottom: 10px; left: 12px; z-index: 20;
+        font-family: var(--font-m); font-size: 0.72rem; color: var(--muted);
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 8px; padding: 6px 10px; max-width: min(520px, calc(100vw - 24px));
+      }
+      @media (max-width: 640px) {
+        .bs-hud { top: 8px; left: 8px; right: 8px; max-width: none; }
+        .bs-note { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bs-hud" role="navigation" aria-label="楼盘日照工具栏">
+      <span class="brand">楼盘日照</span>
+      <a class="secondary" href="/">返回工具箱</a>
+      <a href="/vendor/building-sunlight/plan-start.html">规划配置</a>
+      <button type="button" class="secondary" id="bs-reload-cache">加载缓存</button>
+      <button type="button" class="secondary" id="bs-download-cache">下载当前项目</button>
+      <button type="button" class="secondary" id="bs-copy-share">复制分享说明</button>
+      <a class="secondary" href="/vendor/building-sunlight/examples/sample.json" download>示例 JSON</a>
+    </div>
+    <p class="bs-note">
+      主画面为日照模拟。规划支持「图片总平图」或「地图+设计图叠加」。导入与规划共用 JSON；投稿可发 tools@cqzzz.top。
+    </p>
+    <iframe
+      id="bs-frame"
+      title="楼盘日照模拟"
+      src="/vendor/building-sunlight/index.html"
+      allow="geolocation"
+    ></iframe>
+    <script is:inline src="/vendor/building-sunlight/js/site-bridge.js"></script>
+    <script is:inline>
+      const frame = document.getElementById('bs-frame');
+      document.getElementById('bs-reload-cache').addEventListener('click', () => {
+        frame.src = '/vendor/building-sunlight/index.html?t=' + Date.now();
+      });
+      document.getElementById('bs-download-cache').addEventListener('click', () => {
+        const data = window.QING_BS && window.QING_BS.loadProject && window.QING_BS.loadProject();
+        if (!data) {
+          alert('暂无缓存项目。请先在「规划配置」里导出或写入缓存。');
+          return;
+        }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'buildings_config.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById('bs-copy-share').addEventListener('click', async () => {
+        const email = (window.QING_BS && window.QING_BS.SHARE_EMAIL) || 'tools@cqzzz.top';
+        const text = [
+          '【轻工具箱·楼盘日照】配置可互传：',
+          '1. 打开 https://tools.cqzzz.top/building-sunlight/',
+          '2. 用「导入 JSON」加载对方发来的 buildings_config.json',
+          '3. 或点「新规划配置」自己描楼后下载 JSON 分享',
+          '投稿示例可发至 ' + email,
+        ].join('\n');
+        try {
+          await navigator.clipboard.writeText(text);
+          alert('分享说明已复制');
+        } catch {
+          prompt('复制以下内容', text);
+        }
+      });
+    </script>
+  </body>
+</html>

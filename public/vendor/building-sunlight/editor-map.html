@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>地图规划 · 楼盘日照</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="css/editor-map.css" />
+</head>
+<body>
+  <div id="map" aria-label="地图规划画布"></div>
+
+  <div id="overlayHost" class="overlay-host" hidden>
+    <div id="overlayBox" class="overlay-box">
+      <img id="overlayImg" alt="设计图叠加" draggable="false" />
+      <span class="handle nw" data-handle="nw" title="缩放"></span>
+      <span class="handle ne" data-handle="ne" title="缩放"></span>
+      <span class="handle sw" data-handle="sw" title="缩放"></span>
+      <span class="handle se" data-handle="se" title="缩放"></span>
+      <span class="handle handle rot" data-handle="rot" title="旋转"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar">
+    <div class="side-head">
+      <h1>地图规划</h1>
+      <a class="link" href="plan-start.html">换方式</a>
+    </div>
+    <p class="hint">底图为 OpenStreetMap（可切地形）。可上传设计图：点选后拖动/四角缩放/旋转；也可用方向键或侧栏微调。点空白取消选中后操作地图。</p>
+
+    <section class="block">
+      <h2>1. 定位</h2>
+      <label>底图
+        <select id="basemapSelect">
+          <option value="osm" selected>普通地图（OSM）</option>
+          <option value="topo">地形图（OpenTopoMap）</option>
+        </select>
+      </label>
+      <label>城市跳转
+        <select id="citySelect"><option value="">加载中…</option></select>
+      </label>
+      <div class="row2">
+        <label>纬度 <input type="number" id="lat" step="0.0001" /></label>
+        <label>经度 <input type="number" id="lon" step="0.0001" /></label>
+      </div>
+      <button type="button" id="btnLocate" class="btn">定位到当前位置</button>
+      <button type="button" id="btnFly" class="btn secondary">跳转到坐标</button>
+    </section>
+
+    <section class="block">
+      <h2>2. 设计图（可选）</h2>
+      <input type="file" id="overlayFile" accept="image/*" />
+      <label>透明度
+        <input type="range" id="overlayOpacity" min="15" max="95" value="55" />
+        <span id="opacityVal">55%</span>
+      </label>
+
+      <div id="overlayFine" class="overlay-fine" hidden>
+        <p class="fine-title">精细对齐（选中设计图后可用方向键）</p>
+        <div class="nudge-pad">
+          <span></span>
+          <button type="button" class="btn-nudge" data-nudge="n" title="上移">↑</button>
+          <span></span>
+          <button type="button" class="btn-nudge" data-nudge="w" title="左移">←</button>
+          <button type="button" class="btn-nudge" data-nudge="s" title="下移">↓</button>
+          <button type="button" class="btn-nudge" data-nudge="e" title="右移">→</button>
+        </div>
+        <label class="step-row">移动步长(米)
+          <input type="number" id="nudgeStep" value="0.5" min="0.1" max="50" step="0.1" />
+        </label>
+        <label class="step-row">地面宽度(米)
+          <span class="scale-row">
+            <button type="button" class="btn-mini" id="btnScaleDown" title="缩小1米">−</button>
+            <input type="number" id="overlayWidthM" value="120" min="10" max="5000" step="1" />
+            <button type="button" class="btn-mini" id="btnScaleUp" title="放大1米">+</button>
+          </span>
+        </label>
+        <label class="step-row">旋转(°)
+          <span class="scale-row">
+            <button type="button" class="btn-mini" id="btnRotLeft" title="逆时针1°">↺</button>
+            <input type="number" id="overlayRot" value="0" step="1" />
+            <button type="button" class="btn-mini" id="btnRotRight" title="顺时针1°">↻</button>
+          </span>
+        </label>
+      </div>
+
+      <button type="button" id="btnClearOverlay" class="btn secondary">移除设计图</button>
+      <p class="muted">图上：点选后拖动/四角缩放/顶部旋转。侧栏与方向键可做米级微调。</p>
+    </section>
+
+    <section class="block">
+      <h2>3. 描楼栋</h2>
+      <div class="row2">
+        <button type="button" id="btnDraw" class="btn">开始描楼</button>
+        <button type="button" id="btnUndo" class="btn secondary" disabled>撤销点</button>
+      </div>
+      <button type="button" id="btnFinish" class="btn success" disabled>完成当前楼栋</button>
+      <button type="button" id="btnUndoBuilding" class="btn secondary" disabled>撤销上一栋</button>
+      <p class="muted" id="drawHint">点击「开始描楼」后，在地图上依次点击轮廓点；至少 3 点后可完成。</p>
+      <div class="row2">
+        <label>默认层数 <input type="number" id="defFloors" value="30" min="1" max="300" /></label>
+        <label>默认层高(m) <input type="number" id="defFloorH" value="3" min="1" max="20" step="0.1" /></label>
+      </div>
+      <label>默认户/层 <input type="number" id="defUnits" value="4" min="1" max="50" /></label>
+    </section>
+
+    <section class="block">
+      <h2>4. 楼栋列表</h2>
+      <ul id="buildingList" class="building-list"></ul>
+    </section>
+
+    <section class="block">
+      <h2>5. 导出</h2>
+      <div class="row2">
+        <button type="button" id="btnExport" class="btn secondary">下载 JSON</button>
+        <button type="button" id="btnCache" class="btn success">写入缓存并去模拟</button>
+      </div>
+      <a class="link" href="/building-sunlight/">返回日照页</a>
+    </section>
+  </aside>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/cities.js"></script>
+  <script src="js/site-bridge.js"></script>
+  <script src="js/editor-map.js"></script>
+</body>
+</html>

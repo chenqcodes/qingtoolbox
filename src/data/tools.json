@@ -28,7 +28,10 @@
     "desc": "月相、日月升落与亮行星高度方位",
     "icon": "月",
     "category": "edu",
-    "tags": ["教育", "天文"]
+    "tags": [
+      "教育",
+      "天文"
+    ]
   },
   {
     "slug": "orbit-lab",
@@ -36,7 +39,10 @@
     "desc": "霍曼转移动画与 Δv 读数",
     "icon": "轨",
     "category": "edu",
-    "tags": ["教育", "天文"]
+    "tags": [
+      "教育",
+      "天文"
+    ]
   },
   {
     "slug": "sat-pass",
@@ -44,7 +50,10 @@
     "desc": "ISS 未来 48 小时过顶简报",
     "icon": "卫",
     "category": "edu",
-    "tags": ["教育", "天文"]
+    "tags": [
+      "教育",
+      "天文"
+    ]
   },
   {
     "slug": "molecule",
@@ -52,7 +61,10 @@
     "desc": "3D 球棍模型与 DNA 双螺旋",
     "icon": "分",
     "category": "edu",
-    "tags": ["教育", "可视化"]
+    "tags": [
+      "教育",
+      "可视化"
+    ]
   },
   {
     "slug": "audio-viz",
@@ -60,7 +72,23 @@
     "desc": "麦克风或音频频谱粒子可视化",
     "icon": "波",
     "category": "edu",
-    "tags": ["教育", "可视化"]
+    "tags": [
+      "教育",
+      "可视化"
+    ]
+  },
+  {
+    "slug": "building-sunlight",
+    "name": "楼盘日照",
+    "desc": "全屏日照模拟与规划描楼，缓存可续做",
+    "icon": "光",
+    "category": "edu",
+    "path": "/building-sunlight",
+    "tags": [
+      "教育",
+      "房产",
+      "日照"
+    ]
   },
   {
     "slug": "json-viewer",

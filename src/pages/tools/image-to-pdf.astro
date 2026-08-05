@@ -1,0 +1,176 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout
+  title="图片转 PDF 在线工具"
+  description="多张图片本地合并为 PDF，支持排序，JPG/PNG/WebP，浏览器处理不上传。"
+  currentSlug="image-to-pdf"
+>
+  <h1 slot="header">图片转 PDF</h1>
+  <p class="intro">选择多张图片，调整顺序后生成一份 PDF。每张图一页，尺寸按图片比例。本地处理；单文件建议不超过 50MB。</p>
+
+  <div class="tool-panel">
+    <label class="img-slot img-slot-upload" id="img-drop">
+      <input type="file" id="img-files" accept="image/*" multiple />
+      <span>点击或拖拽上传图片（可多选）</span>
+    </label>
+    <div class="batch-grid cols-2" id="img-grid"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button type="button" class="btn" id="btn-make" disabled>生成 PDF</button>
+      <button type="button" class="btn btn-secondary" id="btn-clear" disabled>清空</button>
+    </div>
+    <div id="img-msg"></div>
+  </div>
+
+  <p class="field-hint">
+    相关：
+    <a href="/tools/pdf-merge">PDF 合并</a> ·
+    <a href="/tools/pdf-split">PDF 拆分</a> ·
+    <a href="/tools/image-compress">图片压缩</a> ·
+    <a href="/tools/image-convert">图片互转</a>
+  </p>
+</ToolLayout>
+
+<style>
+  .img-tile {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .img-tile img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+  .img-tile .ops {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    flex-wrap: wrap;
+  }
+  .img-tile .ops button {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  .img-tile .cap {
+    font-size: 11px;
+    padding: 0 6px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--mono);
+  }
+</style>
+
+<script>
+  import { downloadBlob, imagesToPdf, pdfErrorMessage } from '../../scripts/pdf-batch';
+  import { fmtSize, gridColsClass } from '../../scripts/image-batch';
+
+  type Item = { file: File; url: string };
+
+  const input = document.getElementById('img-files') as HTMLInputElement;
+  const grid = document.getElementById('img-grid')!;
+  const msg = document.getElementById('img-msg')!;
+  const btnMake = document.getElementById('btn-make') as HTMLButtonElement;
+  const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
+  const drop = document.getElementById('img-drop')!;
+
+  let items: Item[] = [];
+
+  function setMsg(text: string, ok = false) {
+    msg.className = text ? (ok ? 'msg success' : 'msg error') : '';
+    msg.textContent = text;
+  }
+
+  function render() {
+    grid.className = `batch-grid ${gridColsClass(items.length || 1)}`;
+    grid.innerHTML = items
+      .map(
+        (it, i) => `<div class="img-tile" data-i="${i}">
+        <img src="${it.url}" alt="" />
+        <div class="cap">${it.file.name}</div>
+        <div class="ops">
+          <button type="button" data-act="up" ${i == 0 ? 'disabled' : ''}>上移</button>
+          <button type="button" data-act="down" ${i == items.length - 1 ? 'disabled' : ''}>下移</button>
+          <button type="button" data-act="del">移除</button>
+        </div>
+      </div>`,
+      )
+      .join('');
+    btnMake.disabled = items.length == 0;
+    btnClear.disabled = items.length == 0;
+  }
+
+  function addFiles(list: FileList | File[]) {
+    const imgs = [...list].filter((f) => f.type.startsWith('image/'));
+    for (const f of imgs) {
+      items.push({ file: f, url: URL.createObjectURL(f) });
+    }
+    render();
+    setMsg(imgs.length ? `已添加 ${imgs.length} 张` : '未识别到图片', !!imgs.length);
+  }
+
+  function clearAll() {
+    items.forEach((it) => URL.revokeObjectURL(it.url));
+    items = [];
+    render();
+  }
+
+  input.addEventListener('change', () => {
+    if (input.files?.length) addFiles(input.files);
+    input.value = '';
+  });
+
+  drop.addEventListener('dragover', (e) => e.preventDefault());
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
+  });
+
+  grid.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button');
+    const tile = (e.target as HTMLElement).closest('[data-i]') as HTMLElement | null;
+    if (!btn || !tile) return;
+    const i = Number(tile.getAttribute('data-i'));
+    const act = btn.getAttribute('data-act');
+    if (act == 'del') {
+      URL.revokeObjectURL(items[i].url);
+      items.splice(i, 1);
+    } else if (act == 'up' && i > 0) {
+      const t = items[i - 1];
+      items[i - 1] = items[i];
+      items[i] = t;
+    } else if (act == 'down' && i < items.length - 1) {
+      const t = items[i + 1];
+      items[i + 1] = items[i];
+      items[i] = t;
+    }
+    render();
+  });
+
+  btnClear.addEventListener('click', () => {
+    clearAll();
+    setMsg('');
+  });
+
+  btnMake.addEventListener('click', async () => {
+    btnMake.disabled = true;
+    setMsg('生成中…');
+    try {
+      const blob = await imagesToPdf(items.map((it) => it.file));
+      downloadBlob(blob, 'images.pdf');
+      setMsg(`已下载 images.pdf（${fmtSize(blob.size)}）`, true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    btnMake.disabled = items.length == 0;
+  });
+</script>

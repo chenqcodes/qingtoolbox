@@ -256,5 +256,51 @@
       "隐私",
       "EXIF"
     ]
+  },
+  {
+    "slug": "pdf-merge",
+    "name": "PDF 合并",
+    "desc": "多份 PDF 本地合并，可调顺序",
+    "icon": "合",
+    "category": "image",
+    "tags": [
+      "办公",
+      "PDF"
+    ]
+  },
+  {
+    "slug": "pdf-split",
+    "name": "PDF 拆分",
+    "desc": "按页或页码范围拆分 PDF",
+    "icon": "拆",
+    "category": "image",
+    "tags": [
+      "办公",
+      "PDF"
+    ]
+  },
+  {
+    "slug": "image-to-pdf",
+    "name": "图片转 PDF",
+    "desc": "多图本地合成 PDF，可排序",
+    "icon": "册",
+    "category": "image",
+    "tags": [
+      "办公",
+      "PDF",
+      "图片"
+    ]
+  },
+  {
+    "slug": "pinyin",
+    "name": "拼音标注",
+    "desc": "中文自动注音，声调可切换",
+    "icon": "音",
+    "category": "edu",
+    "tags": [
+      "教育",
+      "汉字",
+      "拼音"
+    ]
   }
 ]

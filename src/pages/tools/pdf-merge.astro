@@ -1,0 +1,189 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout
+  title="PDF 合并在线工具"
+  description="多份 PDF 本地合并为一个文件，支持拖拽排序，浏览器内处理不上传服务器。"
+  currentSlug="pdf-merge"
+>
+  <h1 slot="header">PDF 合并</h1>
+  <p class="intro">选择多份 PDF，调整顺序后合并下载。可设置「每个文件出现次数」（例如 2 个文件各出现 2 次 → 按 A、A、B、B 合成 1 份）。本地处理；单文件建议不超过 50MB，加密 PDF 暂不支持。</p>
+
+  <div class="tool-panel">
+    <label class="img-slot img-slot-upload" id="pdf-drop">
+      <input type="file" id="pdf-files" accept="application/pdf,.pdf" multiple />
+      <span>点击或拖拽上传 PDF（可多选）</span>
+    </label>
+    <ul class="pdf-file-list" id="pdf-list"></ul>
+    <label class="field-label" for="pdf-copies" style="margin-top:12px;display:block">每个文件出现次数</label>
+    <input type="number" id="pdf-copies" min="1" max="99" value="1" />
+    <p class="field-hint" id="pdf-copies-hint">1 = 各出现一次后直接合并</p>
+    <div class="btn-row">
+      <button type="button" class="btn" id="btn-merge" disabled>合并并下载</button>
+      <button type="button" class="btn btn-secondary" id="btn-clear" disabled>清空</button>
+    </div>
+    <div id="pdf-msg"></div>
+  </div>
+
+  <p class="field-hint">
+    相关：
+    <a href="/tools/pdf-split">PDF 拆分</a> ·
+    <a href="/tools/image-to-pdf">图片转 PDF</a>
+  </p>
+</ToolLayout>
+
+<style>
+  .pdf-file-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pdf-file-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    font-size: 0.85rem;
+  }
+  .pdf-file-list .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--mono);
+  }
+  .pdf-file-list button {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+</style>
+
+<script>
+  import { downloadBlob, mergePdfs, pdfErrorMessage } from '../../scripts/pdf-batch';
+  import { fmtSize } from '../../scripts/image-batch';
+
+  const input = document.getElementById('pdf-files') as HTMLInputElement;
+  const listEl = document.getElementById('pdf-list')!;
+  const msg = document.getElementById('pdf-msg')!;
+  const copiesEl = document.getElementById('pdf-copies') as HTMLInputElement;
+  const hintEl = document.getElementById('pdf-copies-hint')!;
+  const btnMerge = document.getElementById('btn-merge') as HTMLButtonElement;
+  const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
+  const drop = document.getElementById('pdf-drop')!;
+
+  let files: File[] = [];
+
+  function copies() {
+    return Math.max(1, Math.min(99, Math.floor(Number(copiesEl.value)) || 1));
+  }
+
+  function setMsg(text: string, ok = false) {
+    msg.className = text ? (ok ? 'msg success' : 'msg error') : '';
+    msg.textContent = text;
+  }
+
+  function updateHint() {
+    const n = copies();
+    const total = files.length * n;
+    if (!files.length) {
+      hintEl.textContent = '1 = 各出现一次后直接合并；2 = 每个文件连着放两遍再往下排';
+      return;
+    }
+    hintEl.textContent =
+      n == 1
+        ? `将按列表顺序合并，共 ${files.length} 个文件`
+        : `每个文件连续出现 ${n} 次，共 ${total} 段后再合成 1 份（如 A×${n}、B×${n}…）`;
+  }
+
+  function render() {
+    listEl.innerHTML = files
+      .map(
+        (f, i) => `<li data-i="${i}">
+        <span class="name">${f.name}（${fmtSize(f.size)}）</span>
+        <button type="button" data-act="up" ${i == 0 ? 'disabled' : ''}>上移</button>
+        <button type="button" data-act="down" ${i == files.length - 1 ? 'disabled' : ''}>下移</button>
+        <button type="button" data-act="del">移除</button>
+      </li>`,
+      )
+      .join('');
+    // 1 个文件也可合并（配合出现次数>1 做多份拷贝）
+    btnMerge.disabled = files.length == 0;
+    btnClear.disabled = files.length == 0;
+    updateHint();
+  }
+
+  function addFiles(list: FileList | File[]) {
+    const arr = [...list].filter((f) => f.type == 'application/pdf' || /\.pdf$/i.test(f.name));
+    files = files.concat(arr);
+    render();
+    setMsg(arr.length ? `已添加 ${arr.length} 个文件` : '未识别到 PDF', !!arr.length);
+  }
+
+  input.addEventListener('change', () => {
+    if (input.files?.length) addFiles(input.files);
+    input.value = '';
+  });
+
+  drop.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
+  });
+
+  copiesEl.addEventListener('input', updateHint);
+
+  listEl.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button');
+    const li = (e.target as HTMLElement).closest('li');
+    if (!btn || !li) return;
+    const i = Number(li.getAttribute('data-i'));
+    const act = btn.getAttribute('data-act');
+    if (act == 'del') files.splice(i, 1);
+    else if (act == 'up' && i > 0) {
+      const t = files[i - 1];
+      files[i - 1] = files[i];
+      files[i] = t;
+    } else if (act == 'down' && i < files.length - 1) {
+      const t = files[i + 1];
+      files[i + 1] = files[i];
+      files[i] = t;
+    }
+    render();
+  });
+
+  btnClear.addEventListener('click', () => {
+    files = [];
+    render();
+    setMsg('');
+  });
+
+  btnMerge.addEventListener('click', async () => {
+    btnMerge.disabled = true;
+    const n = copies();
+    copiesEl.value = String(n);
+    setMsg(n > 1 ? `合并中（每个文件 ×${n}）…` : '合并中…');
+    try {
+      const blob = await mergePdfs(files, n);
+      downloadBlob(blob, 'merged.pdf');
+      setMsg(`已下载 merged.pdf（${files.length} 文件 × ${n}）`, true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    btnMerge.disabled = files.length == 0;
+  });
+
+  updateHint();
+</script>

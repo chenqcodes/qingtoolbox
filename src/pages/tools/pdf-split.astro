@@ -1,0 +1,168 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout
+  title="PDF 拆分在线工具"
+  description="本地拆分 PDF：按页导出或按页码范围截取，浏览器处理不上传。"
+  currentSlug="pdf-split"
+>
+  <h1 slot="header">PDF 拆分</h1>
+  <p class="intro">上传一份 PDF，可按页拆成多个文件（zip），或按页码范围导出。单文件建议不超过 50MB；加密 PDF 暂不支持。</p>
+
+  <div class="tool-panel">
+    <label class="img-slot img-slot-upload" id="pdf-drop">
+      <input type="file" id="pdf-file" accept="application/pdf,.pdf" />
+      <span id="pdf-placeholder">点击或拖拽上传 PDF</span>
+    </label>
+    <p class="img-meta" id="pdf-meta">—</p>
+
+    <div class="size-input-row" style="margin-top:12px">
+      <div>
+        <label class="field-label" for="page-from">起始页</label>
+        <input type="number" id="page-from" min="1" value="1" />
+      </div>
+      <div>
+        <label class="field-label" for="page-to">结束页</label>
+        <input type="number" id="page-to" min="1" value="1" />
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:12px">
+      <button type="button" class="btn" id="btn-range" disabled>导出页码范围</button>
+      <button type="button" class="btn btn-secondary" id="btn-all" disabled>按页全部拆分</button>
+      <button type="button" class="btn btn-secondary" id="btn-clear" disabled>清空</button>
+    </div>
+    <div id="pdf-msg"></div>
+  </div>
+
+  <p class="field-hint">
+    相关：
+    <a href="/tools/pdf-merge">PDF 合并</a> ·
+    <a href="/tools/image-to-pdf">图片转 PDF</a>
+  </p>
+</ToolLayout>
+
+<script>
+  import {
+    downloadBlob,
+    extractPdfRange,
+    loadPdf,
+    pdfErrorMessage,
+    splitPdfPerPage,
+    zipAndDownload,
+  } from '../../scripts/pdf-batch';
+  import { fmtSize } from '../../scripts/image-batch';
+
+  const input = document.getElementById('pdf-file') as HTMLInputElement;
+  const placeholder = document.getElementById('pdf-placeholder')!;
+  const meta = document.getElementById('pdf-meta')!;
+  const msg = document.getElementById('pdf-msg')!;
+  const fromEl = document.getElementById('page-from') as HTMLInputElement;
+  const toEl = document.getElementById('page-to') as HTMLInputElement;
+  const btnRange = document.getElementById('btn-range') as HTMLButtonElement;
+  const btnAll = document.getElementById('btn-all') as HTMLButtonElement;
+  const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
+  const drop = document.getElementById('pdf-drop')!;
+
+  let file: File | null = null;
+  let pageCount = 0;
+
+  function setMsg(text: string, ok = false) {
+    msg.className = text ? (ok ? 'msg success' : 'msg error') : '';
+    msg.textContent = text;
+  }
+
+  function setBusy(busy: boolean) {
+    btnRange.disabled = busy || !file;
+    btnAll.disabled = busy || !file;
+    btnClear.disabled = busy || !file;
+  }
+
+  async function setFile(f: File | null) {
+    file = f;
+    pageCount = 0;
+    if (!f) {
+      placeholder.textContent = '点击或拖拽上传 PDF';
+      meta.textContent = '—';
+      setBusy(false);
+      btnRange.disabled = true;
+      btnAll.disabled = true;
+      btnClear.disabled = true;
+      return;
+    }
+    placeholder.textContent = f.name;
+    meta.textContent = fmtSize(f.size);
+    setBusy(true);
+    setMsg('读取页数…');
+    try {
+      const doc = await loadPdf(f);
+      pageCount = doc.getPageCount();
+      fromEl.value = '1';
+      toEl.value = String(pageCount);
+      fromEl.max = String(pageCount);
+      toEl.max = String(pageCount);
+      meta.textContent = `${fmtSize(f.size)} · 共 ${pageCount} 页`;
+      setMsg('');
+    } catch (err) {
+      file = null;
+      placeholder.textContent = '点击或拖拽上传 PDF';
+      meta.textContent = '—';
+      setMsg(pdfErrorMessage(err));
+    }
+    setBusy(false);
+    if (!file) {
+      btnRange.disabled = true;
+      btnAll.disabled = true;
+      btnClear.disabled = true;
+    }
+  }
+
+  input.addEventListener('change', () => {
+    const f = input.files?.[0] || null;
+    input.value = '';
+    setFile(f);
+  });
+
+  drop.addEventListener('dragover', (e) => e.preventDefault());
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) setFile(f);
+  });
+
+  btnClear.addEventListener('click', () => {
+    setFile(null);
+    setMsg('');
+  });
+
+  btnRange.addEventListener('click', async () => {
+    if (!file) return;
+    setBusy(true);
+    setMsg('导出中…');
+    try {
+      const from = parseInt(fromEl.value, 10) || 1;
+      const to = parseInt(toEl.value, 10) || pageCount;
+      const part = await extractPdfRange(file, from, to);
+      downloadBlob(part.blob, part.name);
+      setMsg(`已下载 ${part.name}`, true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    setBusy(false);
+  });
+
+  btnAll.addEventListener('click', async () => {
+    if (!file) return;
+    setBusy(true);
+    setMsg('按页拆分中…');
+    try {
+      const parts = await splitPdfPerPage(file);
+      await zipAndDownload(parts, `${file.name.replace(/\.pdf$/i, '') || 'split'}-pages.zip`);
+      setMsg(`已导出 ${parts.length} 页`, true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    setBusy(false);
+  });
+</script>

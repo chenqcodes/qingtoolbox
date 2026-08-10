@@ -8,26 +8,37 @@ const { title, description, currentSlug } = Astro.props;
 function toolHref(t: { slug: string; path?: string }) {
   return t.path || `/tools/${t.slug}`;
 }
+
+const currentTool = tools.find((tool) => tool.slug === currentSlug);
+const currentCategory = categories.find((category) => category.id === currentTool?.category);
 ---
 
 <BaseLayout title={title} description={description} wide={true}>
   <div class="tool-layout">
     <article class="tool-main tool-page">
-      <div class="tool-switcher">
-        <a class="tool-switcher-home" href="/">全部工具</a>
-        <label class="tool-switcher-label" for="tool-switch-select">
-          <span class="visually-hidden">切换工具</span>
-          <select id="tool-switch-select" class="tool-switch-select">
-            {categories.map((category) => (
-              <optgroup label={category.name}>
-                {tools.filter((t) => t.category == category.id).map((t) => (
-                  <option value={toolHref(t)} selected={t.slug == currentSlug}>{t.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-      </div>
+      <nav class="tool-switcher" aria-label="工具导航">
+        <a class="tool-switcher-home" href="/">
+          <span aria-hidden="true">←</span>
+          <span>全部工具</span>
+        </a>
+        <div class="tool-switcher-control">
+          <span class="tool-switcher-caption">
+            {currentCategory ? `${currentCategory.name} · 切换工具` : '切换工具'}
+          </span>
+          <label class="tool-switcher-label" for="tool-switch-select">
+            <span class="visually-hidden">切换工具</span>
+            <select id="tool-switch-select" class="tool-switch-select">
+              {categories.map((category) => (
+                <optgroup label={category.name}>
+                  {tools.filter((t) => t.category == category.id).map((t) => (
+                    <option value={toolHref(t)} selected={t.slug == currentSlug}>{t.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        </div>
+      </nav>
       <slot name="header" />
       <slot />
     </article>

@@ -1,8 +1,8 @@
 [
+  { "id": "language", "name": "汉字与语言" },
   { "id": "office", "name": "办公与文档" },
   { "id": "image", "name": "图片与二维码" },
   { "id": "dev", "name": "开发与编码" },
-  { "id": "language", "name": "汉字与语言" },
-  { "id": "astro", "name": "天文与航天" },
-  { "id": "visual", "name": "可视化与模拟" }
+  { "id": "visual", "name": "可视化与模拟" },
+  { "id": "astro", "name": "天文与航天" }
 ]

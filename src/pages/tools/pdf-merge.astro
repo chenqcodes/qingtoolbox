@@ -8,7 +8,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   currentSlug="pdf-merge"
 >
   <h1 slot="header">PDF 合并</h1>
-  <p class="intro">选择多份 PDF，调整顺序后合并下载。可设置「每个文件出现次数」（例如 2 个文件各出现 2 次 → 按 A、A、B、B 合成 1 份）。本地处理；单文件建议不超过 50MB，加密 PDF 暂不支持。</p>
+  <p class="intro">选择多份 PDF，调整顺序后合并下载或直接打印。可设置「每个文件出现次数」。本地处理；单文件建议不超过 50MB，加密 PDF 暂不支持。</p>
 
   <div class="tool-panel">
     <label class="img-slot img-slot-upload pdf-drop" id="pdf-drop">
@@ -16,11 +16,20 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       <span class="pdf-drop-text" id="pdf-drop-text">点击或拖拽上传 PDF（可多选）</span>
     </label>
     <ul class="pdf-card-list" id="pdf-list"></ul>
-    <label class="field-label" for="pdf-copies" style="margin-top:12px;display:block">每个文件出现次数</label>
-    <input type="number" id="pdf-copies" min="1" max="99" value="1" />
+
+    <div class="pdf-copies-row">
+      <span class="pdf-copies-label">每个文件出现次数</span>
+      <div class="pdf-stepper">
+        <button type="button" id="copies-minus" aria-label="减少">−</button>
+        <input type="number" id="pdf-copies" min="1" max="99" value="1" />
+        <button type="button" id="copies-plus" aria-label="增加">+</button>
+      </div>
+    </div>
     <p class="field-hint" id="pdf-copies-hint">1 = 各出现一次后直接合并</p>
+
     <div class="btn-row">
       <button type="button" class="btn" id="btn-merge" disabled>合并并下载</button>
+      <button type="button" class="btn btn-secondary" id="btn-print" disabled>打印</button>
       <button type="button" class="btn btn-secondary" id="btn-clear" disabled>清空</button>
     </div>
     <div id="pdf-msg"></div>
@@ -34,7 +43,13 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 </ToolLayout>
 
 <script>
-  import { downloadBlob, mergeOutputName, mergePdfs, pdfErrorMessage } from '../../scripts/pdf-batch';
+  import {
+    downloadBlob,
+    mergeOutputName,
+    mergePdfs,
+    pdfErrorMessage,
+    printPdfBlob,
+  } from '../../scripts/pdf-batch';
   import { fmtSize } from '../../scripts/image-batch';
 
   const input = document.getElementById('pdf-files') as HTMLInputElement;
@@ -44,10 +59,12 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const hintEl = document.getElementById('pdf-copies-hint')!;
   const dropText = document.getElementById('pdf-drop-text')!;
   const btnMerge = document.getElementById('btn-merge') as HTMLButtonElement;
+  const btnPrint = document.getElementById('btn-print') as HTMLButtonElement;
   const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
   const drop = document.getElementById('pdf-drop')!;
 
   let files: File[] = [];
+  let lastBlob: Blob | null = null;
 
   function copies() {
     return Math.max(1, Math.min(99, Math.floor(Number(copiesEl.value)) || 1));
@@ -92,16 +109,27 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     dropText.textContent = files.length
       ? `已选 ${files.length} 个，点击或拖拽继续添加`
       : '点击或拖拽上传 PDF（可多选）';
-    btnMerge.disabled = files.length == 0;
-    btnClear.disabled = files.length == 0;
+    const empty = files.length == 0;
+    btnMerge.disabled = empty;
+    btnPrint.disabled = empty;
+    btnClear.disabled = empty;
     updateHint();
   }
 
   function addFiles(list: FileList | File[]) {
     const arr = [...list].filter((f) => f.type == 'application/pdf' || /\.pdf$/i.test(f.name));
     files = files.concat(arr);
+    lastBlob = null;
     render();
     setMsg(arr.length ? `已添加 ${arr.length} 个文件` : '未识别到 PDF', !!arr.length);
+  }
+
+  async function buildMerged() {
+    const n = copies();
+    copiesEl.value = String(n);
+    const blob = await mergePdfs(files, n);
+    lastBlob = blob;
+    return { blob, n, name: mergeOutputName(files, n) };
   }
 
   input.addEventListener('change', () => {
@@ -109,15 +137,26 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     input.value = '';
   });
 
-  drop.addEventListener('dragover', (e) => {
-    e.preventDefault();
-  });
+  drop.addEventListener('dragover', (e) => e.preventDefault());
   drop.addEventListener('drop', (e) => {
     e.preventDefault();
     if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
   });
 
-  copiesEl.addEventListener('input', updateHint);
+  copiesEl.addEventListener('input', () => {
+    lastBlob = null;
+    updateHint();
+  });
+  document.getElementById('copies-minus')!.addEventListener('click', () => {
+    copiesEl.value = String(Math.max(1, copies() - 1));
+    lastBlob = null;
+    updateHint();
+  });
+  document.getElementById('copies-plus')!.addEventListener('click', () => {
+    copiesEl.value = String(Math.min(99, copies() + 1));
+    lastBlob = null;
+    updateHint();
+  });
 
   listEl.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button');
@@ -135,29 +174,45 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       files[i + 1] = files[i];
       files[i] = t;
     }
+    lastBlob = null;
     render();
   });
 
   btnClear.addEventListener('click', () => {
     files = [];
+    lastBlob = null;
     render();
     setMsg('');
   });
 
   btnMerge.addEventListener('click', async () => {
     btnMerge.disabled = true;
-    const n = copies();
-    copiesEl.value = String(n);
-    const outName = mergeOutputName(files, n);
-    setMsg(n > 1 ? `合并中（每个文件 ×${n}）…` : '合并中…');
+    btnPrint.disabled = true;
+    setMsg('合并中…');
     try {
-      const blob = await mergePdfs(files, n);
-      downloadBlob(blob, outName);
-      setMsg(`已下载 ${outName}`, true);
+      const { blob, name } = await buildMerged();
+      downloadBlob(blob, name);
+      setMsg(`已下载 ${name}`, true);
     } catch (err) {
       setMsg(pdfErrorMessage(err));
     }
     btnMerge.disabled = files.length == 0;
+    btnPrint.disabled = files.length == 0;
+  });
+
+  btnPrint.addEventListener('click', async () => {
+    btnMerge.disabled = true;
+    btnPrint.disabled = true;
+    setMsg('准备打印…');
+    try {
+      const blob = lastBlob || (await buildMerged()).blob;
+      printPdfBlob(blob);
+      setMsg('已打开打印预览，可在对话框中确认打印', true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    btnMerge.disabled = files.length == 0;
+    btnPrint.disabled = files.length == 0;
   });
 
   updateHint();

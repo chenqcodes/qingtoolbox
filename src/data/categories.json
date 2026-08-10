@@ -1,6 +1,8 @@
 [
-  { "id": "edu", "name": "学习工具" },
-  { "id": "dev", "name": "开发编码" },
-  { "id": "text", "name": "文本办公" },
-  { "id": "image", "name": "图片处理" }
+  { "id": "office", "name": "办公与文档" },
+  { "id": "image", "name": "图片与二维码" },
+  { "id": "dev", "name": "开发与编码" },
+  { "id": "language", "name": "汉字与语言" },
+  { "id": "astro", "name": "天文与航天" },
+  { "id": "visual", "name": "可视化与模拟" }
 ]

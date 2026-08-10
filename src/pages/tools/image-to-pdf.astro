@@ -8,16 +8,17 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   currentSlug="image-to-pdf"
 >
   <h1 slot="header">图片转 PDF</h1>
-  <p class="intro">选择多张图片，调整顺序后生成一份 PDF。每张图一页，尺寸按图片比例。本地处理；单文件建议不超过 50MB。</p>
+  <p class="intro">选择多张图片，调整顺序后生成 PDF，可下载或直接打印。每张图一页。本地处理；单文件建议不超过 50MB。</p>
 
   <div class="tool-panel">
-    <label class="img-slot img-slot-upload" id="img-drop">
+    <label class="img-slot img-slot-upload pdf-drop" id="img-drop">
       <input type="file" id="img-files" accept="image/*" multiple />
-      <span>点击或拖拽上传图片（可多选）</span>
+      <span class="pdf-drop-text" id="img-drop-text">点击或拖拽上传图片（可多选）</span>
     </label>
     <div class="batch-grid cols-2" id="img-grid"></div>
     <div class="btn-row" style="margin-top:12px">
-      <button type="button" class="btn" id="btn-make" disabled>生成 PDF</button>
+      <button type="button" class="btn" id="btn-make" disabled>生成并下载</button>
+      <button type="button" class="btn btn-secondary" id="btn-print" disabled>打印</button>
       <button type="button" class="btn btn-secondary" id="btn-clear" disabled>清空</button>
     </div>
     <div id="img-msg"></div>
@@ -71,7 +72,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 </style>
 
 <script>
-  import { downloadBlob, imagesToPdf, pdfErrorMessage } from '../../scripts/pdf-batch';
+  import { downloadBlob, imagesToPdf, pdfErrorMessage, printPdfBlob, stemName } from '../../scripts/pdf-batch';
   import { fmtSize, gridColsClass } from '../../scripts/image-batch';
 
   type Item = { file: File; url: string };
@@ -79,15 +80,23 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const input = document.getElementById('img-files') as HTMLInputElement;
   const grid = document.getElementById('img-grid')!;
   const msg = document.getElementById('img-msg')!;
+  const dropText = document.getElementById('img-drop-text')!;
   const btnMake = document.getElementById('btn-make') as HTMLButtonElement;
+  const btnPrint = document.getElementById('btn-print') as HTMLButtonElement;
   const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
   const drop = document.getElementById('img-drop')!;
 
   let items: Item[] = [];
+  let lastBlob: Blob | null = null;
 
   function setMsg(text: string, ok = false) {
     msg.className = text ? (ok ? 'msg success' : 'msg error') : '';
     msg.textContent = text;
+  }
+
+  function outName() {
+    const stem = stemName(items[0]?.file.name || 'images');
+    return items.length > 1 ? `${stem}-等${items.length}张.pdf` : `${stem}.pdf`;
   }
 
   function render() {
@@ -105,8 +114,14 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       </div>`,
       )
       .join('');
-    btnMake.disabled = items.length == 0;
-    btnClear.disabled = items.length == 0;
+    drop.classList.toggle('has-file', items.length > 0);
+    dropText.textContent = items.length
+      ? `已选 ${items.length} 张，点击或拖拽继续添加`
+      : '点击或拖拽上传图片（可多选）';
+    const empty = items.length == 0;
+    btnMake.disabled = empty;
+    btnPrint.disabled = empty;
+    btnClear.disabled = empty;
   }
 
   function addFiles(list: FileList | File[]) {
@@ -114,6 +129,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     for (const f of imgs) {
       items.push({ file: f, url: URL.createObjectURL(f) });
     }
+    lastBlob = null;
     render();
     setMsg(imgs.length ? `已添加 ${imgs.length} 张` : '未识别到图片', !!imgs.length);
   }
@@ -121,7 +137,14 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   function clearAll() {
     items.forEach((it) => URL.revokeObjectURL(it.url));
     items = [];
+    lastBlob = null;
     render();
+  }
+
+  async function buildPdf() {
+    const blob = await imagesToPdf(items.map((it) => it.file));
+    lastBlob = blob;
+    return blob;
   }
 
   input.addEventListener('change', () => {
@@ -153,6 +176,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       items[i + 1] = items[i];
       items[i] = t;
     }
+    lastBlob = null;
     render();
   });
 
@@ -163,14 +187,32 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   btnMake.addEventListener('click', async () => {
     btnMake.disabled = true;
+    btnPrint.disabled = true;
     setMsg('生成中…');
     try {
-      const blob = await imagesToPdf(items.map((it) => it.file));
-      downloadBlob(blob, 'images.pdf');
-      setMsg(`已下载 images.pdf（${fmtSize(blob.size)}）`, true);
+      const blob = await buildPdf();
+      const name = outName();
+      downloadBlob(blob, name);
+      setMsg(`已下载 ${name}（${fmtSize(blob.size)}）`, true);
     } catch (err) {
       setMsg(pdfErrorMessage(err));
     }
     btnMake.disabled = items.length == 0;
+    btnPrint.disabled = items.length == 0;
+  });
+
+  btnPrint.addEventListener('click', async () => {
+    btnMake.disabled = true;
+    btnPrint.disabled = true;
+    setMsg('准备打印…');
+    try {
+      const blob = lastBlob || (await buildPdf());
+      printPdfBlob(blob);
+      setMsg('已打开打印预览，可在对话框中确认打印', true);
+    } catch (err) {
+      setMsg(pdfErrorMessage(err));
+    }
+    btnMake.disabled = items.length == 0;
+    btnPrint.disabled = items.length == 0;
   });
 </script>

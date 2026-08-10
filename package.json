@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -30,9 +33,11 @@
     "jsonrepair": "^3.12.0",
     "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.2.108",
     "pinyin-pro": "^3.28.2",
     "qrcode": "^1.5.4",
     "satellite.js": "^6.0.2",
+    "tesseract.js": "^7.0.0",
     "three": "^0.185.1",
     "vanilla-jsoneditor": "^3.12.0"
   },

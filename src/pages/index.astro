@@ -7,6 +7,12 @@ function toolHref(t: { slug: string; path?: string }) {
   return t.path || `/tools/${t.slug}`;
 }
 
+const categoryIds = new Set(categories.map((category) => category.id));
+const uncategorized = tools.filter((tool) => !categoryIds.has(tool.category));
+if (uncategorized.length) {
+  throw new Error(`以下工具使用了未知分类：${uncategorized.map((tool) => tool.slug).join(', ')}`);
+}
+
 // 按分类分组工具
 const grouped = categories.map((cat) => ({
   ...cat,
@@ -16,14 +22,14 @@ const grouped = categories.map((cat) => ({
 
 <BaseLayout
   title="轻工具箱"
-  description="免费在线工具：JSON 查看器、时间戳转换、Base64 编解码、MD5 加密、图片合并压缩。浏览器本地处理，安全快速。"
+  description="免费在线工具：图片文字识别、PDF 处理、图片压缩、JSON 查看器、时间戳转换等。浏览器本地处理，安全快速。"
   wide={true}
 >
   <div class="home-content">
     <section class="home-intro">
       <div>
         <h1>轻工具箱</h1>
-        <p>常用开发与生活小工具，本地运行，安全快速。</p>
+        <p>办公、图片、开发与学习小工具，本地运行，安全快速。</p>
       </div>
       <div class="home-badges">
         <span>本地处理</span>

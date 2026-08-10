@@ -44,6 +44,30 @@ export function mergeOutputName(files: File[], copiesPerFile = 1) {
   return `${stem}-等${n}个-各${c}次合并.pdf`;
 }
 
+/** 打开系统打印对话框（浏览器会先出预览） */
+export function printPdfBlob(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('title', 'PDF 打印预览');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+  document.body.appendChild(iframe);
+  const cleanup = () => {
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      iframe.remove();
+    }, 60_000);
+  };
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } finally {
+      cleanup();
+    }
+  };
+  iframe.src = url;
+}
+
 /** 每个文件连续重复 times 次（1=不重复）。顺序：A×n, B×n */
 export function expandFilesByRepeat(files: File[], times: number) {
   const n = Math.max(1, Math.min(99, Math.floor(Number(times)) || 1));

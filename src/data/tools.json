@@ -4,7 +4,7 @@
     "name": "汉字笔顺",
     "desc": "笔顺动画 + 田字格跟写练习",
     "icon": "字",
-    "category": "edu",
+    "category": "language",
     "tags": [
       "教育",
       "汉字"
@@ -15,7 +15,7 @@
     "name": "轻星图",
     "desc": "三维太阳系与邻近恒星，真实历元漫游",
     "icon": "星",
-    "category": "edu",
+    "category": "astro",
     "path": "/space",
     "tags": [
       "教育",
@@ -27,7 +27,7 @@
     "name": "今日星空",
     "desc": "月相、日月升落与亮行星高度方位",
     "icon": "月",
-    "category": "edu",
+    "category": "astro",
     "tags": [
       "教育",
       "天文"
@@ -38,7 +38,7 @@
     "name": "轨道实验",
     "desc": "霍曼转移动画与 Δv 读数",
     "icon": "轨",
-    "category": "edu",
+    "category": "astro",
     "tags": [
       "教育",
       "天文"
@@ -49,7 +49,7 @@
     "name": "卫星过顶",
     "desc": "ISS 未来 48 小时过顶简报",
     "icon": "卫",
-    "category": "edu",
+    "category": "astro",
     "tags": [
       "教育",
       "天文"
@@ -60,7 +60,7 @@
     "name": "分子视界",
     "desc": "3D 球棍模型与 DNA 双螺旋",
     "icon": "分",
-    "category": "edu",
+    "category": "visual",
     "tags": [
       "教育",
       "可视化"
@@ -71,7 +71,7 @@
     "name": "音浪粒子",
     "desc": "麦克风或音频频谱粒子可视化",
     "icon": "波",
-    "category": "edu",
+    "category": "visual",
     "tags": [
       "教育",
       "可视化"
@@ -82,7 +82,7 @@
     "name": "楼盘日照",
     "desc": "全屏日照模拟与规划描楼，缓存可续做",
     "icon": "光",
-    "category": "edu",
+    "category": "visual",
     "path": "/building-sunlight",
     "tags": [
       "教育",
@@ -172,7 +172,7 @@
     "name": "字数统计",
     "desc": "统计中文、英文、字符、行数与阅读时间",
     "icon": "文",
-    "category": "text",
+    "category": "office",
     "tags": [
       "文本",
       "办公"
@@ -183,7 +183,7 @@
     "name": "不可见字符",
     "desc": "检测零宽空格等隐藏字符并高亮清除",
     "icon": "隐",
-    "category": "text",
+    "category": "office",
     "tags": [
       "文本",
       "办公",
@@ -262,7 +262,7 @@
     "name": "PDF 合并",
     "desc": "多份 PDF 本地合并，可调顺序",
     "icon": "合",
-    "category": "image",
+    "category": "office",
     "tags": [
       "办公",
       "PDF"
@@ -273,7 +273,7 @@
     "name": "PDF 拆分",
     "desc": "按页或页码范围拆分 PDF",
     "icon": "拆",
-    "category": "image",
+    "category": "office",
     "tags": [
       "办公",
       "PDF"
@@ -284,7 +284,7 @@
     "name": "图片转 PDF",
     "desc": "多图本地合成 PDF，可排序",
     "icon": "册",
-    "category": "image",
+    "category": "office",
     "tags": [
       "办公",
       "PDF",
@@ -292,11 +292,24 @@
     ]
   },
   {
+    "slug": "image-ocr",
+    "name": "图片文字识别",
+    "desc": "图片与扫描 PDF 本地 OCR，支持中英文",
+    "icon": "识",
+    "category": "office",
+    "tags": [
+      "办公",
+      "OCR",
+      "图片",
+      "PDF"
+    ]
+  },
+  {
     "slug": "pinyin",
     "name": "拼音标注",
     "desc": "中文自动注音，声调可切换",
     "icon": "音",
-    "category": "edu",
+    "category": "language",
     "tags": [
       "教育",
       "汉字",

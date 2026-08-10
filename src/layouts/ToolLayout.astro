@@ -18,26 +18,34 @@ const currentCategory = categories.find((category) => category.id === currentToo
     <article class="tool-main tool-page">
       <nav class="tool-switcher" aria-label="工具导航">
         <a class="tool-switcher-home" href="/">
-          <span aria-hidden="true">←</span>
-          <span>全部工具</span>
+          <span aria-hidden="true">←</span><span>全部工具</span>
         </a>
-        <div class="tool-switcher-control">
-          <span class="tool-switcher-caption">
-            {currentCategory ? `${currentCategory.name} · 切换工具` : '切换工具'}
-          </span>
-          <label class="tool-switcher-label" for="tool-switch-select">
-            <span class="visually-hidden">切换工具</span>
-            <select id="tool-switch-select" class="tool-switch-select">
-              {categories.map((category) => (
-                <optgroup label={category.name}>
-                  {tools.filter((t) => t.category == category.id).map((t) => (
-                    <option value={toolHref(t)} selected={t.slug == currentSlug}>{t.name}</option>
+        <span class="tool-switcher-separator" aria-hidden="true">&gt;</span>
+        <details class="tool-switcher-menu">
+          <summary>
+            <span>{currentCategory?.name || '全部分类'} · 切换工具</span>
+            <svg class="tool-switcher-chevron" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="m3 4.5 3 3 3-3"></path>
+            </svg>
+          </summary>
+          <div class="tool-switcher-popover">
+            {categories.map((category) => (
+              <div class="tool-switcher-group">
+                <span class="tool-switcher-group-title">{category.name}</span>
+                <div class="tool-switcher-list">
+                  {tools.filter((tool) => tool.category === category.id).map((tool) => (
+                    <a
+                      href={toolHref(tool)}
+                      aria-current={tool.slug === currentSlug ? 'page' : undefined}
+                    >
+                      {tool.name}
+                    </a>
                   ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-        </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
       </nav>
       <slot name="header" />
       <slot />
@@ -46,8 +54,18 @@ const currentCategory = categories.find((category) => category.id === currentToo
 </BaseLayout>
 
 <script>
-  const sel = document.getElementById('tool-switch-select') as HTMLSelectElement | null;
-  sel?.addEventListener('change', () => {
-    if (sel.value) location.href = sel.value;
+  const switcher = document.querySelector<HTMLDetailsElement>('.tool-switcher-menu');
+
+  document.addEventListener('click', (event) => {
+    if (switcher?.open && event.target instanceof Node && !switcher.contains(event.target)) {
+      switcher.removeAttribute('open');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && switcher?.open) {
+      switcher.removeAttribute('open');
+      switcher.querySelector<HTMLElement>('summary')?.focus();
+    }
   });
 </script>

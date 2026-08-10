@@ -139,7 +139,7 @@ a:hover {
 
 .home-content {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   padding-bottom: 36px;
 }
@@ -294,26 +294,23 @@ main {
 }
 
 .tool-switcher {
-  display: grid;
-  grid-template-columns: auto minmax(260px, 1fr);
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 16px;
-  margin: 0 0 18px;
-  padding: 10px 12px;
-  border: 1px solid rgba(217, 210, 198, 0.88);
-  border-radius: var(--radius);
-  background: rgba(250, 248, 244, 0.72);
+  gap: 7px;
+  min-height: 28px;
+  margin: 0 0 14px;
+  font-size: 0.82rem;
 }
 
 .tool-switcher-home {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   width: fit-content;
-  font-size: 0.82rem;
   color: var(--muted);
   text-decoration: none;
-  padding: 5px 2px;
+  white-space: nowrap;
 }
 
 .tool-switcher-home:hover {
@@ -321,49 +318,112 @@ main {
   text-decoration: none;
 }
 
-.tool-switcher-control {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(220px, 460px);
-  align-items: center;
-  justify-content: start;
-  gap: 10px;
-  padding-left: 16px;
-  border-left: 1px solid var(--border);
+.tool-switcher-separator {
+  color: #a59e94;
 }
 
-.tool-switcher-caption {
+.tool-switcher-menu {
+  position: static;
+}
+
+.tool-switcher-menu summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--muted);
-  font-size: 0.76rem;
+  cursor: pointer;
+  list-style: none;
   white-space: nowrap;
 }
 
-.tool-switcher-label {
-  min-width: 0;
-  margin: 0;
+.tool-switcher-menu summary::-webkit-details-marker {
+  display: none;
 }
 
-.tool-switch-select {
-  width: 100%;
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: #fffdf9;
+.tool-switcher-menu summary:hover,
+.tool-switcher-menu summary:focus-visible {
   color: var(--text);
-  font-family: inherit;
-  font-size: 0.88rem;
-  cursor: pointer;
 }
 
-.tool-switch-select:hover {
-  border-color: #c8c0b4;
+.tool-switcher-menu summary:focus-visible {
+  outline: 2px solid rgba(var(--primary-rgb), 0.22);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
-.tool-switch-select:focus-visible {
-  border-color: rgba(var(--primary-rgb), 0.58);
-  outline: 2px solid rgba(var(--primary-rgb), 0.16);
-  outline-offset: 1px;
+.tool-switcher-chevron {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+  transition: transform 0.16s ease;
+}
+
+.tool-switcher-menu[open] .tool-switcher-chevron {
+  transform: rotate(180deg);
+}
+
+.tool-switcher-popover {
+  position: absolute;
+  z-index: 180;
+  top: calc(100% + 7px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(520px, 68vh);
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fffdf9;
+  box-shadow: 0 18px 45px rgba(26, 24, 20, 0.14);
+}
+
+.tool-switcher-group {
+  min-width: 0;
+  padding: 9px 10px 11px;
+}
+
+.tool-switcher-group-title {
+  display: block;
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.tool-switcher-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 6px;
+}
+
+.tool-switcher-list a {
+  min-width: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-switcher-list a:hover {
+  background: rgba(26, 24, 20, 0.055);
+  text-decoration: none;
+}
+
+.tool-switcher-list a[aria-current='page'] {
+  background: var(--primary-subtle);
+  color: var(--primary-hover);
+  font-weight: 600;
 }
 
 .tool-main {
@@ -2093,23 +2153,14 @@ body.json-page-full {
 }
 
 @media (max-width: 640px) {
-  .tool-switcher {
+  .tool-switcher-popover {
     grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 10px;
+    width: calc(100vw - 40px);
+    max-height: 64vh;
   }
 
-  .tool-switcher-control {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding-top: 8px;
-    padding-left: 0;
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  .tool-switch-select {
-    font-size: 1rem;
+  .tool-switcher-group + .tool-switcher-group {
+    border-top: 1px solid rgba(217, 210, 198, 0.72);
   }
 }
 

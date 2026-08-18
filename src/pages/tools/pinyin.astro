@@ -84,6 +84,55 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   .py-preview .img-meta {
     font-size: 0.95rem;
   }
+
+  /* 手机：不用原生 ruby（过小且挤），改成拼音在上、汉字在下的字卡 */
+  @media (max-width: 640px) {
+    .tool-panel textarea.tall-editor {
+      min-height: 110px;
+    }
+    .py-opts {
+      gap: 8px;
+    }
+    .py-opts label {
+      flex: 1 1 calc(50% - 8px);
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 0.92rem;
+    }
+    .btn-row .btn {
+      flex: 1 1 calc(50% - 8px);
+      min-height: 42px;
+    }
+    .py-preview {
+      min-height: 220px;
+      padding: 10px 6px 14px;
+      font-size: 2.35rem;
+      line-height: 1.45;
+    }
+    .py-preview ruby {
+      display: inline-flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      justify-content: flex-end;
+      vertical-align: top;
+      min-width: 2.8em;
+      margin: 6px 4px;
+      padding: 8px 6px 6px;
+      background: #fffef9;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .py-preview rt {
+      display: block;
+      font-size: 0.95rem;
+      line-height: 1.25;
+      margin-bottom: 4px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+  }
 </style>
 
 <script>

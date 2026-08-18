@@ -1382,8 +1382,10 @@ body.json-page-full {
 .hanzi-char-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: #fff;
@@ -1397,26 +1399,29 @@ body.json-page-full {
   box-shadow: 0 0 0 1px var(--primary);
 }
 
-.hanzi-char-chip em {
-  font-style: normal;
-  font-size: 0.9rem;
-  color: var(--muted);
-  padding: 0 2px;
-}
-
-.hanzi-char-chip em:hover {
-  color: #c0392b;
-}
-
 .hanzi-current {
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
   font-size: 1rem;
+}
+
+.hanzi-current-meta {
+  margin: 0;
 }
 
 .hanzi-current strong {
   font-size: 1.6rem;
   margin: 0 6px;
   color: var(--primary);
+}
+
+.hanzi-del-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 0.8rem;
 }
 
 .hanzi-dual {
@@ -1443,6 +1448,10 @@ body.json-page-full {
   padding: 8px;
   border: 2px solid var(--primary);
   border-radius: 4px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   background:
     linear-gradient(to right, transparent 49.5%, #d9d2c6 49.5%, #d9d2c6 50.5%, transparent 50.5%),
     linear-gradient(to bottom, transparent 49.5%, #d9d2c6 49.5%, #d9d2c6 50.5%, transparent 50.5%),
@@ -1463,6 +1472,12 @@ body.json-page-full {
   height: 100%;
 }
 
+.tianzi-target svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .hanzi-actions {
   justify-content: center;
   margin-top: 12px;
@@ -1473,7 +1488,7 @@ body.json-page-full {
   margin-top: 10px;
   font-size: 0.88rem;
   color: var(--muted);
-  min-height: 1.4em;
+  min-height: 2.6em;
 }
 
 .hanzi-empty {
@@ -1488,9 +1503,96 @@ body.json-page-full {
   line-height: 1.7;
 }
 
-@media (max-width: 768px) {
+/* 手机/窄屏：双框并排一屏内，生字横滑不撑高页面 */
+@media (max-width: 640px) {
+  html:has(.hanzi-dual) {
+    scroll-behavior: auto;
+  }
+
+  main:has(.hanzi-dual) {
+    padding: 12px 0 24px;
+  }
+
+  .tool-page:has(.hanzi-dual) h1 {
+    font-size: 1.25rem;
+    margin-bottom: 4px;
+  }
+
+  .tool-page:has(.hanzi-dual) .intro,
+  .hanzi-add-panel .field-hint,
+  .hanzi-tip {
+    display: none;
+  }
+
+  .hanzi-add-panel {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .hanzi-char-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 8px;
+    padding-bottom: 4px;
+  }
+
+  .hanzi-char-chip {
+    flex-shrink: 0;
+  }
+
+  .hanzi-practice-grid {
+    overflow-anchor: none;
+  }
+
+  .hanzi-current strong {
+    font-size: 1.3rem;
+  }
+
   .hanzi-dual {
-    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hanzi-box-panel h2 {
+    font-size: 0.88rem;
+    margin-bottom: 6px;
+  }
+
+  .tianzi-wrap {
+    width: 100%;
+    padding: 4px;
+  }
+
+  .hanzi-actions {
+    margin-top: 8px;
+    gap: 6px;
+  }
+
+  .hanzi-actions .btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
+  .hanzi-status {
+    margin-top: 6px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Pad 仍双栏，略收间距，避免 768 断点把格子拆成上下翻页 */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .hanzi-dual {
+    gap: 14px;
+  }
+
+  .tianzi-wrap {
+    width: min(100%, 260px);
+  }
+
+  .hanzi-char-chip {
+    min-width: 48px;
+    min-height: 48px;
   }
 }
 
@@ -2139,6 +2241,22 @@ body.json-page-full {
     grid-template-columns: 1fr;
   }
 
+  /* 窄屏不再锁死视口高度，避免输入/输出被压成一条缝 */
+  .json-workbench:not(.is-json-page-full) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .json-workbench:not(.is-json-page-full) .json-pane {
+    min-height: 280px;
+    max-height: none;
+  }
+
+  .json-pane-foot {
+    max-height: none;
+  }
+
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2148,7 +2266,7 @@ body.json-page-full {
   }
 
   .qr-preview {
-    min-height: 280px;
+    min-height: 220px;
   }
 }
 
@@ -2161,6 +2279,49 @@ body.json-page-full {
 
   .tool-switcher-group + .tool-switcher-group {
     border-top: 1px solid rgba(217, 210, 198, 0.72);
+  }
+
+  .btn {
+    min-height: 40px;
+  }
+
+  .tool-panel {
+    padding: 14px;
+  }
+
+  .tool-panel input[type='text'],
+  .tool-panel input[type='number'],
+  .tool-panel select,
+  .tool-panel textarea {
+    font-size: 16px;
+  }
+
+  .thumb-item {
+    overflow: visible;
+    margin: 6px 6px 0 0;
+  }
+
+  .thumb-del {
+    width: 28px;
+    height: 28px;
+    top: -8px;
+    right: -8px;
+    font-size: 16px;
+    line-height: 28px;
+  }
+
+  .annotate-toolbar .btn {
+    min-height: 40px;
+    flex: 1 1 auto;
+  }
+
+  .pdf-stepper button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .merge-options {
+    grid-template-columns: 1fr;
   }
 }
 

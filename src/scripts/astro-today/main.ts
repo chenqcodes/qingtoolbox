@@ -66,6 +66,10 @@ function refresh(lat: number, lon: number) {
 }
 
 export function bootAstroToday() {
+  // 手机首屏留给月相和结论卡，明细默认收起
+  if (window.matchMedia('(max-width: 640px)').matches) {
+    document.querySelector('.lab-details')?.removeAttribute('open');
+  }
   const latInput = $('astro-lat') as HTMLInputElement;
   const lonInput = $('astro-lon') as HTMLInputElement;
   latInput.value = String(DEFAULT_LAT);

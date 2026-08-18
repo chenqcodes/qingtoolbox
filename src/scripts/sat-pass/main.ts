@@ -20,6 +20,9 @@ function elHint(deg: number) {
 }
 
 export function bootSatPass() {
+  if (window.matchMedia('(max-width: 640px)').matches) {
+    document.querySelector('.lab-details')?.removeAttribute('open');
+  }
   const satrec = loadSatrec();
   const meta = tleMeta();
   $('sat-updated').textContent = meta.updated;

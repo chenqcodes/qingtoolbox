@@ -123,22 +123,34 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         border-width: 0 2px 2px 0;
       }
 
+      /* 触摸设备没有 hover，默认就清晰可点；桌面才做「未悬停变淡」 */
       .sp-muted {
-        opacity: 0.35;
-        filter: blur(0.6px);
+        opacity: 0.95;
+        filter: none;
         transition: opacity 0.35s var(--ease), filter 0.35s var(--ease);
       }
-      .sp-drawer:hover .sp-muted,
-      .sp-drawer:focus-within .sp-muted,
-      .sp-top:hover .sp-muted,
-      .sp-top:focus-within .sp-muted,
-      .sp-minimap-wrap:hover .sp-muted,
-      .sp-pick:hover .sp-muted,
-      .sp-pick.is-on .sp-muted,
       .sp-btn.is-on,
       .sp-readout {
         opacity: 0.95;
-        filter: blur(0);
+        filter: none;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .sp-muted {
+          opacity: 0.35;
+          filter: blur(0.6px);
+        }
+        .sp-drawer:hover .sp-muted,
+        .sp-drawer:focus-within .sp-muted,
+        .sp-top:hover .sp-muted,
+        .sp-top:focus-within .sp-muted,
+        .sp-minimap-wrap:hover .sp-muted,
+        .sp-pick:hover .sp-muted,
+        .sp-pick.is-on .sp-muted,
+        .sp-btn.is-on,
+        .sp-readout {
+          opacity: 0.95;
+          filter: blur(0);
+        }
       }
 
       .sp-zone {
@@ -601,19 +613,123 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         text-shadow: 0 0 10px var(--cyan-glow);
       }
 
-      @media (max-width: 760px) {
-        .sp-meta { display: none; }
-        .sp-rail { width: 100%; grid-template-columns: 1fr; max-height: 50vh; overflow-y: auto; }
-        .sp-drawer-left .sp-drawer-body { width: 72px; }
-        .sp-pick span { display: none; }
-        .sp-thumb, .sp-thumb-swatch { width: 28px; height: 28px; }
-        .sp-drawer-bottom { left: 8px; right: 8px; transform: translateX(0) translateY(0); }
-        .sp-drawer-bottom.is-collapsed { transform: translateX(0) translateY(calc(100% - var(--drawer-tab))); }
-        .sp-star-panel-grid { grid-template-columns: repeat(2, 1fr); }
-        .sp-minimap-wrap { width: 120px; top: 48px; right: 6px; }
-        #sp-minimap { height: 110px; }
-        .sp-readout { left: 34px; bottom: 36px; max-width: 55vw; }
-        .sp-speed { bottom: 36px; font-size: 0.58rem; }
+      @media (pointer: coarse) {
+        .sp-moon-chip { width: 22px; height: 22px; }
+        .sp-moon-dot { width: 14px; height: 14px; }
+        .sp-pick { padding: 4px; }
+        .sp-btn, .sp-seg button { min-height: 36px; }
+      }
+
+      @media (max-width: 640px) {
+        :root { --drawer-tab: 36px; }
+        body::after { display: none; }
+        .sp-meta,
+        .sp-btn-extra,
+        .sp-minimap-wrap,
+        .sp-field-epoch,
+        .sp-label-dist { display: none; }
+        .sp-top { padding: 8px 10px; }
+        .sp-title { font-size: 0.78rem; letter-spacing: 0.1em; }
+        .sp-btn { font-size: 0.72rem; padding: 8px 10px; }
+        .sp-label-name { font-size: 0.72rem; }
+
+        .sp-drawer-left {
+          top: 46px;
+          bottom: 36px;
+          height: auto;
+          transform: translateY(0) translateX(0);
+        }
+        .sp-drawer-left.is-collapsed {
+          transform: translateY(0) translateX(calc(-100% + var(--drawer-tab)));
+        }
+        .sp-drawer-left .sp-drawer-body {
+          width: min(240px, calc(100vw - 44px));
+        }
+        .sp-rail-split {
+          max-height: calc(100dvh - 90px);
+        }
+        .sp-rail,
+        #sp-rail-stars {
+          grid-template-columns: 1fr;
+          max-height: calc(100dvh - 170px);
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+        .sp-rail-modes button {
+          min-height: 36px;
+          font-size: 0.72rem;
+        }
+        .sp-pick,
+        .sp-star-pick {
+          flex-direction: row;
+          justify-content: flex-start;
+          gap: 8px;
+          min-height: 44px;
+          padding: 6px 8px;
+          width: 100%;
+        }
+        .sp-pick span,
+        .sp-pick span.sp-name,
+        .sp-star-pick .sp-name {
+          display: block;
+          font-size: 0.78rem;
+          max-width: none;
+        }
+        .sp-thumb,
+        .sp-thumb-swatch { width: 36px; height: 36px; }
+        .sp-cell { align-items: stretch; padding: 4px; }
+        .sp-moon-pack {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 4px;
+        }
+        .sp-moon-chip {
+          width: 100%;
+          height: 36px;
+          border-radius: 6px;
+          justify-content: flex-start;
+          gap: 8px;
+          padding: 0 8px;
+          transform: none;
+        }
+        .sp-moon-chip:hover,
+        .sp-moon-chip.is-on { transform: none; }
+        .sp-moon-dot { width: 16px; height: 16px; }
+        .sp-moon-chip::after {
+          content: attr(aria-label);
+          font-size: 0.72rem;
+          font-family: var(--font-m);
+        }
+
+        .sp-drawer-bottom {
+          left: 8px;
+          right: 8px;
+          max-width: none;
+          transform: translateX(0) translateY(0);
+        }
+        .sp-drawer-bottom.is-collapsed {
+          transform: translateX(0) translateY(calc(100% - var(--drawer-tab)));
+        }
+        .sp-dock {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          padding: 10px;
+          width: 100%;
+        }
+        .sp-seg { grid-column: 1 / -1; width: 100%; display: flex; }
+        .sp-seg button { flex: 1; min-height: 40px; font-size: 0.82rem; }
+        #sp-face-sun { grid-column: 1 / -1; min-height: 40px; }
+        .sp-field { min-height: 40px; font-size: 0.78rem; }
+        .sp-field select {
+          max-width: none;
+          flex: 1;
+          font-size: 16px;
+          min-height: 36px;
+        }
+        .sp-readout { left: 42px; bottom: 44px; max-width: 58vw; }
+        .sp-speed { bottom: 44px; right: 10px; font-size: 0.58rem; }
       }
     </style>
   </head>
@@ -627,9 +743,9 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         <div class="sp-top-btns">
           <button type="button" class="sp-btn sp-muted" id="sp-tour">自动游览</button>
           <button type="button" class="sp-btn sp-muted" id="sp-return-sol" style="display:none">返回太阳系</button>
-          <a class="sp-btn sp-muted" href="/tools/astro-today">今日星空</a>
-          <a class="sp-btn sp-muted" href="/tools/orbit-lab">轨道实验</a>
-          <a class="sp-btn sp-muted" href="/">返回</a>
+          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/astro-today">今日星空</a>
+          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/orbit-lab">轨道实验</a>
+          <a class="sp-btn sp-muted sp-btn-home" href="/">返回</a>
         </div>
       </header>
 
@@ -727,7 +843,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
             </select>
           </label>
           <label class="sp-field sp-muted"><input type="checkbox" id="sp-orbits" checked /> 轨道</label>
-          <label class="sp-field sp-muted">历元
+          <label class="sp-field sp-muted sp-field-epoch">历元
             <input type="datetime-local" id="sp-date" />
           </label>
         </div>

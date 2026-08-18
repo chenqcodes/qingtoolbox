@@ -22,8 +22,11 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   <div class="hanzi-practice-grid" id="hanzi-practice-area" hidden>
     <div class="hanzi-current">
-      正在练习：<strong id="hanzi-current-char">—</strong>
-      <span class="field-hint" id="hanzi-stroke-hint"></span>
+      <p class="hanzi-current-meta">
+        正在练习：<strong id="hanzi-current-char">—</strong>
+        <span class="field-hint" id="hanzi-stroke-hint"></span>
+      </p>
+      <button type="button" class="btn btn-secondary hanzi-del-btn" id="btn-del-current">删除此字</button>
     </div>
 
     <div class="hanzi-dual">
@@ -69,7 +72,6 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   import HanziWriter from 'hanzi-writer';
 
   const STORAGE_KEY = 'hanzi-learn-chars';
-  const GRID = 280;
 
   const inputEl = document.getElementById('hanzi-input') as HTMLInputElement;
   const listEl = document.getElementById('hanzi-char-list')!;
@@ -79,17 +81,25 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const strokeHintEl = document.getElementById('hanzi-stroke-hint')!;
   const statusEl = document.getElementById('hanzi-status')!;
   const demoWrap = document.getElementById('hanzi-demo-wrap')!;
+  const practiceWrap = document.getElementById('hanzi-practice-wrap')!;
   const demoEl = document.getElementById('hanzi-demo')!;
   const practiceEl = document.getElementById('hanzi-practice')!;
 
   let chars: string[] = [];
   let activeChar = '';
+  let lastGrid = 0;
   let demoWriter: HanziWriter | null = null;
   let practiceWriter: HanziWriter | null = null;
 
+  // 田字格随容器缩放，坐标与可视尺寸一致，避免手机上溢出或点不准
+  function gridPx() {
+    const w = Math.floor(demoWrap.clientWidth - 16);
+    return Math.max(96, w || 280);
+  }
+
   const baseOpts = {
-    width: GRID,
-    height: GRID,
+    width: 280,
+    height: 280,
     padding: 18,
     strokeColor: '#92400e',
     radicalColor: '#168F16',
@@ -124,11 +134,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `hanzi-char-chip${ch == activeChar ? ' active' : ''}`;
-      btn.innerHTML = `<span>${ch}</span><em aria-label="删除">×</em>`;
-      btn.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).tagName == 'EM') removeChar(ch);
-        else selectChar(ch);
-      });
+      btn.textContent = ch;
+      btn.addEventListener('click', () => selectChar(ch));
       listEl.appendChild(btn);
     });
     const hasChars = chars.length > 0;
@@ -151,29 +158,37 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     strokeHintEl.textContent = '';
     statusEl.textContent = '加载字形数据…';
     renderCharList();
-    destroyWriters();
 
-    demoWriter = HanziWriter.create(demoEl, ch, {
-      ...baseOpts,
-      showOutline: true,
-      showCharacter: true,
-      delayBetweenStrokes: 350,
-      strokeAnimationSpeed: 1,
-    });
+    requestAnimationFrame(() => {
+      if (activeChar != ch) return;
+      destroyWriters();
+      const size = gridPx();
+      lastGrid = size;
+      const opts = { ...baseOpts, width: size, height: size };
 
-    practiceWriter = HanziWriter.create(practiceEl, ch, {
-      ...baseOpts,
-      showOutline: true,
-      showCharacter: false,
-    });
+      demoWriter = HanziWriter.create(demoEl, ch, {
+        ...opts,
+        showOutline: true,
+        showCharacter: true,
+        delayBetweenStrokes: 350,
+        strokeAnimationSpeed: 1,
+      });
 
-    HanziWriter.loadCharacterData(ch).then((data) => {
-      const n = data?.strokes?.length || 0;
-      strokeHintEl.textContent = n ? `共 ${n} 笔` : '';
-      playDemo();
-      startQuiz();
-    }).catch(() => {
-      statusEl.textContent = '该字暂不支持，请换一个试试';
+      practiceWriter = HanziWriter.create(practiceEl, ch, {
+        ...opts,
+        showOutline: true,
+        showCharacter: false,
+      });
+
+      HanziWriter.loadCharacterData(ch).then((data) => {
+        if (activeChar != ch) return;
+        const n = data?.strokes?.length || 0;
+        strokeHintEl.textContent = n ? `共 ${n} 笔` : '';
+        playDemo();
+        startQuiz();
+      }).catch(() => {
+        if (activeChar == ch) statusEl.textContent = '该字暂不支持，请换一个试试';
+      });
     });
   }
 
@@ -249,6 +264,9 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   if (chars.length) selectChar(chars[0]);
 
   document.getElementById('btn-add-char')!.addEventListener('click', addChars);
+  document.getElementById('btn-del-current')!.addEventListener('click', () => {
+    if (activeChar) removeChar(activeChar);
+  });
   inputEl.addEventListener('keydown', (e) => {
     if (e.key == 'Enter') addChars();
   });
@@ -256,4 +274,17 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   document.getElementById('btn-replay')!.addEventListener('click', playDemo);
   document.getElementById('btn-loop')!.addEventListener('click', startLoop);
   document.getElementById('btn-reset-quiz')!.addEventListener('click', resetQuiz);
+
+  // 手写时禁止页面跟着手指滚，否则笔画会被拖走
+  const lockScroll = (e: TouchEvent) => e.preventDefault();
+  demoWrap.addEventListener('touchmove', lockScroll, { passive: false });
+  practiceWrap.addEventListener('touchmove', lockScroll, { passive: false });
+
+  // 只跟宽度走，忽略手机地址栏引起的高度抖动
+  window.addEventListener('resize', () => {
+    if (!activeChar) return;
+    const size = gridPx();
+    if (Math.abs(size - lastGrid) < 8) return;
+    selectChar(activeChar);
+  });
 </script>

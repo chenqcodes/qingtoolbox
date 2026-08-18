@@ -51,7 +51,7 @@
         border-radius: 10px;
         backdrop-filter: blur(10px);
       }
-      .bs-hud a, .bs-hud button {
+      .bs-hud a, .bs-hud button, .bs-more summary {
         font-family: var(--font-d);
         font-size: 0.82rem;
         color: var(--void);
@@ -62,11 +62,20 @@
         text-decoration: none;
         cursor: pointer;
       }
-      .bs-hud a.secondary, .bs-hud button.secondary {
+      .bs-hud a.secondary, .bs-hud button.secondary, .bs-more summary {
         background: transparent;
         color: var(--cyan);
         border: 1px solid var(--cyan-dim);
       }
+      .bs-more { display: contents; }
+      .bs-more summary {
+        list-style: none;
+        min-height: 36px;
+        display: none;
+        align-items: center;
+      }
+      .bs-more summary::-webkit-details-marker { display: none; }
+      .bs-more-panel { display: contents; }
       .bs-hud .brand {
         font-family: var(--font-m);
         font-size: 0.78rem;
@@ -82,6 +91,24 @@
       @media (max-width: 640px) {
         .bs-hud { top: 8px; left: 8px; right: 8px; max-width: none; }
         .bs-note { display: none; }
+        .bs-hud a, .bs-hud button, .bs-more summary { min-height: 36px; }
+        .bs-more { display: block; position: relative; margin-left: auto; }
+        .bs-more summary { display: flex; }
+        .bs-more-panel {
+          display: none;
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 168px;
+          padding: 8px;
+          background: var(--panel);
+          border: 1px solid var(--line);
+          border-radius: 8px;
+        }
+        .bs-more[open] .bs-more-panel { display: flex; }
+        .bs-more-panel a, .bs-more-panel button { width: 100%; text-align: left; }
       }
     </style>
   </head>
@@ -91,9 +118,14 @@
       <a class="secondary" href="/">返回工具箱</a>
       <a href="/vendor/building-sunlight/plan-start.html">规划配置</a>
       <button type="button" class="secondary" id="bs-reload-cache">加载缓存</button>
-      <button type="button" class="secondary" id="bs-download-cache">下载当前项目</button>
-      <button type="button" class="secondary" id="bs-copy-share">复制分享说明</button>
-      <a class="secondary" href="/vendor/building-sunlight/examples/sample.json" download>示例 JSON</a>
+      <details class="bs-more">
+        <summary>更多</summary>
+        <div class="bs-more-panel">
+          <button type="button" class="secondary" id="bs-download-cache">下载当前项目</button>
+          <button type="button" class="secondary" id="bs-copy-share">复制分享说明</button>
+          <a class="secondary" href="/vendor/building-sunlight/examples/sample.json" download>示例 JSON</a>
+        </div>
+      </details>
     </div>
     <p class="bs-note">
       主画面为日照模拟。规划支持「图片总平图」或「地图+设计图叠加」。导入与规划共用 JSON；投稿可发 tools@cqzzz.top。

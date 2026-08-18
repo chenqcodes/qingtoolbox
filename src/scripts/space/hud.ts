@@ -80,18 +80,21 @@ export class Hud {
     this.root.querySelectorAll('[data-goto]').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.onGoto((btn as HTMLElement).dataset.goto as BodyId);
+        this.collapseLeftOnPhone();
       });
     });
 
     this.root.querySelectorAll('[data-goto-star]').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.onGotoStar((btn as HTMLElement).dataset.gotoStar as StarId);
+        this.collapseLeftOnPhone();
       });
     });
 
     this.root.querySelectorAll('[data-goto-comet]').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.onGotoComet((btn as HTMLElement).dataset.gotoComet as CometId);
+        this.collapseLeftOnPhone();
       });
     });
 
@@ -99,13 +102,25 @@ export class Hud {
     this.q('#sp-face-sun')?.addEventListener('click', () => this.onFaceSun());
     this.q('#sp-return-sol')?.addEventListener('click', () => this.onReturnSol());
 
-    // 侧栏：默认展开，点标签折叠/展开
+    // 侧栏：默认展开，点标签折叠/展开；手机默认收起，避免挡住星图
     this.q('#sp-tab-left')?.addEventListener('click', () => {
-      this.q('#sp-drawer-left')?.classList.toggle('is-collapsed');
+      const left = this.q('#sp-drawer-left');
+      left?.classList.toggle('is-collapsed');
+      if (this.isPhone() && left && !left.classList.contains('is-collapsed')) {
+        this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
+      }
     });
     this.q('#sp-tab-bottom')?.addEventListener('click', () => {
-      this.q('#sp-drawer-bottom')?.classList.toggle('is-collapsed');
+      const bottom = this.q('#sp-drawer-bottom');
+      bottom?.classList.toggle('is-collapsed');
+      if (this.isPhone() && bottom && !bottom.classList.contains('is-collapsed')) {
+        this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+      }
     });
+    if (this.isPhone()) {
+      this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+      this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
+    }
 
     // 左侧：天体 / 星域切换
     this.root.querySelectorAll('[data-rail-mode]').forEach((btn) => {
@@ -124,6 +139,14 @@ export class Hud {
         }
       });
     });
+  }
+
+  private isPhone() {
+    return window.matchMedia('(max-width: 640px)').matches;
+  }
+
+  private collapseLeftOnPhone() {
+    if (this.isPhone()) this.q('#sp-drawer-left')?.classList.add('is-collapsed');
   }
 
   private q<T extends HTMLElement>(sel: string) {

@@ -45,6 +45,8 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
   controls.enableDamping = true;
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.85;
+  // 单指旋转时不要带动页面滚动
+  canvas.style.touchAction = 'none';
 
   scene.add(new THREE.AmbientLight(0xc8d8f0, 1.1));
   const key = new THREE.DirectionalLight(0xffffff, 1.35);

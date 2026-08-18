@@ -1507,59 +1507,17 @@ body.json-page-full {
   line-height: 1.7;
 }
 
-/* 手机：压掉页脚和说明，示范+练习挤进一屏 */
+/* 手机：示范+练习上下同屏；格子按 svh 算，避免容器查询把高度塌成 0 */
 @media (max-width: 640px) {
-  html:has(#hanzi-practice-area:not([hidden])) {
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  html:has(#hanzi-practice-area:not([hidden])) body {
-    min-height: 100dvh;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  html:has(#hanzi-practice-area:not([hidden])) .site-footer {
+  html:has(#hanzi-practice-area:not([hidden])) .site-header,
+  html:has(#hanzi-practice-area:not([hidden])) .site-footer,
+  .tool-page:has(#hanzi-practice-area:not([hidden])) .tool-switcher,
+  .tool-page:has(#hanzi-practice-area:not([hidden])) h1 {
     display: none;
   }
 
-  html:has(.hanzi-add-panel) .site-header {
-    padding: 6px 0;
-  }
-
-  html:has(.hanzi-add-panel) .logo {
-    font-size: 1rem;
-  }
-
-  html:has(.hanzi-add-panel) .nav a {
-    margin-left: 12px;
-    font-size: 0.82rem;
-  }
-
   main:has(.hanzi-dual) {
-    padding: 6px 0 8px;
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .tool-page:has(.hanzi-dual) {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .tool-page:has(.hanzi-dual) .tool-switcher {
-    margin-bottom: 4px;
-    min-height: 22px;
-  }
-
-  .tool-page:has(.hanzi-dual) h1 {
-    font-size: 1.05rem;
-    margin: 0 0 4px;
+    padding: 8px 0 12px;
   }
 
   .tool-page:has(.hanzi-dual) .intro,
@@ -1606,11 +1564,6 @@ body.json-page-full {
   }
 
   .hanzi-practice-grid {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
     overflow-anchor: none;
   }
 
@@ -1629,36 +1582,20 @@ body.json-page-full {
   }
 
   .hanzi-dual {
-    flex: 1;
-    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 6px;
-  }
-
-  .hanzi-box-panel {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
+    gap: 8px;
   }
 
   .hanzi-box-panel h2 {
-    font-size: 0.75rem;
-    margin: 0 0 2px;
+    font-size: 0.78rem;
+    margin: 0 0 4px;
     line-height: 1.2;
   }
 
-  .tianzi-slot {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    container-type: size;
-    display: grid;
-    place-items: center;
-  }
-
   .tianzi-wrap {
-    width: min(100cqw, 100cqh);
+    /* 16rem ≈ 顶栏生字区 + 两行标题按钮；svh 是地址栏收起前的可见高度 */
+    width: min(100%, calc((100svh - 16rem) / 2));
+    min-width: min(100%, 10.5rem);
     padding: 4px;
   }
 

@@ -97,8 +97,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   // 田字格随容器缩放，坐标与可视尺寸一致，避免手机上溢出或点不准
   function gridPx() {
-    const w = Math.floor(demoEl.clientWidth || demoWrap.clientWidth);
-    return Math.max(88, w || 280);
+    const w = Math.floor(demoWrap.clientWidth || demoEl.clientWidth);
+    return Math.max(140, w || 280);
   }
 
   const baseOpts = {

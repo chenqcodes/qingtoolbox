@@ -317,7 +317,7 @@ export function bootSpace() {
           }
         }
 
-        if (cam.scaleMode == 'solar') bodies.tick(t);
+        if (cam.scaleMode == 'solar') bodies.tick(t, state.simDate);
         else {
           stars.tick(t);
           stars.updateLink(cam.mode == 'travel' ? cam.travelDestStar : cam.starFocus);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { earthTextureSpinY } from './astronomy';
 
 /** 太阳：贴图 + 动画颗粒/边缘变暗 + 多层日冕 */
 export function createSunGroup(radius: number, map: THREE.Texture): {
@@ -263,7 +264,7 @@ export function createEarthGroup(
     normal: THREE.Texture;
     spec: THREE.Texture;
   },
-): { group: THREE.Group; update: (t: number, sunWorld: THREE.Vector3) => void } {
+): { group: THREE.Group; update: (t: number, sunWorld: THREE.Vector3, when: Date) => void } {
   const group = new THREE.Group();
 
   const uniforms = {
@@ -343,9 +344,11 @@ export function createEarthGroup(
   const earthWorld = new THREE.Vector3();
   return {
     group,
-    update(t, sunWorld) {
-      earth.rotation.y = t * 0.05;
-      clouds.rotation.y = t * 0.058;
+    update(_t, sunWorld, when) {
+      // 地表经度跟模拟时刻走，不能用动画 t 假转，否则昼夜和大陆对不上
+      const spin = earthTextureSpinY(when);
+      earth.rotation.y = spin;
+      clouds.rotation.y = spin + (when.getTime() / 86400000) * 0.017;
       // sunWorld / earthWorld 都是场景世界坐标（已扣 FO）
       group.getWorldPosition(earthWorld);
       sunDir.copy(sunWorld).sub(earthWorld);

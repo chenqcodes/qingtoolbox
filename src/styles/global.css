@@ -1441,6 +1441,10 @@ body.json-page-full {
   margin-bottom: 10px;
 }
 
+.tianzi-slot {
+  width: 100%;
+}
+
 .tianzi-wrap {
   width: min(100%, 300px);
   aspect-ratio: 1;
@@ -1503,29 +1507,84 @@ body.json-page-full {
   line-height: 1.7;
 }
 
-/* 手机/窄屏：上下排列、田字格尽量大，生字横滑不撑高页面 */
+/* 手机：压掉页脚和说明，示范+练习挤进一屏 */
 @media (max-width: 640px) {
-  html:has(.hanzi-dual) {
-    scroll-behavior: auto;
+  html:has(#hanzi-practice-area:not([hidden])) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  html:has(#hanzi-practice-area:not([hidden])) body {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  html:has(#hanzi-practice-area:not([hidden])) .site-footer {
+    display: none;
+  }
+
+  html:has(.hanzi-add-panel) .site-header {
+    padding: 6px 0;
+  }
+
+  html:has(.hanzi-add-panel) .logo {
+    font-size: 1rem;
+  }
+
+  html:has(.hanzi-add-panel) .nav a {
+    margin-left: 12px;
+    font-size: 0.82rem;
   }
 
   main:has(.hanzi-dual) {
-    padding: 12px 0 24px;
+    padding: 6px 0 8px;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tool-page:has(.hanzi-dual) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tool-page:has(.hanzi-dual) .tool-switcher {
+    margin-bottom: 4px;
+    min-height: 22px;
   }
 
   .tool-page:has(.hanzi-dual) h1 {
-    font-size: 1.25rem;
-    margin-bottom: 4px;
+    font-size: 1.05rem;
+    margin: 0 0 4px;
   }
 
   .tool-page:has(.hanzi-dual) .intro,
-  .hanzi-add-panel .field-hint {
+  .hanzi-add-panel .field-hint,
+  .hanzi-parent-tips,
+  .hanzi-tip {
     display: none;
   }
 
   .hanzi-add-panel {
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+
+  .hanzi-add-panel label {
+    display: none;
+  }
+
+  .hanzi-add-row {
+    margin-top: 0;
+    gap: 6px;
+  }
+
+  .hanzi-text-input {
+    padding: 8px 10px;
   }
 
   .hanzi-char-list {
@@ -1533,50 +1592,91 @@ body.json-page-full {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    margin-top: 8px;
-    padding-bottom: 4px;
+    margin-top: 6px;
+    padding-bottom: 2px;
+    gap: 6px;
   }
 
   .hanzi-char-chip {
     flex-shrink: 0;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 4px 10px;
+    font-size: 1.05rem;
   }
 
   .hanzi-practice-grid {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     overflow-anchor: none;
   }
 
+  .hanzi-current {
+    margin-bottom: 4px;
+  }
+
   .hanzi-current strong {
-    font-size: 1.3rem;
+    font-size: 1.15rem;
+  }
+
+  .hanzi-del-btn {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    min-height: 32px;
   }
 
   .hanzi-dual {
+    flex: 1;
+    min-height: 0;
     grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .hanzi-box-panel h2 {
-    font-size: 0.95rem;
-    margin-bottom: 6px;
-  }
-
-  .tianzi-wrap {
-    width: min(100%, 360px);
-    padding: 8px;
-  }
-
-  .hanzi-actions {
-    margin-top: 8px;
+    grid-template-rows: 1fr 1fr;
     gap: 6px;
   }
 
+  .hanzi-box-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hanzi-box-panel h2 {
+    font-size: 0.75rem;
+    margin: 0 0 2px;
+    line-height: 1.2;
+  }
+
+  .tianzi-slot {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    container-type: size;
+    display: grid;
+    place-items: center;
+  }
+
+  .tianzi-wrap {
+    width: min(100cqw, 100cqh);
+    padding: 4px;
+  }
+
+  .hanzi-actions {
+    margin-top: 4px;
+    gap: 4px;
+  }
+
   .hanzi-actions .btn {
-    padding: 6px 10px;
-    font-size: 0.78rem;
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
   }
 
   .hanzi-status {
-    margin-top: 6px;
-    font-size: 0.8rem;
+    margin-top: 2px;
+    min-height: 1.2em;
+    font-size: 0.72rem;
   }
 }
 
@@ -2322,6 +2422,20 @@ body.json-page-full {
 
   .merge-options {
     grid-template-columns: 1fr;
+  }
+
+  main.container-wide:has(.hanzi-dual) {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .tool-panel.hanzi-add-panel {
+    padding: 8px 10px;
+  }
+
+  .hanzi-actions .btn,
+  .hanzi-del-btn {
+    min-height: 28px;
   }
 }
 

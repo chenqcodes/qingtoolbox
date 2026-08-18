@@ -48,7 +48,7 @@ export interface BodyMeshes {
   mesh: THREE.Mesh | null;
 }
 
-type TickFn = (t: number, sunWorld: THREE.Vector3) => void;
+type TickFn = (t: number, sunWorld: THREE.Vector3, when?: Date) => void;
 
 export class BodySystem {
   root = new THREE.Group();
@@ -213,7 +213,7 @@ export class BodySystem {
         spec: this.tex.earthSpec,
       });
       group.add(earth.group);
-      this.ticks.push((t, sun) => earth.update(t, sun));
+      this.ticks.push((t, sun, when) => earth.update(t, sun, when ?? new Date()));
     } else if (def.id == 'moon') {
       mesh = new THREE.Mesh(
         new THREE.SphereGeometry(def.visualRadius, 96, 64),
@@ -314,9 +314,9 @@ export class BodySystem {
     return { group, mesh };
   }
 
-  tick(t: number) {
+  tick(t: number, when: Date) {
     this.syncSunLight();
-    for (const fn of this.ticks) fn(t, this.sunScene);
+    for (const fn of this.ticks) fn(t, this.sunScene, when);
   }
 
   updatePositions(when: Date, rebuildOrbits = false) {

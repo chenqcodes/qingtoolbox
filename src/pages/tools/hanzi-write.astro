@@ -33,8 +33,10 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       <div class="hanzi-box-panel">
         <h2>笔顺示范</h2>
         <p class="hanzi-tip">点击田字格，按笔画顺序播放</p>
-        <div class="tianzi-wrap hanzi-clickable" id="hanzi-demo-wrap" title="点击播放笔顺">
-          <div id="hanzi-demo" class="tianzi-target"></div>
+        <div class="tianzi-slot">
+          <div class="tianzi-wrap hanzi-clickable" id="hanzi-demo-wrap" title="点击播放笔顺">
+            <div id="hanzi-demo" class="tianzi-target"></div>
+          </div>
         </div>
         <div class="btn-row hanzi-actions">
           <button type="button" class="btn btn-secondary" id="btn-replay">再看一遍</button>
@@ -45,8 +47,10 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       <div class="hanzi-box-panel">
         <h2>跟写练习</h2>
         <p class="hanzi-tip">直接在格子里按笔顺描红，写错 2 次会高亮正确笔画</p>
-        <div class="tianzi-wrap" id="hanzi-practice-wrap">
-          <div id="hanzi-practice" class="tianzi-target"></div>
+        <div class="tianzi-slot">
+          <div class="tianzi-wrap" id="hanzi-practice-wrap">
+            <div id="hanzi-practice" class="tianzi-target"></div>
+          </div>
         </div>
         <div class="btn-row hanzi-actions">
           <button type="button" class="btn btn-secondary" id="btn-reset-quiz">重置</button>
@@ -93,8 +97,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   // 田字格随容器缩放，坐标与可视尺寸一致，避免手机上溢出或点不准
   function gridPx() {
-    const w = Math.floor(demoWrap.clientWidth - 16);
-    return Math.max(96, w || 280);
+    const w = Math.floor(demoEl.clientWidth || demoWrap.clientWidth);
+    return Math.max(88, w || 280);
   }
 
   const baseOpts = {
@@ -280,11 +284,14 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   demoWrap.addEventListener('touchmove', lockScroll, { passive: false });
   practiceWrap.addEventListener('touchmove', lockScroll, { passive: false });
 
-  // 只跟宽度走，忽略手机地址栏引起的高度抖动
-  window.addEventListener('resize', () => {
+  function maybeResizeGrid() {
     if (!activeChar) return;
     const size = gridPx();
     if (Math.abs(size - lastGrid) < 8) return;
     selectChar(activeChar);
-  });
+  }
+
+  const gridWatch = new ResizeObserver(maybeResizeGrid);
+  gridWatch.observe(demoWrap);
+  window.addEventListener('resize', maybeResizeGrid);
 </script>

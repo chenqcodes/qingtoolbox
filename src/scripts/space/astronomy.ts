@@ -1,4 +1,4 @@
-import { Body, HelioVector, JupiterMoons, MakeTime, type FlexibleDateTime } from 'astronomy-engine';
+import { Body, HelioVector, HOUR2RAD, JupiterMoons, MakeTime, SiderealTime, type FlexibleDateTime } from 'astronomy-engine';
 import { BODY_BY_ID, type BodyId } from './constants';
 
 const ASTRO_MAP: Record<string, Body> = {
@@ -32,6 +32,14 @@ export interface Vec3 {
 /** astronomy-engine 坐标系 → Three.js：x 不变，z→y（上），y→z（前） */
 export function toScene(v: { x: number; y: number; z: number }): Vec3 {
   return { x: v.x, y: v.z, z: -v.y };
+}
+
+/**
+ * 地球贴图绕场景 Y 的自转角（弧度），对齐当前历元的昼夜。
+ * Three.js 默认球面 u=0.5（格林尼治）在 +X；绕 Y 旋转 GAST 后，本初子午线朝向与 EQJ 一致。
+ */
+export function earthTextureSpinY(when: Date): number {
+  return SiderealTime(MakeTime(when)) * HOUR2RAD;
 }
 
 export function helioAu(astroName: string, when: FlexibleDateTime): Vec3 {
@@ -182,11 +190,14 @@ export function moonVisualPosition(when: Date): Vec3 {
   return bodyPosition('moon', 'Moon', when);
 }
 
-/** 自检：地球距日 + 各主要卫星在父星球体外 */
+/** 自检：地球距日 + 各主要卫星在父星球体外 + 地表自转角跟历元 */
 export function selfCheckEarthDistance(): boolean {
   const p = helioAu('Earth', new Date());
   const d = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
   if (!(d > 0.95 && d < 1.05)) return false;
+  // J2000 正午 GAST ≈ 18.70h → 约 4.89 rad，用来拦住又改回动画假转
+  const spin = earthTextureSpinY(new Date('2000-01-01T12:00:00Z'));
+  if (!(spin > 4.6 && spin < 5.2)) return false;
   return selfCheckSatellites(new Date());
 }
 

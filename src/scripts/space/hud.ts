@@ -102,25 +102,29 @@ export class Hud {
     this.q('#sp-face-sun')?.addEventListener('click', () => this.onFaceSun());
     this.q('#sp-return-sol')?.addEventListener('click', () => this.onReturnSol());
 
-    // 侧栏：默认展开，点标签折叠/展开；手机默认收起，避免挡住星图
-    this.q('#sp-tab-left')?.addEventListener('click', () => {
+    const toggleLeft = () => {
       const left = this.q('#sp-drawer-left');
       left?.classList.toggle('is-collapsed');
       if (this.isPhone() && left && !left.classList.contains('is-collapsed')) {
         this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
       }
-    });
+      this.syncLeftToggle();
+    };
+    this.q('#sp-tab-left')?.addEventListener('click', toggleLeft);
+    this.q('#sp-toggle-left')?.addEventListener('click', toggleLeft);
     this.q('#sp-tab-bottom')?.addEventListener('click', () => {
       const bottom = this.q('#sp-drawer-bottom');
       bottom?.classList.toggle('is-collapsed');
       if (this.isPhone() && bottom && !bottom.classList.contains('is-collapsed')) {
         this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+        this.syncLeftToggle();
       }
     });
     if (this.isPhone()) {
       this.q('#sp-drawer-left')?.classList.add('is-collapsed');
       this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
     }
+    this.syncLeftToggle();
 
     // 左侧：天体 / 星域切换
     this.root.querySelectorAll('[data-rail-mode]').forEach((btn) => {
@@ -146,7 +150,20 @@ export class Hud {
   }
 
   private collapseLeftOnPhone() {
-    if (this.isPhone()) this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+    if (this.isPhone()) {
+      this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+      this.syncLeftToggle();
+    }
+  }
+
+  private syncLeftToggle() {
+    const btn = this.q('#sp-toggle-left');
+    const left = this.q('#sp-drawer-left');
+    if (!btn || !left) return;
+    const closed = left.classList.contains('is-collapsed');
+    btn.textContent = closed ? '天体' : '收起';
+    btn.classList.toggle('is-on', !closed);
+    btn.setAttribute('aria-expanded', String(!closed));
   }
 
   private q<T extends HTMLElement>(sel: string) {

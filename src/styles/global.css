@@ -1503,7 +1503,7 @@ body.json-page-full {
   line-height: 1.7;
 }
 
-/* 手机/窄屏：双框并排一屏内，生字横滑不撑高页面 */
+/* 手机/窄屏：上下排列、田字格尽量大，生字横滑不撑高页面 */
 @media (max-width: 640px) {
   html:has(.hanzi-dual) {
     scroll-behavior: auto;
@@ -1519,8 +1519,7 @@ body.json-page-full {
   }
 
   .tool-page:has(.hanzi-dual) .intro,
-  .hanzi-add-panel .field-hint,
-  .hanzi-tip {
+  .hanzi-add-panel .field-hint {
     display: none;
   }
 
@@ -1551,17 +1550,18 @@ body.json-page-full {
   }
 
   .hanzi-dual {
-    gap: 8px;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .hanzi-box-panel h2 {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     margin-bottom: 6px;
   }
 
   .tianzi-wrap {
-    width: 100%;
-    padding: 4px;
+    width: min(100%, 360px);
+    padding: 8px;
   }
 
   .hanzi-actions {

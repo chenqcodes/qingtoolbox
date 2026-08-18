@@ -202,6 +202,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         color: var(--cyan-dim);
       }
       .sp-top-btns { display: flex; gap: 6px; }
+      #sp-toggle-left { display: none; }
       .sp-btn {
         border: 1px solid var(--line);
         background: rgba(0, 232, 255, 0.04);
@@ -222,13 +223,13 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         box-shadow: 0 0 16px rgba(0, 232, 255, 0.2);
       }
 
-      /* 左侧抽屉：默认展开，点标签折叠 */
+      /* 左侧抽屉：标签在右侧，收起后只留完整侧签可点 */
       .sp-drawer-left {
         position: absolute;
         left: 0; top: 50%;
         transform: translateY(-50%) translateX(0);
         transition: transform 0.4s var(--ease);
-        display: flex; align-items: stretch;
+        display: flex; flex-direction: row-reverse; align-items: stretch;
         z-index: 12;
       }
       .sp-drawer-left.is-collapsed {
@@ -632,18 +633,23 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         .sp-title { font-size: 0.78rem; letter-spacing: 0.1em; }
         .sp-btn { font-size: 0.72rem; padding: 8px 10px; }
         .sp-label-name { font-size: 0.72rem; }
+        #sp-toggle-left { display: inline-flex; align-items: center; }
 
+        .sp-drawer-left .sp-drawer-tab { display: none; }
         .sp-drawer-left {
-          top: 46px;
-          bottom: 36px;
+          top: 52px;
+          bottom: 44px;
+          left: 8px;
           height: auto;
-          transform: translateY(0) translateX(0);
+          flex-direction: column;
+          transform: none;
         }
         .sp-drawer-left.is-collapsed {
-          transform: translateY(0) translateX(calc(-100% + var(--drawer-tab)));
+          transform: translateX(calc(-100% - 20px));
+          pointer-events: none;
         }
         .sp-drawer-left .sp-drawer-body {
-          width: min(240px, calc(100vw - 44px));
+          width: min(260px, calc(100vw - 24px));
         }
         .sp-rail-split {
           max-height: calc(100dvh - 90px);
@@ -741,6 +747,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         <strong class="sp-title sp-muted">轻星图</strong>
         <div class="sp-meta sp-muted" id="sp-meta">SYS ONLINE</div>
         <div class="sp-top-btns">
+          <button type="button" class="sp-btn sp-muted" id="sp-toggle-left" aria-expanded="false">天体</button>
           <button type="button" class="sp-btn sp-muted" id="sp-tour">自动游览</button>
           <button type="button" class="sp-btn sp-muted" id="sp-return-sol" style="display:none">返回太阳系</button>
           <a class="sp-btn sp-muted sp-btn-extra" href="/tools/astro-today">今日星空</a>

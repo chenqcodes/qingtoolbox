@@ -39,3 +39,11 @@
 - https://celestrak.org/NORAD/documentation/gp-data-formats.php
 - https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE
 - https://www.nasa.gov/missions/station/spot-the-station-frequently-asked-questions/
+
+## 第二轮体验
+
+今晚以所选观测日期的当地中午至次日中午定义（夏令时切换可能为 23/25 小时），不是浏览器日期。目标 5 分钟采样寻找太阳 ≤−6° 且高度 ≥10° 的连续时段，变号边界细化至约 1 秒；极短时段可能漏过。最高点按一分钟采样挑选，以其前后最多各 30 分钟给出建议，图上同时展示不满足条件的时段。建议只比较高度，不宣称综合天气、月光或光污染的最佳观测体验。
+
+ISS 卡片显示可见窗口或几何全程的开始、结束方向与持续时间；整次几何过境的最高高度明确标注。倒计时在窗口内显示剩余时间，过期转为等待重算，不显示负数。1 分钟刷新预测，1 秒刷新倒计时；数据新鲜度在折叠区外可见。轨迹以青色标出可能可见部分，灰色标出其余部分，支持暂停和系统减少动态效果偏好。
+
+额外浏览器验收规格在 `tests/browser/astronomy-experience.spec.ts`：移动端选日/时区/月相/目标，卡片键盘操作、倒计时、暂停与新鲜度，陈旧 TLE 即使伪造新抓取时间也不生成建议。这些规格已编写，当前受限制环境未执行，不作为完成的视觉验收证明。

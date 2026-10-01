@@ -1,0 +1,30 @@
+{
+  "PropertyTable": {
+    "Properties": [
+      {
+        "CID": 962,
+        "MolecularFormula": "H2O",
+        "Charge": 0,
+        "HeavyAtomCount": 1
+      },
+      {
+        "CID": 2519,
+        "MolecularFormula": "C8H10N4O2",
+        "Charge": 0,
+        "HeavyAtomCount": 14
+      },
+      {
+        "CID": 681,
+        "MolecularFormula": "C8H11NO2",
+        "Charge": 0,
+        "HeavyAtomCount": 11
+      },
+      {
+        "CID": 5202,
+        "MolecularFormula": "C10H12N2O",
+        "Charge": 0,
+        "HeavyAtomCount": 13
+      }
+    ]
+  }
+}

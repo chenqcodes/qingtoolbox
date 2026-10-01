@@ -262,14 +262,14 @@ export function describeFocus(_cam: CameraController, distAu: number, name: stri
     distAu < 0.01
       ? `${(km / 1000).toFixed(0)} 千km`
       : `${distAu.toFixed(3)} AU · ${lightMin < 60 ? lightMin.toFixed(1) + ' 光分' : (lightMin / 60).toFixed(2) + ' 光时'}`;
-  return `${name}  ·  ${distText}`;
+  return `${name}  ·  镜头至显示目标 ${distText}`;
 }
 
 export function describeStarFocus(distLy: number, id: StarId): string {
   const def = STAR_BY_ID[id];
   const fromSol = def.distLy;
   if (id == 'sol') return `${def.nameZh}  ·  原点 · 参考环 5 / 10 / 25 ly`;
-  return `${def.nameZh}  ·  近距 ${distLy.toFixed(2)} ly  ·  距太阳 ${fromSol.toFixed(2)} ly · ${def.spectral}`;
+  return `${def.nameZh}  ·  镜头 ${distLy.toFixed(2)} ly  ·  距太阳 ${fromSol.toFixed(2)} ly · ${def.spectral}`;
 }
 
 export { formatSpeed, TIME_PRESETS, SPEED_PRESETS };

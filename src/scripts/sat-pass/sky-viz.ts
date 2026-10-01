@@ -6,6 +6,7 @@ export type SkyVizState = {
   passIndex: number;
   emptyMessage?: string;
   timeZone?: string;
+  paused?: boolean;
 };
 
 export function samplePassTrack(
@@ -22,6 +23,7 @@ export function samplePassTrack(
     const s = lookAt(satrec, new Date(t), lat, lon);
     if (s && s.elevation >= -2) out.push({ ...s, likelyVisible: visibilityAt(satrec, s.time, lat, lon).likelyVisible });
   }
+  if (!out.length || +out[out.length - 1].time < t1) { const s = lookAt(satrec, new Date(t1), lat, lon); if (s) out.push({ ...s, likelyVisible: visibilityAt(satrec, s.time, lat, lon).likelyVisible }); }
   return out;
 }
 
@@ -115,19 +117,19 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
   const track = state.track;
 
   if (track.length >= 2) {
-    ctx.strokeStyle = 'rgba(0,232,255,0.85)';
-    ctx.lineWidth = 2.5;
-    ctx.shadowColor = '#00e8ff';
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    const p0 = azElToXY(track[0].azimuth, track[0].elevation, cx, cy, R);
-    ctx.moveTo(p0.x, p0.y);
+    ctx.lineWidth = 2.5 * dpr;
     for (let i = 1; i < track.length; i++) {
-      const p = azElToXY(track[i].azimuth, track[i].elevation, cx, cy, R);
-      ctx.lineTo(p.x, p.y);
+      const a = azElToXY(track[i - 1].azimuth, track[i - 1].elevation, cx, cy, R);
+      const b = azElToXY(track[i].azimuth, track[i].elevation, cx, cy, R);
+      ctx.strokeStyle = track[i].likelyVisible ? '#00e8ff' : '#6f8191';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffc857'; ctx.font = `${10 * dpr}px sans-serif`;
+    for (const [sample, label] of [[track[0], '起'], [track[track.length - 1], '终']] as const) {
+      const point = azElToXY(sample.azimuth, sample.elevation, cx, cy, R);
+      ctx.beginPath(); ctx.arc(point.x, point.y, 3 * dpr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText(label, point.x + 5 * dpr, point.y - 5 * dpr);
+    }
 
     const cycle = 6000;
     const u = (timeMs % cycle) / cycle;
@@ -184,8 +186,8 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
 export function startSkyAnim(canvas: HTMLCanvasElement, getState: () => SkyVizState) {
   let raf = 0;
   const frame = (t: number) => {
-    drawSkyDome(canvas, getState(), t);
-    if (!document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) raf = requestAnimationFrame(frame);
+    drawSkyDome(canvas, getState(), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 3000 : t);
+    if (!getState().paused && !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) raf = requestAnimationFrame(frame);
   };
   const resume = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); };
   document.addEventListener('visibilitychange', resume);

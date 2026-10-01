@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ELEMENT_COLOR, ELEMENT_RADIUS, type Molecule } from './presets';
+import { ELEMENT_COLOR, ELEMENT_RADIUS, displayedAtomIndices, type Molecule } from './presets';
 
+export type RenderStyle = 'ball-stick' | 'space-fill' | 'sticks';
 export type MolScene = {
   renderer: THREE.WebGLRenderer;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   root: THREE.Group;
-  setMolecule: (mol: Molecule, showPairs: boolean) => void;
+  setMolecule: (mol: Molecule, showPairs: boolean, showHydrogen?: boolean, style?: RenderStyle) => void;
+  setSelection: (indices: number[]) => void;
+  resetView: () => void;
   setAutoSpin: (on: boolean) => void;
   dispose: () => void;
 };
@@ -29,7 +32,7 @@ function addStarfield(scene: THREE.Scene) {
   scene.add(new THREE.Points(geo, mat));
 }
 
-export function createMolScene(canvas: HTMLCanvasElement): MolScene {
+export function createMolScene(canvas: HTMLCanvasElement, onPick: (index: number) => void = () => {}): MolScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(0x0c1424, 1);
@@ -81,7 +84,8 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
   };
   tick();
 
-  const setMolecule = (mol: Molecule, showPairs: boolean) => {
+  let resetView = () => {};
+  const setMolecule = (mol: Molecule, showPairs: boolean, showHydrogen = true, style: RenderStyle = 'ball-stick') => {
     while (root.children.length) {
       const ch = root.children[0];
       root.remove(ch);
@@ -100,48 +104,48 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
     // 统一坐标尺度，靠相机距离适配画布，避免大分子溢出
     const scale = 1;
 
-    for (const atom of mol.atoms) {
-      const geo = new THREE.SphereGeometry(ELEMENT_RADIUS[atom.el] * scale, 28, 22);
+    const visible = new Set(displayedAtomIndices(mol, showHydrogen));
+    for (const [index, atom] of mol.atoms.entries()) {
+      if (!visible.has(index)) continue;
+      const radiusScale = style === 'space-fill' ? 2.7 : style === 'sticks' ? 0.35 : 1;
+      const geo = new THREE.SphereGeometry(ELEMENT_RADIUS[atom.el] * scale * radiusScale, 24, 18);
       const mat = new THREE.MeshStandardMaterial({
-        color: ELEMENT_COLOR[atom.el],
+        color: atom.color ?? ELEMENT_COLOR[atom.el],
         roughness: 0.28,
         metalness: 0.22,
-        emissive: ELEMENT_COLOR[atom.el],
+        emissive: atom.color ?? ELEMENT_COLOR[atom.el],
         emissiveIntensity: 0.08,
       });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(atom.x * scale, atom.y * scale, atom.z * scale);
+      mesh.userData.atomIndex = index;
       root.add(mesh);
     }
 
-    for (const bond of mol.bonds) {
+    if (style !== 'space-fill') for (const bond of mol.bonds) {
+      if (!visible.has(bond.a) || !visible.has(bond.b)) continue;
       const A = mol.atoms[bond.a];
       const B = mol.atoms[bond.b];
-      const isPair = mol.id == 'dna' && A.el == 'N' && B.el == 'N';
+      const isPair = bond.kind === 'pair';
       if (isPair && !showPairs) continue;
-
-      const start = new THREE.Vector3(A.x * scale, A.y * scale, A.z * scale);
-      const end = new THREE.Vector3(B.x * scale, B.y * scale, B.z * scale);
+      const start = new THREE.Vector3(A.x, A.y, A.z);
+      const end = new THREE.Vector3(B.x, B.y, B.z);
       const dir = end.clone().sub(start);
       const len = dir.length();
       if (len < 1e-6) continue;
-      const geo = new THREE.CylinderGeometry(
-        (isPair ? 0.05 : 0.09) * scale,
-        (isPair ? 0.05 : 0.09) * scale,
-        len,
-        10,
-      );
-      const mat = new THREE.MeshStandardMaterial({
-        color: isPair ? 0xffc857 : 0x99bbdd,
-        roughness: 0.35,
-        metalness: 0.1,
-        emissive: isPair ? 0xffc857 : 0x4488aa,
-        emissiveIntensity: 0.06,
-      });
-      const stick = new THREE.Mesh(geo, mat);
-      stick.position.copy(start).add(end).multiplyScalar(0.5);
-      stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-      root.add(stick);
+      const normalized = dir.clone().normalize();
+      const axis = Math.abs(normalized.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+      const perpendicular = normalized.clone().cross(axis).normalize();
+      const order = mol.modelKind === 'schematic' ? 1 : bond.order ?? 1;
+      for (let line = 0; line < order; line++) {
+        const radius = isPair ? 0.045 : order > 1 ? 0.055 : 0.075;
+        const geo = new THREE.CylinderGeometry(radius, radius, len, 10);
+        const mat = new THREE.MeshStandardMaterial({ color: isPair ? 0xffc857 : 0x99bbdd, roughness: 0.35, metalness: 0.1 });
+        const stick = new THREE.Mesh(geo, mat);
+        stick.position.copy(start).add(end).multiplyScalar(0.5).addScaledVector(perpendicular, (line - (order - 1) / 2) * 0.17);
+        stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normalized);
+        root.add(stick);
+      }
     }
 
     const box = new THREE.Box3().setFromObject(root);
@@ -154,23 +158,52 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
     const fitH = maxDim / (2 * Math.tan((camera.fov * Math.PI) / 360));
     const fitW = fitH / Math.max(camera.aspect, 0.2);
     const dist = Math.max(fitH, fitW) * 1.55;
-    camera.position.set(dist * 0.72, dist * 0.42, dist * 0.95);
-    controls.minDistance = dist * 0.35;
-    controls.maxDistance = dist * 6;
-    controls.update();
+    resetView = () => {
+      camera.position.set(dist * 0.72, dist * 0.42, dist * 0.95);
+      controls.target.set(0, 0, 0);
+      controls.minDistance = dist * 0.35;
+      controls.maxDistance = dist * 6;
+      controls.update();
+    };
+    resetView();
   };
 
+  const raycaster = new THREE.Raycaster();
+  let pointerStart = { x: 0, y: 0 };
+  const pointerDown = (event: PointerEvent) => { pointerStart = { x: event.clientX, y: event.clientY }; };
+  const pointerUp = (event: PointerEvent) => {
+    if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) return;
+    const rect = canvas.getBoundingClientRect();
+    raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
+    const hit = raycaster.intersectObjects(root.children).find((item) => Number.isInteger(item.object.userData.atomIndex));
+    if (hit) onPick(hit.object.userData.atomIndex);
+  };
+  canvas.addEventListener('pointerdown', pointerDown);
+  canvas.addEventListener('pointerup', pointerUp);
   return {
     renderer,
     camera,
     controls,
     root,
     setMolecule,
+    resetView: () => resetView(),
+    setSelection: (indices) => {
+      const selected = new Set(indices);
+      root.children.forEach((child) => {
+        if (Number.isInteger(child.userData.atomIndex)) {
+          const material = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          material.emissiveIntensity = selected.has(child.userData.atomIndex) ? 0.8 : 0.08;
+          child.scale.setScalar(selected.has(child.userData.atomIndex) ? 1.12 : 1);
+        }
+      });
+    },
     setAutoSpin: (on) => {
       controls.autoRotate = on;
     },
     dispose: () => {
       cancelAnimationFrame(raf);
+      canvas.removeEventListener('pointerdown', pointerDown);
+      canvas.removeEventListener('pointerup', pointerUp);
       window.removeEventListener('resize', resize);
       controls.dispose();
       scene.traverse((object) => {

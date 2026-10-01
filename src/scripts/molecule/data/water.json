@@ -1,0 +1,23 @@
+{
+  "id": "water",
+  "name": "水",
+  "formula": "H2O",
+  "cid": 962,
+  "charge": 0,
+  "atomCount": 3,
+  "heavyAtomCount": 1,
+  "hydrogenCount": 2,
+  "omittedHydrogenCount": 0,
+  "bondCount": 2,
+  "elementCounts": {"O":1,"H":2},
+  "source": {"name":"PubChem","url":"https://pubchem.ncbi.nlm.nih.gov/compound/962","recordUrl":"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/962/record/JSON?record_type=3d","retrievedAt":"2026-10-01","conformerId":"000003C200000001","coordinateType":"computed-3d","coordinateUnits":"angstrom","sha256":"dbf27360f038ab06716c1681ee2496c94fdfb7ee3237c14955221fca3f6e881d"},
+  "atoms": [
+    {"aid":1,"el":"O","x":0,"y":0,"z":0},
+    {"aid":2,"el":"H","x":0.2774,"y":0.8929,"z":0.2544},
+    {"aid":3,"el":"H","x":0.6068,"y":-0.2383,"z":-0.7169}
+  ],
+  "bonds": [
+    {"a":0,"b":1,"order":1},
+    {"a":0,"b":2,"order":1}
+  ]
+}

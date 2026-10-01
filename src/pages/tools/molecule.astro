@@ -5,7 +5,7 @@ import '../../styles/lab-hud.css';
 
 <ToolLayout
   title="分子视界 · 3D 球棍与 DNA 螺旋"
-  description="浏览器本地浏览水、简化咖啡因与 DNA 双螺旋球棍模型，可旋转与切换碱基对显示。"
+  description="基于 PubChem 计算构象浏览水、咖啡因、多巴胺与 5-羟色胺，点选原子、比较官能团，另含明确标注的 DNA 双螺旋教学示意。"
   currentSlug="molecule"
 >
   <h1 slot="header">分子视界</h1>
@@ -27,17 +27,29 @@ import '../../styles/lab-hud.css';
     <div class="lab-controls">
       <label>分子
         <select id="mol-select">
-          <option value="dna">DNA 双螺旋</option>
+          <option value="dna">DNA 双螺旋示意</option>
           <option value="dopamine">多巴胺</option>
           <option value="serotonin">5-羟色胺</option>
-          <option value="caffeine">咖啡因（简化）</option>
+          <option value="caffeine">咖啡因</option>
           <option value="water">水 H₂O</option>
         </select>
       </label>
+      <label>呈现方式<select id="mol-style"><option value="ball-stick">球棍 · 看键级</option><option value="space-fill">填充 · 示意半径</option><option value="sticks">细棍 · 看骨架</option></select></label>
+      <label id="mol-hydrogen-wrap"><span>氢原子</span><span><input id="mol-hydrogen" type="checkbox" checked /> 显示全部 H</span></label>
+      <button type="button" class="lab-btn secondary" id="mol-reset">重置视角</button>
       <button type="button" class="lab-btn secondary" id="mol-pairs">隐藏碱基对</button>
       <button type="button" class="lab-btn" id="mol-tour">暂停巡游</button>
     </div>
-    <p class="lab-note">色例：C 灰 · H 白 · O 红 · N 蓝 · P 橙</p>
+    <p class="lab-note" id="mol-legend"></p>
+    <p class="lab-story" id="mol-guide"></p>
+    <div class="lab-controls">
+      <label>查看原子 / 节点<select id="mol-atom"></select></label>
+      <label>高亮一组<select id="mol-group"></select></label>
+    </div>
+    <p id="mol-inspect" class="lab-note mol-inspect" role="status">选择节点查看说明</p>
+    <div class="mol-compare"><span>引导比较 · 氧都一样吗？</span><button type="button" class="lab-btn secondary" data-mol-compare="dopamine">多巴胺：2 个羟基</button><button type="button" class="lab-btn secondary" data-mol-compare="serotonin">5-羟色胺：1 个羟基</button><button type="button" class="lab-btn secondary" data-mol-compare="caffeine">咖啡因：2 个羰基</button></div>
+    <p class="lab-note"><a id="mol-source" href="https://pubchem.ncbi.nlm.nih.gov/" target="_blank" rel="noopener noreferrer" hidden>PubChem 来源</a></p>
+    <details class="lab-details"><summary>模型来源与边界</summary><p class="lab-note">四种小分子来自 NCBI PubChem 3D 记录（2026-10-01 核验），保留原子、连接和键级。它们是计算得到的一种构象，不是实验测定结构，也不是动态模拟。完整氢原子可隐藏，但总数保持不变。芳香环采用一种交替单双键表示。DNA 由程序生成，只说明双螺旋与互补配对；不要把基团节点当成单个原子。</p><p class="lab-note">PubChem 数据由多个来源汇集；本页使用其计算结构记录。使用与再分发请参考 <a href="https://pubchem.ncbi.nlm.nih.gov/docs/about" target="_blank" rel="noopener noreferrer">PubChem 说明</a> 与 <a href="https://www.ncbi.nlm.nih.gov/home/about/policies/" target="_blank" rel="noopener noreferrer">NCBI 数据政策</a>。</p></details>
   </div>
 
   <div class="lab-related">
@@ -52,3 +64,13 @@ import '../../styles/lab-hud.css';
   import { bootMolecule } from '../../scripts/molecule/main';
   bootMolecule();
 </script>
+
+<style>
+  [hidden] { display: none !important; }
+  .mol-inspect { min-height: 4em; line-height: 1.7; }
+  .mol-compare { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 1rem; }
+  .mol-compare span { width: 100%; font-size: 0.85rem; }
+  .lab-hud a { color: #7fdcff; }
+  .lab-hud select { max-width: 100%; }
+  .lab-hud :focus-visible { outline: 2px solid #ffc857; outline-offset: 3px; }
+</style>

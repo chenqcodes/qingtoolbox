@@ -1,13 +1,6 @@
 import type { Atom, Bond, Molecule } from './presets';
-
-const BASE_COLOR: Record<string, number> = {
-  A: 0xff5555,
-  T: 0x55ff88,
-  G: 0xffaa33,
-  C: 0x5599ff,
-};
-
-/** 生成双螺旋骨架分子（球棍） */
+const BASE_COLOR: Record<string, number> = { A: 0xff6666, T: 0x55dd88, G: 0xffbb44, C: 0x5599ff };
+/** Stylized group-level helix. It is deliberately NOT an atomic DNA model. */
 export function buildDna(pairs = 16): Molecule {
   const atoms: Atom[] = [];
   const bonds: Bond[] = [];
@@ -15,79 +8,25 @@ export function buildDna(pairs = 16): Molecule {
   const r = 2.2;
   const rise = 0.34 * 3.2;
   const twist = (Math.PI * 2) / 10.5;
-
   for (let i = 0; i < pairs; i++) {
     const a = i * twist;
-    const y = (i - pairs / 2) * rise;
-    const b1 = bases[i % 4];
-    const b2 = b1 == 'A' ? 'T' : b1 == 'T' ? 'A' : b1 == 'G' ? 'C' : 'G';
-
-    // 糖磷酸骨架点（用 P / C 近似）
-    const p1 = atoms.length;
-    atoms.push({ el: 'P', x: r * Math.cos(a), y, z: r * Math.sin(a) });
-    const c1 = atoms.length;
-    atoms.push({
-      el: 'C',
-      x: (r - 0.7) * Math.cos(a),
-      y,
-      z: (r - 0.7) * Math.sin(a),
-    });
-    // 碱基用 N 表示并靠颜色区分（存在 el 上通过注释；简化全用 N，颜色在 scene 里按 index 覆盖）
-    const base1 = atoms.length;
-    atoms.push({
-      el: 'N',
-      x: (r - 1.4) * Math.cos(a),
-      y,
-      z: (r - 1.4) * Math.sin(a),
-    });
-
-    const p2 = atoms.length;
-    atoms.push({
-      el: 'P',
-      x: r * Math.cos(a + Math.PI),
-      y,
-      z: r * Math.sin(a + Math.PI),
-    });
-    const c2 = atoms.length;
-    atoms.push({
-      el: 'C',
-      x: (r - 0.7) * Math.cos(a + Math.PI),
-      y,
-      z: (r - 0.7) * Math.sin(a + Math.PI),
-    });
-    const base2 = atoms.length;
-    atoms.push({
-      el: 'N',
-      x: (r - 1.4) * Math.cos(a + Math.PI),
-      y,
-      z: (r - 1.4) * Math.sin(a + Math.PI),
-    });
-
-    bonds.push({ a: p1, b: c1 }, { a: c1, b: base1 });
-    bonds.push({ a: p2, b: c2 }, { a: c2, b: base2 });
-    // 碱基对
-    bonds.push({ a: base1, b: base2 });
-
-    if (i > 0) {
-      const prevP1 = p1 - 6;
-      const prevP2 = p2 - 6;
-      bonds.push({ a: prevP1, b: p1 }, { a: prevP2, b: p2 });
+    const y = (i - (pairs - 1) / 2) * rise;
+    const base = bases[i % 4];
+    const complement = base === 'A' ? 'T' : base === 'T' ? 'A' : base === 'G' ? 'C' : 'G';
+    for (let side = 0; side < 2; side++) {
+      const angle = a + side * Math.PI;
+      const b = side === 0 ? base : complement;
+      const start = atoms.length;
+      const node = (el: Atom['el'], radius: number, kind: Atom['kind'], label: string, color?: number): Atom => ({ el, x: radius * Math.cos(angle), y, z: radius * Math.sin(angle), kind, label: `第 ${i + 1} 对 · 链 ${side + 1} · ${label}`, color });
+      atoms.push(node('P', r, 'phosphate', '磷酸基团'), node('C', r - 0.7, 'sugar', '脱氧核糖'), node('N', r - 1.4, 'base', `碱基 ${b}`, BASE_COLOR[b]));
+      bonds.push({ a: start, b: start + 1, kind: 'backbone' }, { a: start + 1, b: start + 2, kind: 'backbone' });
+      if (i > 0) bonds.push({ a: start - 6, b: start, kind: 'backbone' });
     }
-
-    // 挂载碱基色到原子：滥用，scene 可读 BASE_COLOR via userdata — 这里把颜色存在 z 额外通道不合适
-    void BASE_COLOR;
-    void b2;
+    bonds.push({ a: i * 6 + 2, b: i * 6 + 5, kind: 'pair' });
   }
-
-  return {
-    id: 'dna',
-    name: `DNA 双螺旋（${pairs} bp）`,
-    atoms,
-    bonds,
-  };
+  return { id: 'dna', name: `DNA 双螺旋示意（${pairs} bp）`, modelKind: 'schematic', atoms, bonds };
 }
-
 export function dnaChainCounts(mol: Molecule) {
-  const p = mol.atoms.filter((a) => a.el == 'P').length;
+  const p = mol.atoms.filter((atom) => atom.kind === 'phosphate').length;
   return { phosphates: p, half: p / 2 };
 }

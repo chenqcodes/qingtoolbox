@@ -57,3 +57,13 @@ test('checksum-valid but malformed orbital fields and decayed states are rejecte
   assert.throws(() => validateTle(withField(26, 33, '       ')), /参数/);
   assert.throws(() => validateTle(withField(52, 63, '18.00000000')), /轨道/);
 });
+
+test('countdown switches to remaining time and never counts down to an expired window', async () => {
+  const { countdownText } = await import('./countdown');
+  const pass = findPasses(loadSatrec(bundledTle), 39.9, 116.4, when).find(p => p.visible.length)!;
+  const window = pass.visible[0];
+  assert.match(countdownText(pass, new Date(+window.start - 60000), true), /距离开始 1分 00秒/);
+  assert.match(countdownText(pass, new Date(+window.start + 1000), true), /进行中/);
+  assert.match(countdownText(pass, new Date(+window.end + 1000), true), /已结束/);
+  assert.match(countdownText(undefined, when, true), /暂无/);
+});

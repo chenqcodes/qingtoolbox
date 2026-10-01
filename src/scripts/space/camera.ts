@@ -25,6 +25,7 @@ export class CameraController {
   scaleMode: ScaleMode = 'solar';
   currentSpeedAu = 0;
   touring = false;
+  reducedMotion = false;
   travelTrail: TravelTrail | null = null;
   /** 跃迁目标（飞行过程中 focus 不变，避免逻辑错乱） */
   travelDestId: BodyId = 'earth';
@@ -365,6 +366,107 @@ export class CameraController {
     if (m == 'fly') this.syncFlyAngles();
   }
 
+  /** Accessible instant navigation also provides a reliable escape from any flight. */
+  private stopNavigation() {
+    this.stopTour();
+    this.stopEntryOrbit();
+    this.crossPhase = null;
+    this.pendingStar = null;
+    this.returningToSol = false;
+    this.travelDone = null;
+    this.travelTrail = null;
+    this.faceSunHold = false;
+    this.keys.clear();
+    this.mode = 'observe';
+    this.orbit.enabled = true;
+    this.resetFov();
+  }
+
+  setReducedMotion(enabled: boolean) {
+    this.reducedMotion = enabled;
+    this.orbit.enableDamping = !enabled;
+    if (enabled) this.resetView();
+  }
+
+  jumpToBody(id: BodyId) {
+    this.stopNavigation();
+    this.scaleMode = 'solar';
+    applyScaleVisibility('solar', this.bodies, this.stars);
+    this.comets.setRootVisible(true);
+    this.cometFocus = null;
+    this.focus = id;
+    this.starFocus = 'sol';
+    this.travelDestId = id;
+    this.bodies.getLogicalPos(id, this.tmp);
+    this.bodies.setFloatingOrigin(this.tmp);
+    this.comets.syncOrigin(this.bodies.floatingOrigin);
+    const target = this.bodies.getWorldPos(id, this.tmp).clone();
+    const def = this.bodies.getDef(id);
+    let envelope = def.visualRadius;
+    for (const moon of BODIES.filter(body => body.parent === id)) {
+      envelope = Math.max(envelope, this.bodies.getWorldPos(moon.id, this.tmp2).distanceTo(target) + moon.visualRadius);
+    }
+    const verticalHalfAngle = this.camera.fov * Math.PI / 360;
+    const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * this.camera.aspect);
+    const limitingHalfAngle = Math.min(verticalHalfAngle, horizontalHalfAngle);
+    const distance = id === 'sun' ? 1.4 : Math.max(def.visualRadius * 10, envelope / Math.sin(limitingHalfAngle) * 1.2, .025);
+    this.placeInstantView(target, distance, id === 'sun' ? .7 : Math.max(def.visualRadius * 1.6, .0005));
+    this.onScaleChange?.('solar');
+  }
+
+  jumpToStar(id: StarId) {
+    if (id === 'sol') { this.jumpToBody('earth'); return; }
+    this.stopNavigation();
+    this.scaleMode = 'stellar';
+    applyScaleVisibility('stellar', this.bodies, this.stars);
+    this.comets.setRootVisible(false);
+    this.cometFocus = null;
+    this.starFocus = id;
+    this.travelDestStar = id;
+    this.stars.getLogicalPos(id, this.tmp);
+    this.stars.setFloatingOrigin(this.tmp);
+    const target = this.stars.getWorldPos(id, this.tmp).clone();
+    this.placeInstantView(target, Math.max(STAR_BY_ID[id].visualRadius * 22, 1.15), .45);
+    this.onScaleChange?.('stellar');
+  }
+
+  private jumpToComet(id: CometId) {
+    this.jumpToBody('earth');
+    this.cometFocus = id;
+    this.travelDestComet = id;
+    this.comets.getLogicalPos(id, this.tmp);
+    this.bodies.setFloatingOrigin(this.tmp);
+    this.comets.syncOrigin(this.bodies.floatingOrigin);
+    this.placeInstantView(this.comets.getWorldPos(id, this.tmp).clone(), .65, .01);
+  }
+
+  private placeInstantView(target: THREE.Vector3, distance: number, minimum: number) {
+    this.orbit.target.copy(target);
+    this.camera.position.copy(target).add(new THREE.Vector3(.65, .35, 1).normalize().multiplyScalar(distance));
+    this.orbit.minDistance = minimum;
+    this.orbit.maxDistance = 120;
+    this.camera.lookAt(target);
+    // Drain residual damping before a deterministic reset.
+    const damping = this.orbit.enableDamping;
+    this.orbit.enableDamping = false;
+    this.orbit.update();
+    this.orbit.enableDamping = damping;
+  }
+
+  resetView() {
+    if (this.scaleMode === 'stellar') this.jumpToStar(this.starFocus);
+    else if (this.cometFocus) this.jumpToComet(this.cometFocus);
+    else this.jumpToBody(this.focus);
+  }
+
+  zoomBy(factor: number) {
+    this.stopNavigation();
+    const offset = this.camera.position.clone().sub(this.orbit.target);
+    const length = Math.max(this.orbit.minDistance, Math.min(this.orbit.maxDistance, offset.length() * factor));
+    this.camera.position.copy(this.orbit.target).add(offset.normalize().multiplyScalar(length));
+    this.orbit.update();
+  }
+
   setFocus(id: BodyId) {
     this.focus = id;
     if (this.mode == 'observe' && this.scaleMode == 'solar') {
@@ -415,6 +517,14 @@ export class CameraController {
     this.faceSunT = 0;
     this.faceSunDur = Math.min(3.2, Math.max(0.9, (angle / Math.PI) * 2.8));
 
+    if (this.reducedMotion) {
+      this.applyFaceSunPose(pivot, this.faceSunToDir);
+      this.mode = 'observe';
+      this.orbit.enabled = true;
+      this.orbit.target.copy(pivot);
+      this.orbit.update();
+      return;
+    }
     this.mode = 'facesun';
     this.orbit.enabled = false;
     this.travelTrail = null;
@@ -432,6 +542,7 @@ export class CameraController {
   }
 
   startTour() {
+    if (this.reducedMotion) return;
     if (this.scaleMode != 'solar') return;
     this.touring = true;
     let idx = TOUR_IDS.indexOf(this.focus);
@@ -488,6 +599,7 @@ export class CameraController {
 
   /** 从太阳系跃迁到邻近恒星；已在星域则同尺度飞行 */
   travelToStar(id: StarId, onDone?: () => void) {
+    if (this.reducedMotion) { this.jumpToStar(id); onDone?.(); return; }
     if (id == 'sol') {
       this.returnToSol(onDone);
       return;
@@ -508,6 +620,7 @@ export class CameraController {
 
   /** 从星域返回太阳系（停靠地球） */
   returnToSol(onDone?: () => void) {
+    if (this.reducedMotion) { this.jumpToBody('earth'); onDone?.(); return; }
     this.stopTour();
     this.faceSunHold = false;
     this.travelDone = onDone || null;
@@ -644,6 +757,7 @@ export class CameraController {
 
   /** 跃迁到彗星，落点在彗尾后方朝向彗核 */
   travelToComet(id: CometId, onDone?: () => void) {
+    if (this.reducedMotion) { this.jumpToComet(id); onDone?.(); return; }
     if (this.scaleMode != 'solar') return;
     if (this.cometFocus == id && this.mode != 'travel') return;
     this.stopTour();
@@ -679,6 +793,7 @@ export class CameraController {
   }
 
   travelTo(id: BodyId, onDone?: () => void) {
+    if (this.reducedMotion) { this.jumpToBody(id); onDone?.(); return; }
     if (this.scaleMode != 'solar') {
       // 星域下点行星无效，忽略
       return;

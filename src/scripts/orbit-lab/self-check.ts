@@ -38,3 +38,15 @@ for (const bad of [0, -1, NaN, Infinity]) {
   assert(rejected, 'invalid radius rejected');
 }
 console.log('PASS: endpoints, ascent/descent/equal radii, vis-viva, momentum and one-burn return');
+
+// Time parameter must agree with the returned physical velocity, not equal-angle animation.
+for (const [r1, r2] of [[1, 3], [3, 1], [2, 2]]) {
+  const duration = hohmann(r1, r2).transferTime;
+  for (const t of [.1, .5, .9, 1.5]) {
+    const dt = 1e-5;
+    const a = transferState(r1, r2, t - dt), b = transferState(r1, r2, t + dt), v = transferState(r1, r2, t);
+    assert(Math.abs((b.x - a.x) / (2 * dt * duration) - v.vx) < 1e-6, 'time derivative vx');
+    assert(Math.abs((b.y - a.y) / (2 * dt * duration) - v.vy) < 1e-6, 'time derivative vy');
+  }
+}
+console.log('PASS: Kepler-time derivatives match velocity');

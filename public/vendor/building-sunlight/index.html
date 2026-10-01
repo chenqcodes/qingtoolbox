@@ -181,12 +181,31 @@
                         </div>
                     </div>
                     <div id="sunlightStats" class="sunlight-stats" style="display:none;"></div>
+                    <fieldset id="timelinePicker" class="timeline-picker" hidden>
+                        <legend data-i18n="viewer.timelinePick">查看一户的一天</legend>
+                        <label for="timelineBuilding" data-i18n="viewer.timelineBuilding">楼栋</label>
+                        <select id="timelineBuilding"></select>
+                        <label for="timelineFloor" data-i18n="viewer.timelineFloor">楼层</label>
+                        <select id="timelineFloor"></select>
+                        <label for="timelinePoint" data-i18n="viewer.timelinePoint">户 / 立面采样点</label>
+                        <select id="timelinePoint"></select>
+                        <button type="button" id="timelineOpen" class="btn-outline-sm" data-i18n="viewer.timelineOpen">打开一天时间轴</button>
+                    </fieldset>
                     <button id="exportAnalysisBtn" class="export-analysis-btn" type="button" disabled
                         data-i18n="viewer.exportAnalysisButton">⇩ 导出项目与结果</button>
                     <div id="precomputedStatus" class="precomputed-status" aria-live="polite"></div>
                 </div>
             </div>
 
+            <details class="model-assumptions">
+                <summary>如何理解估算与一天时间轴</summary>
+                <p>计算后点击热力图中的一户，可查看所点立面采样点的一天：何时受光、背向太阳或被哪栋楼遮挡。</p>
+                <p>时间轴沿用本次分析的日期、经纬度、IANA 时区和采样步长。边界是采样区间估计，不是精确到分钟的日出或遮挡时刻。</p>
+                <p>“仅保留本栋”情景使用相同观察点和日期，保留本栋其他翼的自遮挡，只忽略其他楼栋；不会改动你的项目。</p>
+                <p>简化模型仅估算直射日照；不计云、玻璃、室内进深、反射、树木或未建模地形。太阳高度约 0.6° 以下不计。分户统计取该户立面采样点最大值，不代表整户平均。</p>
+                <p>参考时长是自选对照值，不代表法规合格线，不能替代专业日照报告或现场评估。</p>
+                <a href="https://www.gml.noaa.gov/grad/solcalc/calcdetails.html" target="_blank" rel="noopener noreferrer">太阳位置与大气影响：NOAA 说明</a>
+            </details>
             <div class="legend">
                 <span data-i18n="viewer.tip">💡 提示: 拖动查看阴影变化</span>
             </div>
@@ -200,7 +219,7 @@
     </div>
 
     <!-- 点击建筑物时显示的信息面板 -->
-    <div id="unitInfoPanel" class="unit-info-panel" style="display:none;">
+    <div id="unitInfoPanel" class="unit-info-panel" style="display:none;" role="region" aria-labelledby="unitInfoTitle" tabindex="-1">
         <div class="unit-info-header">
             <span id="unitInfoTitle" data-i18n="viewer.unitInfo">户型信息</span>
             <button id="closeUnitInfo">×</button>
@@ -222,6 +241,7 @@
     <script src="vendor/leaflet/leaflet.js"></script>
     <script src="js/map-preview.js"></script>
     <script src="js/sunlight-worker.js"></script>
+    <script src="js/daylight-timeline.js"></script>
     <script src="js/viewer.js"></script>
 </body>
 

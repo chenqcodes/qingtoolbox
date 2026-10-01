@@ -23,8 +23,10 @@ import '../../styles/lab-hud.css';
       <strong>这页干嘛：</strong>查<strong>ISS 过顶时刻</strong>。仰角越高越接近「正头顶」，越好找。轨道快照由站点定期更新；超过 7 天立即停算。几何过境不保证肉眼可见。
     </p>
 
+    <p class="sat-freshness" id="sat-freshness" role="status">正在校验轨道数据</p>
     <canvas id="sat-canvas" class="lab-hero-canvas" aria-label="ISS 过顶天穹预测"></canvas>
 
+    <div class="sat-viz-controls"><p class="lab-note">青线 = 可能可见；灰线 = 其余几何轨迹 · 北上、东右、中心天顶</p><button type="button" class="lab-btn secondary" id="sat-pause" aria-pressed="false">暂停示意动画</button></div>
     <div class="lab-cards" aria-label="下次过顶">
       <div class="lab-card">
         <span class="lab-card-k">下次过顶</span>
@@ -39,13 +41,15 @@ import '../../styles/lab-hud.css';
         <span class="lab-card-v" id="sat-card-az">—</span>
       </div>
     </div>
+    <p class="sat-countdown" id="sat-countdown" aria-label="距下次开始的倒计时">—</p>
     <p class="lab-hero-caption lab-amber" id="sat-next">计算中…</p>
 
     <p class="lab-note">预测范围 <span id="sat-range">—</span></p>
     <p class="lab-note" role="status" id="sat-fetch-status">使用已校验的内置快照</p>
     <div class="lab-controls"><label>显示 <select id="sat-filter"><option value="visible">可能肉眼可见</option><option value="geometric">所有几何过境</option></select></label><button type="button" class="lab-btn secondary" id="sat-refresh">刷新轨道数据</button></div>
+    <div class="sat-pass-cards" id="sat-pass-cards" aria-label="过境观测建议"></div>
     <details class="lab-details" open>
-      <summary>过顶时刻表（点一行可重播该次轨迹）</summary>
+      <summary>观测点与几何过境明细</summary>
       <p class="lab-note">真实 TLE 历元 <span class="lab-amber" id="sat-updated">—</span> · <span id="sat-geo-note">—</span></p>
       <p class="lab-note">抓取时间 <span id="sat-fetched">—</span> · 抓取时间不等于轨道历元</p>
       <div class="lab-controls">
@@ -65,7 +69,7 @@ import '../../styles/lab-hud.css';
     </details>
   </div>
 
-  <p class="intro">例如：北京用 Asia/Shanghai，纽约用 America/New_York。青色轨迹是整次几何过境的加速示意，中心是天顶。筛选条件为 ISS 仰角 ≥10°、太阳高度 ≤−6°、空间站完全受日照；地影采用近似球形地球模型，不计云、地形、光污染和空间站姿态，不能保证看见。</p>
+  <p class="intro">例如：北京用 Asia/Shanghai，纽约用 America/New_York。轨迹是整次几何过境的加速示意，中心是天顶。筛选条件为 ISS 仰角 ≥10°、太阳高度 ≤−6°、空间站完全受日照；地影采用近似球形地球模型，不计云、地形、光污染和空间站姿态，不能保证看见。</p>
   <p class="intro">数据：<a href="https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&amp;FORMAT=TLE">CelesTrak ISS TLE</a>；传播：SGP4 / satellite.js；观测条件参考 <a href="https://www.nasa.gov/missions/station/spot-the-station-frequently-asked-questions/">NASA Spot the Station</a>。刷新只向本站请求公开轨道快照，不上传坐标。</p>
   <div class="lab-related">
     <h2>相关</h2>
@@ -79,3 +83,19 @@ import '../../styles/lab-hud.css';
   import { bootSatPass } from '../../scripts/sat-pass/main';
   bootSatPass();
 </script>
+
+<style>
+  .sat-freshness { margin: .8rem 0; color: #94edcd; border: 1px solid #284d4c; padding: .7rem; border-radius: 8px; overflow-wrap: anywhere; }
+  .sat-freshness.sat-warning { color: #ffc857; border-color: #87652b; }
+  .sat-countdown { color: #ffc857; font-variant-numeric: tabular-nums; font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 600; margin: 1rem 0 .3rem; }
+  .sat-viz-controls { display: flex; gap: .5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .sat-pass-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: .75rem; margin: 1rem 0; }
+  .sat-pass-cards :global(.sat-pass-card) { padding: 1rem; background: #081727; border: 1px solid #28485d; border-radius: 10px; min-width: 0; }
+  .sat-pass-cards :global(h3) { color: #ecf4ff; margin: .4rem 0; font-size: 1rem; }
+  .sat-pass-cards :global(p) { font-size: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
+  .sat-pass-cards :global(.sat-pass-kind) { color: #ffc857; font-size: .8rem; margin: 0; }
+  .sat-pass-cards :global(button[aria-pressed="true"]) { border-color: #00e8ff; color: #00e8ff; }
+  .lab-note { overflow-wrap: anywhere; }
+  .lab-controls input, .lab-controls select { min-height: 42px; max-width: 100%; }
+  @media (max-width: 640px) { .lab-details { overflow-x: auto; } .sat-pass-cards { grid-template-columns: 1fr; } }
+</style>

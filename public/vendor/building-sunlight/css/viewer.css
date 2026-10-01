@@ -981,3 +981,22 @@ h2 {
 .graphics-fallback h1 { font-size: 1.3rem; }
 .graphics-fallback a { display: inline-block; padding: 10px; color: #155e75; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+.model-assumptions { margin: 12px 0; font-size: 12px; color: #46566b; line-height: 1.6; }
+.model-assumptions summary, .timeline-comparison summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.daylight-timeline { border-top: 1px solid #dce4ed; margin-top: 12px; padding-top: 10px; line-height: 1.6; }
+.daylight-timeline h3 { font-size: 14px; margin: 0; }
+.timeline-meta { font-size: 11px; color: #526174; overflow-wrap: anywhere; }
+.timeline-segments { display: grid; gap: 5px; max-height: 210px; overflow-y: auto; }
+.timeline-segment { width: 100%; min-height: 36px; padding: 7px; text-align: left; background: #f0f4f8; border: 1px solid #d3dce6; border-left: 5px solid #6b7e93; border-radius: 5px; color: #253447; font: inherit; font-size: 12px; cursor: pointer; }
+.timeline-segment.is-sun { background: #fff7d6; border-left-color: #c47a00; }
+.timeline-segment.is-blocked { border-left-color: #865ea6; }
+.timeline-segment[aria-pressed="true"] { outline: 2px solid #147c9f; outline-offset: 1px; }
+.timeline-comparison { margin-top: 10px; padding: 8px; background: #eef7fa; border-radius: 6px; font-size: 12px; }
+.unit-info-panel { max-height: calc(100dvh - 115px); overflow-y: auto; }
+
+.timeline-picker { margin: 12px 0; padding: 10px; border: 1px solid #cbdbe8; border-radius: 8px; }
+.timeline-picker[hidden] { display: none; }
+.timeline-picker legend { font-size: 12px; font-weight: 600; }
+.timeline-picker select { width: 100%; min-height: 36px; margin-bottom: 8px; }
+.timeline-picker button { width: 100%; min-height: 36px; }

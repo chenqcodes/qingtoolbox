@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { hasWebGL2 } from './runtime';
+import { bindExplorer } from './explorer-ui';
+import type { SpaceScene } from './scene';
 import { createScene } from './scene';
 import { BodySystem } from './bodies';
 import { StarSystem } from './stars';
@@ -33,7 +35,7 @@ export function bootSpace() {
     console.warn('[space] nearby-star catalog check failed');
   }
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const state: HudState = {
     simDate: new Date(),
     timeMult: reducedMotion ? 0 : 1,
@@ -56,6 +58,9 @@ export function bootSpace() {
   let minimap: Minimap | null = null;
   let labels: BodyLabels | null = null;
   let sceneReady = false;
+  let scenePack: SpaceScene | null = null;
+  let cleanupExplorer: (() => void) | null = null;
+  const resizeMinimap = () => minimap?.resize();
   let raf = 0;
   let dead = false;
 
@@ -65,6 +70,7 @@ export function bootSpace() {
     const text = document.getElementById('sp-fallback-message');
     if (text && message) text.textContent = message;
     hudRoot.hidden = true;
+    cleanupExplorer?.();
   };
   const onContextLost = (event: Event) => {
     event.preventDefault();
@@ -252,11 +258,18 @@ export function bootSpace() {
     state.touring = cam.touring;
     state.scaleMode = cam.scaleMode;
     state.starFocus = cam.starFocus;
+    const scaleNote = document.getElementById('sp-scale-note');
+    if (scaleNote) scaleNote.textContent = cam.scaleMode === 'stellar'
+      ? '星域：距离单位为光年（ly）；恒星大小是可见标记，静态星表不随日期演化'
+      : '太阳系：行星位置以 AU 为单位；球体半径、卫星间距经过放大，不可从画面直接量距';
   }
 
   w.__spaceCleanup = () => {
     dead = true;
     cancelAnimationFrame(raf);
+    cleanupExplorer?.();
+    scenePack?.dispose();
+    window.removeEventListener('resize', resizeMinimap);
     canvas.removeEventListener('webglcontextlost', onContextLost);
   };
 
@@ -269,6 +282,7 @@ export function bootSpace() {
     .then((tex) => {
       if (dead) return;
       const pack = createScene(canvas, tex);
+      scenePack = pack;
       camera = pack.camera;
       bodies = new BodySystem(pack.scene, tex);
       bodies.attachSunLight(pack.sunLight);
@@ -284,19 +298,50 @@ export function bootSpace() {
       comets.syncOrigin(bodies.floatingOrigin);
       cam.applyOriginShift(d0);
       cam.beginEarthEntryOrbit();
-      if (reducedMotion) cam.stopEntryOrbit();
+      cam.setReducedMotion(reducedMotion);
 
       if (miniCanvas) {
         minimap = new Minimap(miniCanvas, bodies, stars, camera);
         minimap.bind(gotoBody, gotoStar);
         minimap.resize();
-        window.addEventListener('resize', () => minimap?.resize());
+        window.addEventListener('resize', resizeMinimap);
       }
       labels = new BodyLabels(hudRoot);
       labels.bind(gotoBody, gotoStar, gotoComet);
       new ScenePicker(canvas, camera, () => cam.scaleMode, bodies, stars, gotoBody, gotoStar);
 
       sceneReady = true;
+      const syncNavigation = () => {
+        state.mode = cam.mode;
+        state.focus = cam.focus;
+        state.starFocus = cam.starFocus;
+        state.scaleMode = cam.scaleMode;
+        state.touring = cam.touring;
+        rebuildInfo();
+        hud.render();
+      };
+      cleanupExplorer = bindExplorer(hudRoot, {
+        onStop: stop => {
+          state.timeMult = 0;
+          if (stop.body) cam.jumpToBody(stop.body);
+          else if (stop.star) cam.jumpToStar(stop.star);
+          syncNavigation();
+        },
+        onHome: () => { cam.jumpToBody('earth'); syncNavigation(); },
+        onReset: () => { cam.resetView(); syncNavigation(); },
+        onZoom: factor => { cam.zoomBy(factor); syncNavigation(); },
+        onQuality: quality => pack.setQuality(quality),
+        onMotion: enabled => {
+          reducedMotion = enabled;
+          cam.setReducedMotion(enabled);
+          if (enabled) state.timeMult = 0;
+          const tour = document.getElementById('sp-tour') as HTMLButtonElement | null;
+          if (tour) { tour.disabled = enabled; tour.title = enabled ? '减少动态已开启；请使用逐站导览' : ''; }
+          syncNavigation();
+        },
+      }, reducedMotion);
+      const tourButton = document.getElementById('sp-tour') as HTMLButtonElement | null;
+      if (tourButton) { tourButton.disabled = reducedMotion; tourButton.title = reducedMotion ? '减少动态已开启；请使用逐站导览' : ''; }
       rebuildInfo();
       hud.render();
 
@@ -308,6 +353,7 @@ export function bootSpace() {
 
       function frame(now: number) {
         if (dead) return;
+        if (document.hidden) { last = now; raf = requestAnimationFrame(frame); return; }
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
         const t = reducedMotion ? 0 : (now - t0) / 1000;

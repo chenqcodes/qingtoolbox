@@ -639,7 +639,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
 
         .sp-drawer-left .sp-drawer-tab { display: none; }
         .sp-drawer-left {
-          top: 52px;
+          top: 172px;
           bottom: 44px;
           left: 8px;
           height: auto;
@@ -654,12 +654,12 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           width: min(260px, calc(100vw - 24px));
         }
         .sp-rail-split {
-          max-height: calc(100dvh - 90px);
+          max-height: calc(100dvh - 216px);
         }
         .sp-rail,
         #sp-rail-stars {
           grid-template-columns: 1fr;
-          max-height: calc(100dvh - 170px);
+          max-height: calc(100dvh - 288px);
           overflow-x: hidden;
           overflow-y: auto;
         }
@@ -714,6 +714,8 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           left: 8px;
           right: 8px;
           max-width: none;
+          max-height: calc(100dvh - 180px);
+          overflow-y: auto;
           transform: translateX(0) translateY(0);
         }
         .sp-drawer-bottom.is-collapsed {
@@ -738,6 +740,33 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         }
         .sp-readout { left: 42px; bottom: 44px; max-width: 58vw; }
         .sp-speed { bottom: 44px; right: 10px; font-size: 0.58rem; }
+      }
+      .sp-explorer { pointer-events: auto; position: absolute; top: 226px; right: 14px; width: min(310px, calc(100vw - 58px)); border-radius: 10px; max-height: calc(100dvh - 340px); overflow: auto; font: .78rem/1.65 system-ui, sans-serif; }
+      .sp-explorer > summary { cursor: pointer; padding: 11px 14px; color: var(--cyan); }
+      .sp-explorer-body { padding: 0 14px 12px; }
+      .sp-explorer h2 { font-size: .85rem; margin: 12px 0 6px; }
+      .sp-explorer p { margin: 7px 0; }
+      .sp-explorer a { color: var(--cyan); font-size: .72rem; }
+      .sp-guide-routes { display: flex; gap: 5px; }
+      .sp-guide-routes .sp-btn { flex: 1; min-height: 36px; padding: 6px; letter-spacing: 0; }
+      .sp-btn[aria-pressed="true"] { border-color: var(--cyan); background: #00e8ff22; }
+      .sp-btn:disabled { opacity: .45; cursor: default !important; }
+      .sp-scale-note { border-left: 2px solid var(--amber); padding-left: 9px; color: #ffe2a5; }
+      .sp-model-notes summary { cursor: pointer; padding: 8px 0; }
+      .sp-explorer-settings { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+      .sp-explorer select { background: #0c2030; color: var(--text); border: 1px solid var(--line); padding: 7px; border-radius: 5px; }
+      .sp-motion-note { font-size: .68rem; color: #a8bfd4; }
+      .sp-quick-nav { pointer-events: auto; position: absolute; right: 14px; bottom: 100px; display: flex; gap: 5px; padding: 6px; border-radius: 9px; }
+      .sp-quick-nav .sp-btn { min-height: 40px; padding: 6px 9px; }
+      button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+      @media (max-width: 640px) {
+        .sp-explorer { top: 122px; right: 8px; max-height: calc(100dvh - 178px); }
+        /* Reserved mobile strip: never overlap the console, even while expanded. */
+        .sp-quick-nav { top: 60px; bottom: auto; left: 8px; right: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); z-index: 21; }
+        .sp-quick-nav .sp-btn { min-width: 0; letter-spacing: 0; white-space: nowrap; }
+        .sp-quick-nav .sp-btn { font-size: .7rem; min-height: 40px; padding: 6px 7px; }
+        .sp-explorer-settings select { font-size: 16px; }
+        .sp-explorer[open] { z-index: 20; }
       }
       .sp-fallback { position: fixed; z-index: 100; inset: 15% 16px auto; max-width: 600px; margin: auto; padding: 24px; line-height: 1.7; border: 1px solid var(--line); border-radius: 14px; background: #071320; }
       .sp-fallback[hidden] { display: none; }
@@ -768,6 +797,45 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           <a class="sp-btn sp-muted sp-btn-home" href="/">返回</a>
         </div>
       </header>
+
+      <details class="sp-explorer sp-zone" id="sp-explorer" open>
+        <summary>探索指南 · 比例与画质</summary>
+        <div class="sp-explorer-body">
+          <div class="sp-guide-routes" aria-label="选择导览">
+            <button type="button" class="sp-btn" data-explore="moon">月球</button>
+            <button type="button" class="sp-btn" data-explore="jupiter">木星</button>
+            <button type="button" class="sp-btn" data-explore="nearby">邻近恒星</button>
+          </div>
+          <div aria-live="polite" aria-atomic="true">
+            <h2 id="sp-guide-title">地月邻居</h2>
+            <p id="sp-guide-text">从地球出发，逐站探索。导览暂停时间，不会自动切到下一站。</p>
+          </div>
+          <div class="sp-guide-routes">
+            <button type="button" class="sp-btn" id="sp-guide-prev">上一站</button>
+            <button type="button" class="sp-btn" id="sp-guide-start">看这一站</button>
+            <button type="button" class="sp-btn" id="sp-guide-next">下一站</button>
+          </div>
+          <a id="sp-guide-source" href="https://science.nasa.gov/moon/facts/" target="_blank" rel="noopener noreferrer">NASA 延伸阅读 ↗</a>
+          <p class="sp-scale-note" id="sp-scale-note">位置与视觉大小采用不同规则：球体半径、部分卫星间距经过放大</p>
+          <details class="sp-model-notes">
+            <summary>模型边界与操作提示</summary>
+            <p>行星、月球、木星四大卫星位置使用 Astronomy Engine；土卫六是示意圆轨道，彗星为固定轨道根数的二体近似。邻近恒星使用静态星表，不计算自行和双星轨道。</p>
+            <p>半径与卫星间距均有视觉放大；光照、贴图、彗尾与飞行速度用于演示。距离读数中的“镜头”是虚拟相机到显示目标，不是地球观测距离；不能用于航天导航、食相或精密观测。</p>
+            <p>电脑：拖动旋转，滚轮缩放，巡航用 WASD。手机：单指旋转、双指缩放和平移；下方按钮也可缩放与回家。浏览器缩放仍可用。</p>
+          </details>
+          <div class="sp-explorer-settings">
+            <label>画质 <select id="sp-quality"><option value="auto">自适应</option><option value="light">省电</option><option value="high">精细</option></select></label>
+            <label><input type="checkbox" id="sp-reduced-motion" /> 减少动态</label>
+          </div>
+          <p class="sp-motion-note">减少动态会暂停时间、关闭入场与跃迁动画。可在控制台手动恢复时间</p>
+        </div>
+      </details>
+      <nav class="sp-quick-nav sp-zone" aria-label="视角快捷操作">
+        <button type="button" class="sp-btn" id="sp-home-earth">回地球</button>
+        <button type="button" class="sp-btn" id="sp-reset-view">重置视角</button>
+        <button type="button" class="sp-btn" id="sp-zoom-in" aria-label="拉近当前目标">＋ 拉近</button>
+        <button type="button" class="sp-btn" id="sp-zoom-out" aria-label="拉远当前目标">− 拉远</button>
+      </nav>
 
       <!-- 战术星图 -->
       <div class="sp-minimap-wrap sp-corners">

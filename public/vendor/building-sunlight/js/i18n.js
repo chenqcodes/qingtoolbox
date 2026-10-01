@@ -33,6 +33,11 @@ const i18n = (function () {
 
             // 查看器 (index.html)
             viewer: {
+                timelinePick: '查看一户的一天',
+                timelineBuilding: '楼栋',
+                timelineFloor: '楼层',
+                timelinePoint: '户 / 立面采样点',
+                timelineOpen: '打开一天时间轴',
                 title: '楼盘采光可视化 - 日照模拟系统',
                 emptyState: '请导入 JSON，或点「新规划配置」描楼',
                 pageTitle: '☀️ 楼盘采光模拟',
@@ -309,6 +314,11 @@ const i18n = (function () {
 
             // Viewer (index.html)
             viewer: {
+                timelinePick: 'Explore one home through the day',
+                timelineBuilding: 'Building',
+                timelineFloor: 'Floor',
+                timelinePoint: 'Home / facade sample',
+                timelineOpen: 'Open day timeline',
                 title: 'Building Sunlight Visualization - Sunlight Simulation System',
                 emptyState: 'Import JSON, or tap New plan setup to trace buildings',
                 pageTitle: '☀️ Building Sunlight Simulation',

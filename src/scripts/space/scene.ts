@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { SpaceTextures } from './textures';
+import { qualitySettings, type QualityMode } from './exploration';
 
 export interface SpaceScene {
   renderer: THREE.WebGLRenderer;
@@ -11,6 +12,8 @@ export interface SpaceScene {
   camera: THREE.PerspectiveCamera;
   sunLight: THREE.PointLight;
   composer: EffectComposer;
+  setQuality: (mode: QualityMode) => void;
+  dispose: () => void;
 }
 
 export function createScene(canvas: HTMLCanvasElement, tex: SpaceTextures): SpaceScene {
@@ -70,5 +73,19 @@ export function createScene(canvas: HTMLCanvasElement, tex: SpaceTextures): Spac
   };
   window.addEventListener('resize', onResize);
 
-  return { renderer, scene, camera, sunLight, composer };
+  const setQuality = (mode: QualityMode) => {
+    const settings = qualitySettings(mode, window.devicePixelRatio, window.matchMedia('(pointer: coarse)').matches);
+    renderer.setPixelRatio(settings.pixelRatio);
+    composer.setPixelRatio(settings.pixelRatio);
+    bloom.enabled = settings.bloom;
+    onResize();
+  };
+  setQuality('auto');
+  const dispose = () => {
+    window.removeEventListener('resize', onResize);
+    bloom.dispose();
+    composer.dispose();
+    renderer.dispose();
+  };
+  return { renderer, scene, camera, sunLight, composer, setQuality, dispose };
 }

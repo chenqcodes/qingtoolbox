@@ -35,3 +35,49 @@ test('no-rise days and daylight status are honest; brightness is a separate quan
   assert.match(observingStatus(30, 20), /白昼/); assert.match(observingStatus(-5, -20), /地平线下/);
   assert.ok(planetTable(new Date('2024-06-21T12:00Z'), 39.9, 116.4).every(p => Number.isFinite(p.magnitude)));
 });
+
+test('tonight range crosses local midnight and handles a DST transition', async () => {
+  const { tonightRange, buildNightPlan } = await import('./tonight');
+  const range = tonightRange(new Date('2024-03-09T18:00Z'), 'America/New_York');
+  assert.equal((+range.end - +range.start) / 3600000, 23);
+  const night = buildNightPlan(Body.Moon, new Date('2026-10-01T12:00Z'), 39.9, 116.4, 'Asia/Shanghai');
+  assert.ok(night.windows.length > 0);
+  const best = night.windows[0]; assert.ok(best.best.sunAltitude <= -6 && best.best.altitude >= 10);
+  assert.ok(best.recommendedStart >= best.start && best.recommendedEnd <= best.end);
+  assert.ok(+best.recommendedEnd - +best.recommendedStart <= 3600000);
+  const polar = buildNightPlan(Body.Moon, new Date('2024-06-21T12:00Z'), 89, 0, 'UTC');
+  assert.equal(polar.hasDarkness, false); assert.equal(polar.windows.length, 0);
+});
+
+test('advancing clock reselects only remaining recommendations on a cached whole-night plan', async () => {
+  const { buildNightPlan, remainingNightWindows } = await import('./tonight');
+  const early = new Date('2026-11-01T10:00:00Z'); // Beijing 18:00
+  const late = new Date('2026-11-01T15:00:00Z'); // Beijing 23:00, after the old recommended slot
+  const plan = buildNightPlan(Body.Saturn, early, 39.9, 116.4, 'Asia/Shanghai');
+  const originalRecommendation = +plan.windows[0].recommendedEnd;
+  assert.ok(originalRecommendation < +late);
+  const first = remainingNightWindows(plan, Body.Saturn, early, 39.9, 116.4)[0];
+  const later = remainingNightWindows(plan, Body.Saturn, late, 39.9, 116.4)[0];
+  assert.ok(first && later);
+  assert.ok(later.recommendedStart >= late && later.recommendedEnd > late);
+  assert.ok(later.best.time >= late && later.best.time <= later.end);
+  assert.ok(later.best.altitude >= 10 && later.best.sunAltitude <= -6);
+  assert.equal(+plan.windows[0].recommendedEnd, originalRecommendation, 'the cached chart must remain unchanged');
+  assert.ok(plan.start < late && plan.end > late);
+});
+
+test('advancing past the final Moon window yields no recommendation; selected historical times use the same cutoff', async () => {
+  const { buildNightPlan, remainingNightWindows } = await import('./tonight');
+  const early = new Date('2026-10-15T09:00:00Z'); // Beijing 17:00
+  const late = new Date('2026-10-15T15:00:00Z'); // Beijing 23:00
+  const plan = buildNightPlan(Body.Moon, early, 39.9, 116.4, 'Asia/Shanghai');
+  assert.ok(plan.windows.length > 0);
+  assert.ok(remainingNightWindows(plan, Body.Moon, early, 39.9, 116.4).length > 0);
+  const end = new Date(Math.max(...plan.windows.map(w => +w.end)));
+  assert.ok(end < late);
+  assert.equal(remainingNightWindows(plan, Body.Moon, end, 39.9, 116.4).length, 0);
+  assert.equal(remainingNightWindows(plan, Body.Moon, late, 39.9, 116.4).length, 0);
+  const historical = buildNightPlan(Body.Moon, new Date('2024-03-25T12:00Z'), 39.9, 116.4, 'Asia/Shanghai');
+  const selected = new Date(+historical.windows[0].start + 60000);
+  assert.ok(remainingNightWindows(historical, Body.Moon, selected, 39.9, 116.4).every(w => w.recommendedStart >= selected));
+});

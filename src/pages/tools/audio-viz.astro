@@ -5,11 +5,11 @@ import '../../styles/lab-hud.css';
 
 <ToolLayout
   title="音浪粒子 · 频谱可视化"
-  description="上传音频或使用麦克风，本地频谱驱动粒子场可视化，不上传不录音存档。"
+  description="点击内置节奏示例、选择本地音频或使用麦克风，观察低中高频如何驱动粒子；支持暂停、进度、循环与音量，数据不上传。"
   currentSlug="audio-viz"
 >
   <h1 slot="header">音浪粒子</h1>
-  <p class="intro">麦克风或本地音频 → 频谱分析 → 粒子场。全部在浏览器完成，音频不会上传。</p>
+  <p class="intro">点击“播放内置示例”即可体验。低频推动青色光环，中频牵动紫色辐条，高频点亮金色粒子；全部在浏览器完成，音频不会上传。</p>
 
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;700&display=swap"
@@ -19,9 +19,26 @@ import '../../styles/lab-hud.css';
   <div class="lab-hud">
     <canvas id="audio-canvas" class="lab-canvas-host" aria-label="音浪粒子画布"></canvas>
     <div class="lab-controls">
+      <button type="button" class="lab-btn" id="audio-demo">播放内置示例</button>
       <label>音频文件 <input type="file" id="audio-file" accept="audio/*" /></label>
       <button type="button" class="lab-btn" id="audio-mic">麦克风</button>
       <button type="button" class="lab-btn secondary" id="audio-stop">停止</button>
+      </div>
+    <div class="audio-transport">
+      <button type="button" class="lab-btn" id="audio-playback" disabled>播放音频</button>
+      <label class="audio-progress">播放进度<input type="range" id="audio-seek" min="0" max="1" step="0.1" value="0" disabled /></label>
+      <output aria-live="off" id="audio-time">0:00 / 0:00</output>
+      <label>音量 <span id="audio-volume-label">20%</span><input type="range" id="audio-volume" min="0" max="1" step="0.01" value="0.2" /></label>
+      <label><span><input type="checkbox" id="audio-loop" checked /> 循环播放</span></label>
+    </div>
+    <p class="lab-meta" id="audio-status" role="status" aria-live="polite">等待输入；页面不会自动出声</p>
+    <div class="audio-bands">
+      <label class="band-low">低频 · 20–250 Hz<meter id="audio-low" min="0" max="1" value="0"></meter><output aria-live="off" id="audio-low-value">0%</output></label>
+      <label class="band-mid">中频 · 250–2000 Hz<meter id="audio-mid" min="0" max="1" value="0"></meter><output aria-live="off" id="audio-mid-value">0%</output></label>
+      <label class="band-high">高频 · 2–20 kHz<meter id="audio-high" min="0" max="1" value="0"></meter><output aria-live="off" id="audio-high-value">0%</output></label>
+    </div>
+    <div class="lab-controls">
+      <label>画面预设<select id="audio-preset"><option value="orbit">频段光环</option><option value="bars">频谱地平线</option><option value="rain">三色星雨</option></select></label>
       <button type="button" class="lab-btn secondary" id="audio-pause">暂停画面</button>
       <label>灵敏度
         <input type="range" id="audio-sens" min="0.3" max="2.5" step="0.1" value="1" />
@@ -30,7 +47,8 @@ import '../../styles/lab-hud.css';
         <input type="number" id="audio-count" min="50" max="800" step="50" value="400" />
       </label>
     </div>
-    <p class="lab-meta" id="audio-status" role="status" aria-live="polite">等待输入…</p>
+    <p class="lab-note">“暂停音频”会停止声音并保留进度；“暂停画面”只冻结动画。麦克风不回放、不录音，点击停止即释放输入。音量仅控制文件与示例回放。</p>
+    <details class="lab-details"><summary>怎么看这个画面？</summary><p class="lab-note">先播放内置示例：90 Hz 低音、变化的中频音符与 3.2 kHz 高频短音分别驱动三种颜色。可切换画面、调整灵敏度或跳转进度。示例由本机合成，不下载素材。</p><p class="lab-note">频段百分比是浏览器对数频谱字节值归一化后计算的相对视觉指标，受频谱缩放与截断影响，不表示线性振幅、分贝或专业响度，也不识别音高。高频段宽，相同单音的指标可能较低；声音低于 20 Hz 或高于 20 kHz 不计入指标。设备采样率会限制最高可分析频率。</p><p class="lab-note">已开启系统减少动态效果时，画面默认暂停；音源必须由你点击启动。文件较大可能需要等待解码。</p></details>
   </div>
 
   <div class="lab-related">
@@ -42,6 +60,15 @@ import '../../styles/lab-hud.css';
 </ToolLayout>
 
 <style>
+  .audio-transport { display: flex; flex-wrap: wrap; align-items: end; gap: 0.8rem; margin: 1rem 0; }
+  .audio-progress { flex: 1 1 15rem; }
+  .audio-transport output { font: 0.85rem ui-monospace, monospace; align-self: center; }
+  .audio-bands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin: 1rem 0; }
+  .audio-bands label { padding: 0.7rem; background: #091725; border: 1px solid #214253; border-radius: 6px; color: #d2dce6; }
+  .audio-bands meter { width: 100%; height: 1rem; }
+  .band-low output { color: #00e8ff; } .band-mid output { color: #b69eff; } .band-high output { color: #ffc857; }
+  .lab-hud :focus-visible { outline: 2px solid #ffc857; outline-offset: 3px; }
+  @media (max-width: 420px) { .audio-bands { gap: 0.3rem; } .audio-bands label { padding: 0.4rem; font-size: 0.68rem; } .audio-transport label { min-width: 0; } }
   #audio-canvas {
     width: 100%;
     height: min(60vh, 520px);

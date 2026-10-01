@@ -14,6 +14,7 @@
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let renderer;
+    let graphicsLost = false;
     try {
         renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     } catch (error) {
@@ -26,6 +27,10 @@
     }
     renderer.domElement.addEventListener('webglcontextlost', event => {
         event.preventDefault();
+        graphicsLost = true;
+        cancelActiveAnalysis();
+        timelineVersion++;
+        document.getElementById('controls').hidden = true;
         const fallback = document.getElementById('graphicsFallback');
         if (fallback) fallback.hidden = false;
     });
@@ -41,11 +46,13 @@
 
     let renderFrameRequested = false;
     function requestRender(updateShadows = false) {
+        if (graphicsLost) return;
         if (updateShadows) renderer.shadowMap.needsUpdate = true;
         if (renderFrameRequested) return;
         renderFrameRequested = true;
         requestAnimationFrame(() => {
             renderFrameRequested = false;
+            if (graphicsLost) return;
             const controlsChanged = controls.update();
             renderer.render(scene, camera);
             if (controlsChanged) requestRender();
@@ -235,6 +242,7 @@
     let hoveredApartmentKey = null;
     let selectedApartmentKey = null;
     let currentUnitInfoData = null;
+    let timelineVersion = 0;
     let analysisVersion = 0;
     let activeAnalysisTask = null;
     let precomputedEntries = new Map();
@@ -1718,6 +1726,7 @@
             const apartmentKey = makeApartmentKey(point);
             const userData = {
                 type: 'heatmapCell',
+                analysisPoint: point,
                 apartmentKey,
                 buildingIndex: point.buildingIndex,
                 buildingName: point.buildingName,
@@ -1766,6 +1775,7 @@
         showSunlightStats(results);
         document.getElementById('toggleHeatmap').checked = true;
         toggleHeatmap(true);
+        populateTimelinePicker(results);
         if (!fromPrecomputed) cacheSunlightResult(results);
     }
 
@@ -1846,6 +1856,9 @@
     }
 
     function clearSunlightResults() {
+        timelineVersion++;
+        const picker = document.getElementById('timelinePicker');
+        if (picker) picker.hidden = true;
         cancelActiveAnalysis();
         sunlightResults = null;
         clearHeatmapInteractionState();
@@ -2722,6 +2735,7 @@
         // 如果有日照统计结果，更新显示
         if (sunlightResults) {
             showSunlightStats(sunlightResults);
+            populateTimelinePicker(sunlightResults);
         }
 
         if (currentUnitInfoData && document.getElementById('unitInfoPanel').style.display !== 'none') {
@@ -2820,9 +2834,135 @@
         `;
 
         panel.style.display = 'block';
+        renderSelectedTimeline(data, content);
         if (sunlightResults) {
             showSunlightStats(sunlightResults);
         }
+    }
+
+    function populateTimelinePicker(results) {
+        const picker = document.getElementById('timelinePicker');
+        const buildingSelect = document.getElementById('timelineBuilding');
+        const floorSelect = document.getElementById('timelineFloor');
+        const pointSelect = document.getElementById('timelinePoint');
+        if (!picker || !buildingSelect || !floorSelect || !pointSelect) return;
+        picker.hidden = false;
+        const zh = i18n.getCurrentLanguage() === 'zh';
+        const setOptions = (select, options) => {
+            select.replaceChildren(...options.map(({ value, label }) => {
+                const option = document.createElement('option');
+                option.value = String(value);
+                option.textContent = label;
+                return option;
+            }));
+        };
+        let selectedPoints = [];
+        const updatePoints = () => {
+            selectedPoints = results.buildings[buildingSelect.value].units.filter(point => point.floor === Number(floorSelect.value));
+            setOptions(pointSelect, selectedPoints.map((point, index) => ({
+                value: index,
+                label: zh ? `${point.unit} 户 · 立面点 ${index + 1} · ${point.sunlightHours.toFixed(1)}h` : `Home ${point.unit} · sample ${index + 1} · ${point.sunlightHours.toFixed(1)}h`
+            })));
+        };
+        const updateFloors = () => {
+            const floors = [...new Set(results.buildings[buildingSelect.value].units.map(point => point.floor))].sort((a, b) => a - b);
+            setOptions(floorSelect, floors.map(floor => ({ value: floor, label: zh ? `${floor} 层` : `Floor ${floor}` })));
+            updatePoints();
+        };
+        setOptions(buildingSelect, Object.entries(results.buildings).map(([key, building]) => ({ value: key, label: building.name || (zh ? `楼栋 ${Number(key) + 1}` : `Building ${Number(key) + 1}`) })));
+        if (!buildingSelect.options.length) { picker.hidden = true; return; }
+        updateFloors();
+        buildingSelect.onchange = updateFloors;
+        floorSelect.onchange = updatePoints;
+        document.getElementById('timelineOpen').onclick = () => {
+            if (results !== sunlightResults) return;
+            const point = selectedPoints[Number(pointSelect.value)];
+            if (!point) return;
+            const data = { ...point, analysisPoint: point, apartmentKey: makeApartmentKey(point) };
+            document.getElementById('toggleHeatmap').checked = true;
+            toggleHeatmap(true);
+            setSelectedApartment(data.apartmentKey);
+            currentUnitInfoData = data;
+            showUnitInfo(data);
+            document.getElementById('unitInfoPanel').focus({ preventScroll: true });
+        };
+    }
+
+    /** A small, cancellable drill-down; whole-project Worker/BVH results remain untouched. */
+    async function renderSelectedTimeline(data, container) {
+        const point = data.analysisPoint;
+        const results = sunlightResults;
+        if (!point || !results) return;
+        const version = ++timelineVersion;
+        const zh = i18n.getCurrentLanguage() === 'zh';
+        const section = document.createElement('section');
+        section.className = 'daylight-timeline';
+        section.setAttribute('aria-label', zh ? '所选立面一天时间轴' : 'Selected facade day timeline');
+        section.textContent = zh ? '正在检查所选立面的一天…' : 'Checking the selected facade…';
+        container.appendChild(section);
+        const meshes = collectBuildingMeshes();
+        const ray = new THREE.Raycaster();
+        const origin = new THREE.Vector3(point.x, point.z, point.y);
+        const hours = Utils.createTimeSamples(results.startHour, results.endHour, results.timeStep);
+        const samples = [];
+        // Use the immutable analysis snapshot, never the currently previewed hour/date.
+        for (let index = 0; index < hours.length; index++) {
+            if (version !== timelineVersion || sunlightResults !== results || !section.isConnected) return;
+            const hour = hours[index];
+            const direction = calculateSunDirection(hour, results.latitude, results.declination, results.solarTimeOffset);
+            let status = DaylightTimeline.classify(direction, point.outward, null);
+            let blocker = '';
+            let isolatedSun = false;
+            if (status === 'sun') {
+                ray.set(origin, direction);
+                ray.near = 0.1;
+                ray.far = Infinity;
+                const hits = ray.intersectObjects(meshes, false);
+                const sample = DaylightTimeline.evaluateSample(direction, point.outward, hits.map(hit => hit.object.userData.buildingIndex), point.buildingIndex);
+                status = sample.status;
+                isolatedSun = sample.isolatedSun;
+                if (sample.blockerIndex !== null) {
+                    const id = sample.blockerIndex;
+                    blocker = currentData.buildings[id]?.name || (zh ? `楼栋 ${id + 1}` : `Building ${id + 1}`);
+                    if (id === point.buildingIndex) blocker += zh ? '（本栋自遮挡）' : ' (same building)';
+                }
+            }
+            samples.push({ hour, status, blocker, isolatedSun });
+            if (index % 8 === 7) await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        if (version !== timelineVersion || sunlightResults !== results || !section.isConnected) return;
+        const summary = DaylightTimeline.summarize(samples, results.timeStep);
+        const esc = Utils.escapeHtml;
+        const labels = zh
+            ? { sun: '直射日照', blocked: '楼栋遮挡', 'back-facing': '立面背向太阳', 'low-sun': '低于计算高度阈值 / 夜间' }
+            : { sun: 'Direct sun', blocked: 'Building shade', 'back-facing': 'Facade faces away', 'low-sun': 'Below altitude threshold / night' };
+        section.innerHTML = `
+            <h3>${zh ? '这处立面的一天' : 'A day at this facade'}</h3>
+            <p class="timeline-meta">${esc(results.date)} · ${esc(results.timeZone)} · ${esc(Utils.formatTime(results.startHour))}–${esc(Utils.formatTime(results.endHour))}<br>
+            ${zh ? '中点采样间隔' : 'Midpoint sampling interval'} ${(results.timeStep * 60).toFixed(0)} ${zh ? '分钟；时段边界为近似值' : 'min; boundaries are approximate'}</p>
+            <p>${zh ? '所点采样点' : 'Selected sample'} <strong>${summary.sunHours.toFixed(1)}h</strong> · ${zh ? '最长连续受光' : 'Longest continuous sun'} ${summary.longestSunHours.toFixed(1)}h</p>
+            <div class="timeline-segments"></div>
+            <details class="timeline-comparison"><summary>${zh ? '对比：仅保留本栋' : 'Compare: keep only this building'}</summary>
+                <p>${zh ? '当前模型' : 'Current model'} ${summary.sunHours.toFixed(1)}h → ${zh ? '仅保留本栋' : 'Building alone'} ${summary.isolatedHours.toFixed(1)}h<br>
+                ${zh ? '其他楼栋造成的受光损失约' : 'Estimated loss from other buildings'} ${summary.otherBuildingLoss.toFixed(1)}h</p>
+                <p>${zh ? '相同采样点、日期、位置与朝向；保留本栋自遮挡。仅作情景说明，不会删除模型，也不是可直接实施的设计方案。' : 'Same sample, date, location and orientation; self-shading retained. An explanatory scenario only: no model is deleted.'}</p>
+            </details>
+            <p class="timeline-meta">${zh ? '点击时段预览阴影。这里只解释所点立面，不能当成整户平均；不包含天气、玻璃、室内和未建模物体。' : 'Tap a period to preview its shadow. This facade sample is not a whole-home average; weather, glazing, interiors and unmodeled objects are excluded.'}</p>`;
+        const list = section.querySelector('.timeline-segments');
+        summary.intervals.forEach(interval => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `timeline-segment is-${interval.status}`;
+            const span = `${Utils.formatTime(interval.start)}–${Utils.formatTime(interval.end)}`;
+            button.textContent = `${span} · ${labels[interval.status]}${interval.blocker ? `：${interval.blocker}` : ''}`;
+            button.addEventListener('click', () => {
+                setHour((interval.start + interval.end) / 2);
+                updateSun();
+                list.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+            });
+            button.setAttribute('aria-pressed', 'false');
+            list.appendChild(button);
+        });
     }
 
     /**

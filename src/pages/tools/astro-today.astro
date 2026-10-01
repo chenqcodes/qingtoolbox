@@ -46,6 +46,16 @@ import '../../styles/lab-hud.css';
     </div>
 
     <p class="lab-note" id="astro-light-note" role="status"></p>
+    <section class="astro-night" aria-labelledby="astro-night-title">
+      <h2 id="astro-night-title">今晚什么时候看？</h2>
+      <div class="lab-controls"><label>观测目标 <select id="astro-target"><option value="Moon">月亮</option><option value="Venus">金星</option><option value="Jupiter">木星</option><option value="Mars">火星</option><option value="Saturn">土星</option><option value="Mercury">水星</option></select></label></div>
+      <p class="lab-note" id="astro-night-range"></p>
+      <p class="lab-amber" id="astro-night-summary" role="status"></p>
+      <canvas id="astro-night-canvas" aria-label="目标整晚高度变化图" aria-describedby="astro-night-summary astro-night-windows"></canvas>
+      <p class="lab-note">青线：暗天空中高于 10°；灰线：其他时段；金点：整晚合适时段内最高（可能已过）。横轴按观测时区，低于 −30° 的部分省略。</p>
+      <p class="lab-note" id="astro-night-windows"></p>
+      <p class="lab-note">实时建议只用此刻之后的剩余窗口；手动日期按所选时刻之后计算，历史日期同样如此。建议仅基于天体高度与暮光；月光、天气和遮挡仍可能影响观测。下方可改日期、位置与时区。</p>
+    </section>
     <details class="lab-details" open>
       <summary>观测点与升落明细</summary>
       <p class="lab-note" id="astro-geo-note">初始化中…</p>
@@ -92,3 +102,12 @@ import '../../styles/lab-hud.css';
   import { bootAstroToday } from '../../scripts/astro-today/main';
   bootAstroToday();
 </script>
+
+<style>
+  .astro-night { margin-top: 1.25rem; border-top: 1px solid #244253; padding-top: .5rem; }
+  #astro-night-canvas { display: block; width: 100%; height: 230px; border-radius: 8px; }
+  .lab-controls input, .lab-controls select { max-width: 100%; min-height: 42px; }
+  .lab-controls label { min-width: 0; }
+  .lab-note { overflow-wrap: anywhere; }
+  @media (max-width: 640px) { .lab-details { overflow-x: auto; } #astro-date { max-width: 15rem; } }
+</style>

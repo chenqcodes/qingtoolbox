@@ -1,0 +1,20 @@
+Source: https://ftp.ncbi.nlm.nih.gov/pubchem/specifications/pubchem.asn
+Retrieved: 2026-10-01
+
+PC-CoordinateType ::= INTEGER {
+        twod                (1),  -- 2D Coordinates
+        threed              (2),  -- 3D Coordinates (should also indicate units, below)
+        submitted           (3),  -- Depositor Provided Coordinates
+        experimental        (4),  -- Experimentally Determined Coordinates
+        computed            (5),  -- Computed Coordinates
+        standardized        (6),  -- Standardized Coordinates
+        augmented           (7),  -- Hybrid Original with Computed Coordinates (e.g., explicit H)
+        aligned             (8),  -- Template used to align drawing
+        compact             (9),  -- Drawing uses shorthand forms (e.g., COOH, OCH3, Et, etc.)
+        units-angstroms    (10),  -- (3D) Coordinate units are Angstroms
+        units-nanometers   (11),  -- (3D) Coordinate units are nanometers
+        units-pixel        (12),  -- (2D) Coordinate units are pixels
+        units-points       (13),  -- (2D) Coordinate units are points
+        units-stdbonds     (14),  -- (2D) Coordinate units are standard bond lengths (1.0)
+        units-unknown     (255)   -- Coordinate units are unknown or unspecified
+}

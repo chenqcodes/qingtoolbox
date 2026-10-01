@@ -34,7 +34,7 @@ import '../../styles/lab-hud.css';
         <span class="lab-card-v" id="orbit-dv1">—</span>
       </div>
       <div class="lab-card">
-        <span class="lab-card-k">总 Δv = |Δv₁| + |Δv₂|</span>
+        <span class="lab-card-k">计划执行的总 Δv（绝对值之和）</span>
         <span class="lab-card-v amber" id="orbit-dvt">—</span>
       </div>
     </div>
@@ -46,16 +46,31 @@ import '../../styles/lab-hud.css';
       <label>目标半径 r2 <span id="orbit-r2-val">2.00</span>
         <input type="range" id="orbit-r2" min="0.5" max="7" step="0.01" value="2" />
       </label>
-      <button type="button" class="lab-btn" id="orbit-play">暂停</button>
-      <button type="button" class="lab-btn secondary" id="orbit-replay">重播</button>
+      <button type="button" class="lab-btn" id="orbit-play" aria-pressed="false">从出发点开始</button>
+      <button type="button" class="lab-btn secondary" id="orbit-replay">回到出发点</button>
       <button type="button" class="lab-btn secondary" id="orbit-preset-leo" data-r1="1" data-r2="1.5">低轨→稍高</button>
       <button type="button" class="lab-btn secondary" id="orbit-preset-geo" data-r1="1" data-r2="6.6">半径比 1→6.6</button>
     </div>
+    <div class="lab-controls">
+      <label>探索模式
+        <select id="orbit-mode"><option value="two">两次点火：到达后圆化</option><option value="one">只点火一次：为什么还会回来？</option></select>
+      </label>
+      <label class="orbit-scrub">飞行进度 <output id="orbit-progress-val">0% / 100%</output>
+        <input id="orbit-progress" type="range" min="0" max="100" step="0.1" value="0" />
+      </label>
+      <button type="button" class="lab-btn secondary" data-r1="3" data-r2="1">试试降轨 3→1</button>
+      <button type="button" class="lab-btn secondary" data-r1="2" data-r2="2">同一圆轨 2→2</button>
+    </div>
+    <p class="lab-meta" id="orbit-direction">升轨：两次顺行加速</p>
+    <p class="lab-meta">模型经过时间：<span id="orbit-time">—</span> · 当前速度 <span id="orbit-speed">—</span></p>
+    <p class="lab-note">默认静止，可直接拖进度，无需播放。播放会在目标轨道交点暂停；一次点火模式点“继续”可看飞船沿原椭圆返回。绿色箭头只表示瞬时速度方向，长度不表示速度。按开普勒方程推进，每半圈压缩为 8 秒，屏幕播放速度不等于真实飞行时间。</p>
     <p class="lab-meta">
       半长轴 a=<span class="lab-amber" id="orbit-a">—</span>
       · 第二次点火 Δv₂=<span id="orbit-dv2">—</span>
     </p>
     <p class="lab-note">理想两体、共面双圆、瞬时切向点火；忽略大气、其他天体和发动机限制。正 Δv 表示顺行加速，负值表示逆行减速；等半径无需点火。Δv 是速度变化，不是燃料量，实际耗燃料还取决于质量和发动机比冲。半径为中心距离，相对单位 μ=1，不代表地球真实轨道。</p>
+    <p class="lab-note">试一试：相同半径比的升轨和降轨，点火符号怎样变？只点火一次能否留在目标圆轨？把两半径设为相同，会发生什么？</p>
+    <p class="lab-note">科学参考：<a href="https://science.nasa.gov/learn/basics-of-space-flight/chapter4-1/" target="_blank" rel="noopener noreferrer">NASA · 轨道与转移</a></p>
   </div>
 
   <div class="lab-related">
@@ -67,6 +82,9 @@ import '../../styles/lab-hud.css';
 </ToolLayout>
 
 <style>
+  .orbit-scrub { flex: 1 1 280px; }
+  .orbit-scrub input { width: 100%; }
+  #orbit-mode { max-width: 100%; padding: .6rem; background: #091823; color: #e8f4ff; border: 1px solid #327285; border-radius: .4rem; }
   #orbit-canvas {
     width: 100%;
     height: min(60vh, 520px);

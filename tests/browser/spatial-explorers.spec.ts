@@ -1,19 +1,29 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openSpace(page: Page) {
+  await page.goto('/space/');
+  await page.waitForFunction(() => !!(window as any).__space || !document.getElementById('sp-fallback')?.hidden);
+  test.skip(await page.locator('#sp-fallback').isVisible(), 'WebGL2 unavailable; fallback tested separately, no GPU flags enabled');
+}
 
 test.describe('spatial exploration with real graphics when available', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   });
 
-  test('guided routes, mobile controls and context-loss recovery preserve a way home', async ({ page }) => {
-    await page.goto('/space/');
-    await page.waitForFunction(() => !!(window as any).__space || !document.getElementById('sp-fallback')?.hidden);
-    test.skip(await page.locator('#sp-fallback').isVisible(), 'WebGL2 unavailable; fallback tested separately, no GPU flags enabled');
+  // Real WebGL rendering and trace readbacks are expensive on CI. Independent
+  // scenarios keep the existing 60-second budget and all state/UI assertions.
+  test('Jupiter guide reaches Io and renders the desktop view', async ({ page }) => {
+    await openSpace(page);
     await page.locator('[data-explore="jupiter"]').click();
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.focus)).toBe('jupiter');
     await page.screenshot({ path: 'test-results/science-space-desktop.png', fullPage: true });
     await page.locator('#sp-guide-next').click();
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.focus)).toBe('io');
+  });
+
+  test('nearby-star guide returns home in solar observation mode', async ({ page }) => {
+    await openSpace(page);
     await page.locator('[data-explore="nearby"]').click();
     await page.locator('#sp-guide-next').click();
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.scaleMode)).toBe('stellar');
@@ -22,6 +32,10 @@ test.describe('spatial exploration with real graphics when available', () => {
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.focus)).toBe('earth');
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.mode)).toBe('observe');
     await expect(page.locator('#sp-tour')).toBeDisabled();
+  });
+
+  test('desktop-to-mobile quick controls and context-loss recovery remain accessible', async ({ page }) => {
+    await openSpace(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#sp-explorer > summary').click();
     await page.locator('#sp-zoom-in').click();

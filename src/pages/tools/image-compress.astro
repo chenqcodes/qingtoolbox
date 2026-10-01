@@ -2,15 +2,15 @@
 import ToolLayout from '../../layouts/ToolLayout.astro';
 ---
 
-<ToolLayout title="图片在线压缩" description="图片压缩在线工具，支持多图批量压缩、质量与尺寸调节，下载保留原文件名。" currentSlug="image-compress">
+<ToolLayout title="图片压缩到指定 KB" description="免费图片压缩工具，支持压缩到 200KB、自定义目标大小、批量 JPEG / WebP / PNG 和等比尺寸调整。图片在本地处理，不上传服务器。" currentSlug="image-compress">
   <h1 slot="header">图片压缩</h1>
-  <p class="intro">支持多图批量压缩，调节质量与尺寸，本地下载并保留原文件名。</p>
+  <p class="intro">压缩到指定 KB，或手动调整质量。先调质量，再按需等比缩小；图片只在你的浏览器中处理。</p>
 
   <div class="compress-workspace batch-workspace" id="compress-wrap">
     <div class="compress-panel">
       <div class="field-label">原图（可多选）</div>
       <label class="img-slot img-slot-upload" id="compress-drop">
-        <input type="file" id="compress-file" accept="image/*" multiple />
+        <input type="file" id="compress-file" accept="image/*" multiple aria-label="选择要压缩的图片，可多选" />
         <span id="compress-placeholder">点击或拖拽上传，可多选</span>
       </label>
       <div class="batch-grid cols-1" id="compress-src-grid"></div>
@@ -18,283 +18,77 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     </div>
 
     <div class="compress-panel compress-controls">
-      <div>
-        <label class="field-label">质量 <span class="range-val" id="quality-val">80%</span></label>
-        <div class="range-row">
-          <input type="range" id="compress-quality" min="10" max="100" value="80" />
-        </div>
+      <div class="target-settings">
+        <label class="compress-check"><input type="checkbox" id="compress-use-target" checked /> 按目标大小压缩</label>
+        <label class="field-label" for="compress-target">每张不超过 (KB)</label>
+        <input type="number" id="compress-target" min="0.1" max="102400" step="any" value="200" aria-describedby="compress-target-help" />
+        <p class="control-help" id="compress-target-help">1 KB = 1024 字节；200 KB = 204800 字节。以实际导出字节数判断是否达标。</p>
+        <button class="btn btn-secondary" id="compress-preset" type="button">200KB JPEG 常用预设</button>
+        <label class="compress-check"><input type="checkbox" id="compress-auto-resize" checked /> 质量不足时允许继续等比缩小</label>
+        <p class="control-help">取消勾选后固定计算出的尺寸。若最低质量仍超限，会明确标记未达标。</p>
       </div>
       <div>
-        <label class="field-label">尺寸比例 <span class="range-val" id="scale-val">100%</span></label>
-        <div class="range-row">
-          <input type="range" id="compress-scale" min="10" max="100" value="100" />
-        </div>
+        <label class="field-label" for="compress-quality"><span id="quality-label">最高质量</span> <span class="range-val" id="quality-val">92%</span></label>
+        <div class="range-row"><input type="range" id="compress-quality" min="10" max="100" value="92" /></div>
+        <p class="control-help" id="compress-quality-help">目标模式会在 10% 至此质量之间搜索。PNG 无质量压缩，只能通过缩小尺寸降低大小。</p>
+      </div>
+      <div>
+        <label class="field-label" for="compress-scale">尺寸比例 <span class="range-val" id="scale-val">100%</span></label>
+        <div class="range-row"><input type="range" id="compress-scale" min="10" max="100" value="100" /></div>
       </div>
       <div class="size-input-row">
-        <div>
-          <label class="field-label" for="size-w">宽 (px)</label>
-          <input type="number" id="size-w" min="1" placeholder="按比例" />
-        </div>
-        <div>
-          <label class="field-label" for="size-h">高 (px)</label>
-          <input type="number" id="size-h" min="1" placeholder="按比例" />
-        </div>
+        <div><label class="field-label" for="size-w">最大宽 (px)</label><input type="number" id="size-w" min="1" max="16384" step="1" placeholder="按比例" /></div>
+        <div><label class="field-label" for="size-h">最大高 (px)</label><input type="number" id="size-h" min="1" max="16384" step="1" placeholder="按比例" /></div>
       </div>
+      <p class="control-help">填写宽高时优先按边界等比适配，不拉伸、不裁剪、不放大；留空则使用尺寸比例。自动缩小可能让输出低于这些尺寸。</p>
       <div>
         <label class="field-label" for="compress-format">输出格式</label>
-        <select id="compress-format">
-          <option value="image/jpeg">JPEG</option>
-          <option value="image/webp">WebP</option>
-          <option value="image/png">PNG</option>
-        </select>
+        <select id="compress-format"><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select>
+        <p class="control-help">JPEG 的透明区域填充白色；PNG / WebP 保留透明。动图仅导出静态画面，原文件保持不变。</p>
       </div>
       <div class="btn-row compress-btn-row">
         <button class="btn" id="btn-compress" type="button">全部压缩</button>
         <button class="btn btn-secondary" id="btn-compress-dl" type="button" hidden>批量下载</button>
         <button class="btn btn-secondary" id="btn-compress-clear" type="button" hidden>清空</button>
       </div>
-      <div id="compress-msg"></div>
+      <div id="compress-msg" role="status" aria-live="polite"></div>
     </div>
 
     <div class="compress-panel">
-      <div class="field-label">压缩后（多图预览）</div>
-      <div class="batch-grid cols-1" id="compress-out-grid">
-        <span class="img-meta" style="grid-column:1/-1">等待压缩</span>
-      </div>
+      <div class="field-label">压缩结果（点击查看详情）</div>
+      <div class="batch-grid cols-1" id="compress-out-grid"><span class="img-meta" style="grid-column:1/-1">等待压缩</span></div>
       <div class="img-meta" id="compress-out-meta">—</div>
     </div>
   </div>
-
-  <div class="compress-summary" id="compress-summary" style="display:none"></div>
+  <div class="compress-summary" id="compress-summary" style="display:none" aria-live="polite"></div>
+  <section class="section">
+    <h2>如何压缩到 200KB 以内？</h2>
+    <p>点击「200KB JPEG 常用预设」后选择图片。工具会先在当前尺寸下调整 JPEG 质量，仍超限时再等比缩小，最后用实际文件大小检查结果。网站若同时要求固定尺寸，可关闭「允许继续等比缩小」并检查尺寸与达标状态。</p>
+    <p>目标过小、固定尺寸或 PNG 格式都可能无法达到大小限制。未达标结果仍可下载，但不会显示为达标。请以目标网站的尺寸、格式及字节限制为准；本工具不判断证件照背景、姿态或人像内容是否符合审核要求。</p>
+    <p>处理、预览与打包均在浏览器本地进行，不上传图片；重新编码会移除常见 EXIF 等原始元数据。下载使用安全处理后的原文件名，重名自动编号。</p>
+  </section>
 </ToolLayout>
 
+<style>
+  #compress-wrap { grid-template-columns: minmax(0, 1fr) minmax(280px, .9fr) minmax(0, 1fr); }
+  .compress-panel { min-width: 0; }
+  #compress-target { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: var(--mono); }
+  .size-input-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .size-input-row > div { min-width: 0; }
+  .target-settings { display: grid; gap: .65rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+  .compress-check { display: flex; align-items: flex-start; gap: .5rem; font-size: .9rem; line-height: 1.6; }
+  .compress-check input { flex-shrink: 0; width: auto; margin-top: .3rem; }
+  .control-help { margin: .25rem 0 0; font-size: .8rem; line-height: 1.6; color: var(--muted); }
+  #compress-out-meta { overflow-wrap: anywhere; line-height: 1.7; }
+  #compress-wrap :global(.batch-thumb) { aspect-ratio: auto; min-height: 80px; text-align: left; }
+  #compress-wrap :global(.batch-thumb img) { height: 160px; object-fit: contain; }
+  #compress-wrap :global(.batch-thumb-cap) { position: static; display: block; color: var(--text); background: none; padding-top: .5rem; }
+  #compress-wrap :global(.compression-detail) { display: block; padding: .3rem .45rem; font-size: .72rem; line-height: 1.5; overflow-wrap: anywhere; }
+  #compress-wrap :global(.batch-thumb.is-error .compression-detail) { color: #a93226; }
+  #compress-wrap :global(.batch-thumb-cap) { overflow-wrap: anywhere; }
+  @media (max-width: 1000px) { #compress-wrap { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
 <script>
-  import {
-    canvasToBlob,
-    extFromMime,
-    fmtSize,
-    gridColsClass,
-    loadImageFromFile,
-    outputName,
-    revokeItemUrls,
-    zipAndDownload,
-    type BatchItem,
-  } from '../../scripts/image-batch';
-
-  const wrap = document.getElementById('compress-wrap')!;
-  const fileInput = document.getElementById('compress-file') as HTMLInputElement;
-  const drop = document.getElementById('compress-drop')!;
-  const srcGrid = document.getElementById('compress-src-grid')!;
-  const outGrid = document.getElementById('compress-out-grid')!;
-  const meta = document.getElementById('compress-meta')!;
-  const outMeta = document.getElementById('compress-out-meta')!;
-  const quality = document.getElementById('compress-quality') as HTMLInputElement;
-  const qualityVal = document.getElementById('quality-val')!;
-  const scale = document.getElementById('compress-scale') as HTMLInputElement;
-  const scaleVal = document.getElementById('scale-val')!;
-  const sizeW = document.getElementById('size-w') as HTMLInputElement;
-  const sizeH = document.getElementById('size-h') as HTMLInputElement;
-  const format = document.getElementById('compress-format') as HTMLSelectElement;
-  const summary = document.getElementById('compress-summary')!;
-  const btnDl = document.getElementById('btn-compress-dl') as HTMLButtonElement;
-  const btnClear = document.getElementById('btn-compress-clear') as HTMLButtonElement;
-  const msg = document.getElementById('compress-msg')!;
-
-  let items: BatchItem[] = [];
-  let activeId = '';
-  let debounceTimer: ReturnType<typeof setTimeout>;
-
-  function showMsg(text: string, type: 'error' | 'success') {
-    msg.className = `msg ${type}`;
-    msg.textContent = text;
-  }
-
-  function getOutputSize(natW: number, natH: number) {
-    const wIn = Number(sizeW.value);
-    const hIn = Number(sizeH.value);
-    if (wIn > 0 && hIn > 0) return { w: wIn, h: hIn };
-    if (wIn > 0) return { w: wIn, h: Math.round(natH * (wIn / natW)) };
-    if (hIn > 0) return { w: Math.round(natW * (hIn / natH)), h: hIn };
-    const ratio = Number(scale.value) / 100;
-    return { w: Math.round(natW * ratio), h: Math.round(natH * ratio) };
-  }
-
-  function setGridClass(el: HTMLElement, n: number) {
-    el.className = `batch-grid ${gridColsClass(n)}`;
-  }
-
-  function renderGrids() {
-    wrap.classList.toggle('has-files', items.length > 0);
-    setGridClass(srcGrid, items.length);
-    setGridClass(outGrid, items.length || 1);
-
-    srcGrid.innerHTML = items.map((it) => {
-      const st = it.status == 'done' ? '完成' : it.status == 'error' ? '失败' : '待处理';
-      const cls = [
-        'batch-thumb',
-        it.id == activeId ? 'is-active' : '',
-        it.status == 'done' ? 'is-done' : '',
-        it.status == 'error' ? 'is-error' : '',
-      ].filter(Boolean).join(' ');
-      return `<button type="button" class="${cls}" data-id="${it.id}">
-        <img src="${it.srcUrl || ''}" alt="" />
-        <span class="batch-thumb-st">${st}</span>
-        <span class="batch-thumb-cap">${it.file.name}</span>
-      </button>`;
-    }).join('');
-
-    const done = items.filter((i) => i.status == 'done' && i.previewUrl);
-    if (!items.length) {
-      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">等待压缩</span>';
-    } else if (!done.length) {
-      outGrid.innerHTML = '<span class="img-meta" style="grid-column:1/-1">处理中…</span>';
-    } else {
-      outGrid.innerHTML = items.map((it) => {
-        if (it.status != 'done' || !it.previewUrl) {
-          return `<div class="batch-thumb is-error" data-id="${it.id}">
-            <span class="batch-thumb-st">${it.status == 'error' ? '失败' : '…'}</span>
-            <span class="batch-thumb-cap">${it.file.name}</span>
-          </div>`;
-        }
-        const cls = `batch-thumb is-done${it.id == activeId ? ' is-active' : ''}`;
-        return `<button type="button" class="${cls}" data-id="${it.id}">
-          <img src="${it.previewUrl}" alt="" />
-          <span class="batch-thumb-st">完成</span>
-          <span class="batch-thumb-cap">${it.outName || it.file.name}</span>
-        </button>`;
-      }).join('');
-    }
-
-    meta.textContent = items.length ? `共 ${items.length} 张` : '—';
-    const active = items.find((i) => i.id == activeId && i.status == 'done');
-    outMeta.textContent = active?.blob
-      ? `${active.outName} · ${fmtSize(active.blob.size)}${active.meta ? ` · ${active.meta}` : ''}`
-      : (done.length ? `已完成 ${done.length}/${items.length}` : '—');
-    btnClear.hidden = items.length == 0;
-    btnDl.hidden = done.length == 0;
-  }
-
-  async function compressOne(it: BatchItem) {
-    const img = await loadImageFromFile(it.file);
-    const { w, h } = getOutputSize(img.width, img.height);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-    const mime = format.value;
-    const q = Number(quality.value) / 100;
-    const blob = await canvasToBlob(canvas, mime, q);
-    const ext = extFromMime(mime);
-    const saved = Math.round((1 - blob.size / it.file.size) * 100);
-    if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
-    it.blob = blob;
-    it.outName = outputName(it.file.name, ext);
-    it.previewUrl = URL.createObjectURL(blob);
-    it.status = 'done';
-    it.meta = `${w}×${h} · 省 ${saved}%`;
-  }
-
-  async function compressAll() {
-    if (!items.length) {
-      showMsg('请先上传图片', 'error');
-      return;
-    }
-    showMsg('压缩中…', 'success');
-    let totalIn = 0;
-    let totalOut = 0;
-    for (const it of items) {
-      try {
-        await compressOne(it);
-        totalIn += it.file.size;
-        totalOut += it.blob!.size;
-      } catch {
-        it.status = 'error';
-      }
-      renderGrids();
-    }
-    if (!activeId || !items.find((i) => i.id == activeId && i.status == 'done')) {
-      activeId = items.find((i) => i.status == 'done')?.id || '';
-    }
-    renderGrids();
-    const ok = items.filter((i) => i.status == 'done').length;
-    summary.style.display = ok ? 'flex' : 'none';
-    if (ok) {
-      const saved = totalIn ? Math.round((1 - totalOut / totalIn) * 100) : 0;
-      summary.innerHTML = `
-        <span>完成：<strong>${ok}/${items.length}</strong></span>
-        <span>原合计：<strong>${fmtSize(totalIn)}</strong></span>
-        <span>压后合计：<strong>${fmtSize(totalOut)}</strong></span>
-        <span>节省：<strong>${saved}%</strong></span>
-      `;
-    }
-    showMsg(`完成 ${ok}/${items.length}`, ok ? 'success' : 'error');
-  }
-
-  function scheduleCompress() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(compressAll, 280);
-  }
-
-  function addFiles(files: FileList | File[]) {
-    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
-    for (const file of arr) {
-      items.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        file,
-        status: 'pending',
-        srcUrl: URL.createObjectURL(file),
-      });
-    }
-    if (!activeId && items.length) activeId = items[0].id;
-    renderGrids();
-    compressAll();
-  }
-
-  function onGridClick(e: Event) {
-    const btn = (e.target as HTMLElement).closest('[data-id]') as HTMLElement | null;
-    if (!btn?.dataset.id) return;
-    activeId = btn.dataset.id;
-    renderGrids();
-  }
-  srcGrid.addEventListener('click', onGridClick);
-  outGrid.addEventListener('click', onGridClick);
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files?.length) addFiles(fileInput.files);
-    fileInput.value = '';
-  });
-  drop.addEventListener('dragover', (e) => e.preventDefault());
-  drop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
-  });
-
-  quality.addEventListener('input', () => {
-    qualityVal.textContent = quality.value + '%';
-    scheduleCompress();
-  });
-  scale.addEventListener('input', () => {
-    scaleVal.textContent = scale.value + '%';
-    sizeW.value = '';
-    sizeH.value = '';
-    scheduleCompress();
-  });
-  sizeW.addEventListener('input', scheduleCompress);
-  sizeH.addEventListener('input', scheduleCompress);
-  format.addEventListener('change', compressAll);
-  document.getElementById('btn-compress')!.addEventListener('click', compressAll);
-  btnDl.addEventListener('click', async () => {
-    const done = items.filter((i) => i.status == 'done' && i.blob && i.outName)
-      .map((i) => ({ name: i.outName!, blob: i.blob! }));
-    await zipAndDownload(done, 'compressed-images.zip');
-  });
-  btnClear.addEventListener('click', () => {
-    items.forEach(revokeItemUrls);
-    items = [];
-    activeId = '';
-    renderGrids();
-    summary.style.display = 'none';
-    msg.textContent = '';
-    msg.className = '';
-  });
+  import '../../scripts/image-compress/client';
 </script>

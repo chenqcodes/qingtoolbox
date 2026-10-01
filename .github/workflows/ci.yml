@@ -23,6 +23,18 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test:seo
+      - run: npm run test:tools
       - run: npm run build
       - run: npm run qa:metadata
       - run: npm run qa:seo
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Upload browser QA results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-qa-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

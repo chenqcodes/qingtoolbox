@@ -13,3 +13,7 @@ reports/
 STATUS.md
 plan.md
 AGENTS.md
+
+# Browser QA artifacts
+playwright-report/
+test-results/

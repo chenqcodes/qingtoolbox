@@ -39,4 +39,4 @@ for (const alias of ['/tools/building-sunlight', '/tools/building-sunlight/']) {
   assert.ok(redirects.split('\n').includes(`${alias} /building-sunlight/ 301`), `${alias}: permanent host redirect`);
 }
 assert.equal(canonicalPath('/tools/base64?query=1#fragment'), '/tools/base64/');
-console.log(`SEO 检查通过：${expectedPaths.size} 个规范页面，28 个工具，404 HTML 与永久重定向配置`);
+console.log(`SEO 检查通过：${expectedPaths.size} 个规范页面，${tools.length} 个工具，404 HTML 与永久重定向配置`);

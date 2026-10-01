@@ -1,0 +1,103 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/hanzi-worksheet.css';
+---
+
+<ToolLayout
+  title="A4 汉字练习纸 - 田字格描红与听写"
+  description="输入本周生字，生成可打印的 A4 田字格练习纸。自选描红与空白比例、听写模式和拼音，支持修改多音字读音，浏览器本地打印或保存 PDF。"
+  currentSlug="hanzi-worksheet"
+>
+  <h1 slot="header">汉字练习纸</h1>
+  <p class="intro">把本周生字排成 A4 田字格，先描红，再独立写。文本与拼音只在本机浏览器处理，不会上传。</p>
+
+  <div class="worksheet-controls tool-panel">
+    <div class="worksheet-input-heading">
+      <label for="worksheet-text">本周生字</label>
+      <span class="field-hint" id="worksheet-count">最多 60 个汉字</span>
+    </div>
+    <textarea id="worksheet-text" class="json-editor" rows="3" maxlength="4000" placeholder="例如：春夏秋冬，山川日月" aria-describedby="worksheet-text-hint worksheet-status"></textarea>
+    <p class="field-hint" id="worksheet-text-hint">每个字占一行，保留重复字；标点、数字和字母不排入练习纸。最多 60 个汉字。</p>
+    <div class="btn-row worksheet-input-actions">
+      <button type="button" class="btn btn-secondary" id="worksheet-example">填入示例</button>
+      <button type="button" class="btn btn-secondary" id="worksheet-import">导入本机生字本</button>
+      <button type="button" class="btn btn-secondary" id="worksheet-clear">清空</button>
+    </div>
+    <div id="worksheet-status" class="worksheet-status" role="status" aria-live="polite"></div>
+
+    <div class="worksheet-options">
+      <div>
+        <label for="worksheet-title">纸张标题</label>
+        <input id="worksheet-title" type="text" value="本周生字练习" maxlength="30" />
+      </div>
+      <div>
+        <label for="worksheet-mode">练习模式</label>
+        <select id="worksheet-mode">
+          <option value="tracing">描红 + 独立书写</option>
+          <option value="dictation">听写（不印汉字答案）</option>
+        </select>
+      </div>
+      <div>
+        <label for="worksheet-trace">每行描红 / 空白</label>
+        <select id="worksheet-trace">
+          <option value="0">0 格描红 / 10 格空白</option>
+          <option value="2">2 格描红 / 8 格空白</option>
+          <option value="5" selected>5 格描红 / 5 格空白</option>
+          <option value="8">8 格描红 / 2 格空白</option>
+          <option value="10">10 格描红 / 0 格空白</option>
+        </select>
+      </div>
+      <div>
+        <label for="worksheet-repeat">每字练习行数</label>
+        <select id="worksheet-repeat">
+          <option value="1">1 行</option>
+          <option value="2">2 行</option>
+          <option value="3">3 行</option>
+        </select>
+      </div>
+    </div>
+    <label class="worksheet-checkbox"><input type="checkbox" id="worksheet-pinyin" checked /> 在每行上方显示拼音</label>
+    <p class="field-hint" id="worksheet-mode-hint">每行 10 个田字格，字格边长 18 毫米；每页最多 8 行。</p>
+
+    <details class="worksheet-readings" id="worksheet-readings-panel">
+      <summary>核对 / 修改拼音（含多音字）</summary>
+      <p class="field-hint">自动读音会参考上下文，但多音字、姓名和生僻字请核对。可直接填写带调拼音（如 háng）或数字调（如 hang2）；留空则不印拼音。同字不同位置可分别修改。修改上方生字后会重新生成读音。</p>
+      <div class="worksheet-reading-editor" id="worksheet-reading-editor"></div>
+      <button type="button" class="btn btn-secondary" id="worksheet-reset-readings">恢复自动读音</button>
+    </details>
+    <div class="btn-row worksheet-print-actions">
+      <button type="button" class="btn" id="worksheet-print" disabled>打印 / 保存 PDF</button>
+      <span class="field-hint" id="worksheet-summary" aria-live="polite"></span>
+    </div>
+    <p class="field-hint">打印设置：A4、纵向、缩放 100%，关闭页眉页脚。电脑可选择「另存为 PDF」；手机可用浏览器菜单中的「打印」或「共享 → 打印」，能否保存 PDF 取决于系统。预览中的字格线不依赖背景打印。</p>
+    <p class="field-hint">练习纸使用本机可用中文字体，不为字帖额外下载字体；若生僻字显示为方框，请换用支持该字的设备或字体后再打印。</p>
+  </div>
+
+  <section class="worksheet-preview-section" aria-labelledby="worksheet-preview-heading">
+    <div class="worksheet-preview-heading">
+      <h2 id="worksheet-preview-heading">纸张预览</h2>
+      <span class="field-hint">A4 · 210 × 297 毫米</span>
+    </div>
+    <p id="worksheet-empty" class="worksheet-empty">输入汉字后会在这里生成练习纸。</p>
+    <div class="worksheet-preview-viewport" id="worksheet-preview-viewport">
+      <div class="worksheet-preview-scale" id="worksheet-preview-scale">
+        <div id="worksheet-pages"></div>
+      </div>
+    </div>
+  </section>
+
+  <noscript><p class="msg error">请启用 JavaScript 后生成练习纸。所有排版在浏览器本地完成。</p></noscript>
+  <section class="section worksheet-help">
+    <h2>怎么制作一周练习纸？</h2>
+    <ol>
+      <li>输入生字或从「汉字笔顺」的本机生字本导入，按本周教学顺序排列。</li>
+      <li>先用描红模式练字；需要检查掌握程度时，切换听写并关闭拼音。</li>
+      <li>展开拼音校对，检查多音字，再打印或保存 PDF。打印只包含练习纸，不包含编辑区。</li>
+    </ol>
+    <p class="field-hint">继续学习：<a href="/tools/hanzi-write/">汉字笔顺与跟写</a> · <a href="/tools/pinyin/">整段文本拼音标注</a></p>
+  </section>
+</ToolLayout>
+
+<script>
+  import '../../scripts/hanzi-worksheet/main';
+</script>

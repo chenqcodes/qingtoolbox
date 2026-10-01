@@ -21,7 +21,9 @@
     "qa:links": "tsx scripts/qa/check-links.ts",
     "qa:metadata": "tsx scripts/qa/check-metadata.ts",
     "qa:seo": "node --import tsx scripts/qa/check-seo.ts",
-    "test:seo": "node --import tsx --test scripts/seo/*.test.ts"
+    "test:seo": "node --import tsx --test scripts/seo/*.test.ts",
+    "test:tools": "node --import tsx --test src/scripts/image-compress*.test.ts src/scripts/hanzi-worksheet/*.test.ts",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.4.0",
@@ -45,6 +47,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@playwright/test": "1.58.2",
     "@types/fabric": "^5.3.0",
     "@types/three": "^0.185.1",
     "googleapis": "^148.0.0",

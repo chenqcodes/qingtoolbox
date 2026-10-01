@@ -1,0 +1,61 @@
+.worksheet-controls { margin-bottom: 24px; }
+.worksheet-input-heading, .worksheet-preview-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.worksheet-input-heading label { margin-bottom: 6px; }
+.worksheet-controls textarea { min-height: 105px; resize: vertical; }
+.worksheet-input-actions { margin: 10px 0; }
+.worksheet-status { min-height: 1.65em; font-size: .9rem; color: var(--muted); }
+.worksheet-status[data-error="true"] { color: #a52a17; }
+.worksheet-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin-top: 16px; }
+.worksheet-options input, .worksheet-options select, .worksheet-reading-editor input { width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: #fff; font: inherit; }
+.worksheet-options select:disabled { background: #f1eee8; color: var(--muted); }
+.worksheet-controls .worksheet-checkbox { display: flex; gap: 8px; align-items: center; margin: 16px 0 4px; font-weight: 400; }
+.worksheet-checkbox input { width: 18px; height: 18px; accent-color: var(--primary); }
+.worksheet-readings { margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+.worksheet-readings summary { cursor: pointer; font-weight: 600; }
+.worksheet-readings .field-hint { margin: 8px 0; }
+.worksheet-reading-editor { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 340px; overflow: auto; margin: 12px 0; padding: 2px; }
+.worksheet-reading-editor label { margin: 0; font-size: .9rem; }
+.worksheet-reading-editor input { margin-top: 3px; font-family: system-ui, sans-serif; }
+.worksheet-print-actions { align-items: center; margin: 18px 0 8px; }
+.worksheet-preview-heading { margin-bottom: 12px; }
+.worksheet-preview-heading h2 { margin: 0; font-size: 1.2rem; }
+.worksheet-empty { padding: 32px 16px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }
+.worksheet-preview-viewport { width: 100%; overflow: hidden; }
+.worksheet-preview-scale { width: 210mm; transform-origin: top left; }
+#worksheet-pages { display: flex; flex-direction: column; gap: 20px; }
+/* Use physical sizes for paper, rows and cells. Every complete row fits inside a page.
+   273mm usable height = 24mm header + 232mm rows + 12mm footer + 5mm spare. */
+.worksheet-sheet { box-sizing: border-box; flex-shrink: 0; width: 210mm; height: 297mm; padding: 12mm 15mm; background: #fff; color: #222; box-shadow: 0 2px 12px #0002; font-family: "Kaiti SC", "KaiTi", "STKaiti", "Noto Serif CJK SC", "Songti SC", serif; line-height: normal; }
+.worksheet-sheet .worksheet-paper-header { height: 24mm; }
+.worksheet-sheet .worksheet-paper-header h2 { margin: 0 0 3mm; border: 0; padding: 0; height: 9mm; font-size: 16pt; line-height: 9mm; text-align: center; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.worksheet-paper-info { display: flex; justify-content: space-between; font-size: 10pt; line-height: 6mm; }
+.worksheet-paper-rows { min-height: 232mm; }
+.worksheet-practice-row { height: 29mm; break-inside: avoid; page-break-inside: avoid; }
+.worksheet-row-meta { display: flex; align-items: center; height: 6mm; gap: 3mm; font-family: Arial, sans-serif; font-size: 10pt; line-height: 6mm; }
+.worksheet-reading { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150mm; }
+.worksheet-cells { display: grid; grid-template-columns: repeat(10, 18mm); width: 180mm; height: 18mm; }
+.worksheet-cell { box-sizing: border-box; width: 18mm; height: 18mm; position: relative; display: flex; align-items: center; justify-content: center; border: .25mm solid #666; border-right: 0; }
+.worksheet-cell:last-child { border-right: .25mm solid #666; }
+/* Real borders, rather than background images, survive monochrome printing and
+   the browser's default “do not print backgrounds” setting. */
+.worksheet-cell::before, .worksheet-cell::after { content: ""; position: absolute; pointer-events: none; }
+.worksheet-cell::before { top: 50%; left: 0; width: 100%; border-top: .2mm dashed #aaa; }
+.worksheet-cell::after { left: 50%; top: 0; height: 100%; border-left: .2mm dashed #aaa; }
+.worksheet-trace { position: relative; z-index: 1; color: #aaa; font-size: 35pt; font-weight: 400; line-height: 1; }
+.worksheet-paper-footer { height: 12mm; display: flex; align-items: center; justify-content: space-between; font-size: 9pt; color: #666; }
+.worksheet-help ol { padding-left: 1.5em; }
+.worksheet-help li { margin: 6px 0; }
+@media (max-width: 560px) {
+  .worksheet-options { grid-template-columns: 1fr; gap: 12px; }
+  .worksheet-input-actions .btn { flex: 1 1 auto; }
+  .worksheet-print-actions { align-items: stretch; flex-direction: column; }
+  .worksheet-print-actions .btn { min-height: 46px; }
+}
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  html, body { width: 210mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; }
+  body > :not(main), main > :not(.tool-layout), .tool-layout > :not(.tool-main), .tool-main > :not(.worksheet-preview-section), .worksheet-preview-section > :not(.worksheet-preview-viewport) { display: none !important; }
+  body main, .tool-layout, .tool-main, .worksheet-preview-section, .worksheet-preview-viewport, .worksheet-preview-scale, #worksheet-pages { display: block !important; width: 210mm !important; max-width: none !important; height: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; overflow: visible !important; transform: none !important; }
+  .worksheet-sheet { margin: 0 !important; box-shadow: none !important; break-inside: avoid; page-break-inside: avoid; break-after: page; page-break-after: always; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .worksheet-sheet:last-child { break-after: auto; page-break-after: auto; }
+}

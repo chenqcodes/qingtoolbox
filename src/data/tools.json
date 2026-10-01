@@ -1,5 +1,13 @@
 [
   {
+    "slug": "hanzi-worksheet",
+    "name": "汉字练习纸",
+    "desc": "A4 田字格字帖与听写纸，自选描红比例和拼音",
+    "icon": "纸",
+    "category": "language",
+    "tags": ["教育", "汉字", "打印"]
+  },
+  {
     "slug": "hanzi-write",
     "name": "汉字笔顺",
     "desc": "笔顺动画 + 田字格跟写练习",
@@ -215,7 +223,7 @@
   {
     "slug": "image-compress",
     "name": "图片压缩",
-    "desc": "本地压缩，可调质量与尺寸",
+    "desc": "指定 KB 自动压缩，支持 200KB JPG 与像素尺寸",
     "icon": "压",
     "category": "image",
     "tags": [

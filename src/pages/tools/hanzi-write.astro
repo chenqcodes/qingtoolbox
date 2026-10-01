@@ -10,6 +10,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   <h1 slot="header">汉字笔顺练习</h1>
   <p class="intro">添加要学的汉字，先看笔顺动画，再在田字格里跟写。生字保存在本机浏览器，不会上传。</p>
 
+  <p class="field-hint" style="margin-bottom:16px">纸上巩固：<a href="/tools/hanzi-worksheet/" id="hanzi-worksheet-link">把生字本排成 A4 练习纸</a> · 可描红、听写、打印或保存 PDF</p>
+
   <div class="tool-panel hanzi-add-panel">
     <label for="hanzi-input">添加生字</label>
     <div class="hanzi-add-row">
@@ -74,6 +76,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
 <script>
   import HanziWriter from 'hanzi-writer';
+  import { worksheetHref } from '../../scripts/hanzi-worksheet/navigation';
 
   const STORAGE_KEY = 'hanzi-learn-chars';
 
@@ -133,6 +136,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function renderCharList() {
+    const worksheetLink = document.getElementById('hanzi-worksheet-link') as HTMLAnchorElement;
+    worksheetLink.href = chars.length ? worksheetHref(chars.join('')) : '/tools/hanzi-worksheet/';
     listEl.innerHTML = '';
     chars.forEach((ch) => {
       const btn = document.createElement('button');

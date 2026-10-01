@@ -24,6 +24,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       <button type="button" class="btn" id="btn-copy-ruby">复制带拼音</button>
       <button type="button" class="btn btn-secondary" id="btn-copy-py">复制仅拼音</button>
       <button type="button" class="btn btn-secondary" id="btn-clear">清空</button>
+      <a class="btn btn-secondary" id="py-worksheet-link" href="/tools/hanzi-worksheet/">制作 A4 练习纸</a>
     </div>
     <div id="py-msg"></div>
   </div>
@@ -137,6 +138,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
 <script>
   import { pinyin } from 'pinyin-pro';
+  import { worksheetHref } from '../../scripts/hanzi-worksheet/navigation';
 
   const input = document.getElementById('py-input') as HTMLTextAreaElement;
   const preview = document.getElementById('py-preview')!;
@@ -165,6 +167,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   function render() {
     const text = input.value;
+    const worksheetLink = document.getElementById('py-worksheet-link') as HTMLAnchorElement;
+    worksheetLink.href = worksheetHref(text);
     if (!text) {
       preview.innerHTML = '<span class="img-meta">输入后显示拼音预览</span>';
       return;

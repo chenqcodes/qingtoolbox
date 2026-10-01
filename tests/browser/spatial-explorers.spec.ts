@@ -11,6 +11,7 @@ test.describe('spatial exploration with real graphics when available', () => {
     test.skip(await page.locator('#sp-fallback').isVisible(), 'WebGL2 unavailable; fallback tested separately, no GPU flags enabled');
     await page.locator('[data-explore="jupiter"]').click();
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.focus)).toBe('jupiter');
+    await page.screenshot({ path: 'test-results/science-space-desktop.png', fullPage: true });
     await page.locator('#sp-guide-next').click();
     await expect.poll(() => page.evaluate(() => (window as any).__space.cam.focus)).toBe('io');
     await page.locator('[data-explore="nearby"]').click();
@@ -27,6 +28,7 @@ test.describe('spatial exploration with real graphics when available', () => {
     await page.locator('#sp-reset-view').click();
     await expect(page.locator('#sp-home-earth')).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: 'test-results/science-space-mobile.png', fullPage: true });
     await page.locator('#space-canvas').dispatchEvent('webglcontextlost');
     await expect(page.locator('#sp-fallback')).toBeVisible();
     await expect(page.locator('#space-hud')).toBeHidden();
@@ -39,6 +41,7 @@ test.describe('spatial exploration with real graphics when available', () => {
     });
     await page.goto('/vendor/building-sunlight/index.html');
     test.skip(await page.locator('#graphicsFallback').isVisible(), 'WebGL unavailable; no graphics workaround attempted');
+    await page.locator('[data-lang="zh"]').click();
     await page.locator('#jsonInput').setInputFiles({
       name: 'synthetic-daylight-test.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({
         version: '3.0.0', latitude: 36.65, longitude: 117.12, timeZone: 'Asia/Shanghai', northAngle: 0, scaleRatio: 1, origin: { x: 0, y: 0 },
@@ -56,6 +59,9 @@ test.describe('spatial exploration with real graphics when available', () => {
     await page.locator('.timeline-segment').first().click();
     await expect(page.locator('.timeline-segment').first()).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => (window as any).__locationRequests)).toBe(0);
+    await page.screenshot({ path: 'test-results/science-sunlight-desktop.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: 'test-results/science-sunlight-mobile.png', fullPage: true });
     await page.locator('#seasonSelect').selectOption('june-solstice');
     await expect(page.locator('#timelinePicker')).toBeHidden();
   });

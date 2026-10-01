@@ -65,11 +65,13 @@ test('audio starts only on explicit action and offers independent sound/visual c
   await expect(page.locator('#audio-playback')).toHaveText('播放音频');
   await page.locator('#audio-playback').click();
   await expect(page.locator('#audio-status')).toContainText('播放中');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('audio-desktop.png'), fullPage: true });
   await page.locator('#audio-stop').click();
   await expect(page.locator('#audio-status')).toContainText('已停止');
   await expect(page.locator('#audio-playback')).toBeDisabled();
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('audio-mobile.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
@@ -92,10 +94,12 @@ test('real molecule WebGL render at desktop and mobile when supported', async ({
   await page.locator('#mol-style').selectOption('ball-stick');
   await page.locator('#mol-atom').selectOption('0');
   await expect(page.locator('#mol-inspect')).toContainText('羰基');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('molecule-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.locator('#mol-style').selectOption('space-fill');
   await page.locator('#mol-reset').click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('molecule-mobile.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   expect(pageErrors).toEqual([]);

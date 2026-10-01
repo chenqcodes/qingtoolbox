@@ -639,7 +639,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
 
         .sp-drawer-left .sp-drawer-tab { display: none; }
         .sp-drawer-left {
-          top: 52px;
+          top: 172px;
           bottom: 44px;
           left: 8px;
           height: auto;
@@ -654,12 +654,12 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           width: min(260px, calc(100vw - 24px));
         }
         .sp-rail-split {
-          max-height: calc(100dvh - 90px);
+          max-height: calc(100dvh - 216px);
         }
         .sp-rail,
         #sp-rail-stars {
           grid-template-columns: 1fr;
-          max-height: calc(100dvh - 170px);
+          max-height: calc(100dvh - 288px);
           overflow-x: hidden;
           overflow-y: auto;
         }
@@ -714,6 +714,8 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           left: 8px;
           right: 8px;
           max-width: none;
+          max-height: calc(100dvh - 180px);
+          overflow-y: auto;
           transform: translateX(0) translateY(0);
         }
         .sp-drawer-bottom.is-collapsed {
@@ -758,8 +760,10 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
       .sp-quick-nav .sp-btn { min-height: 40px; padding: 6px 9px; }
       button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
       @media (max-width: 640px) {
-        .sp-explorer { top: 62px; right: 8px; max-height: calc(100dvh - 200px); }
-        .sp-quick-nav { bottom: 73px; right: 8px; }
+        .sp-explorer { top: 122px; right: 8px; max-height: calc(100dvh - 178px); }
+        /* Reserved mobile strip: never overlap the console, even while expanded. */
+        .sp-quick-nav { top: 60px; bottom: auto; left: 8px; right: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); z-index: 21; }
+        .sp-quick-nav .sp-btn { min-width: 0; letter-spacing: 0; white-space: nowrap; }
         .sp-quick-nav .sp-btn { font-size: .7rem; min-height: 40px; padding: 6px 7px; }
         .sp-explorer-settings select { font-size: 16px; }
         .sp-explorer[open] { z-index: 20; }

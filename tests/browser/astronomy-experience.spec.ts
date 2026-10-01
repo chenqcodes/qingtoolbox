@@ -25,7 +25,7 @@ test('ISS cards distinguish visibility, allow keyboard selection and disclose fr
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/tools/sat-pass/');
   await expect(page.locator('#sat-freshness')).toContainText('轨道数据可用');
-  await expect(page.locator('#sat-countdown')).toContainText('距离开始');
+  await expect(page.locator('#sat-countdown')).toContainText('窗口进行中');
   await expect(page.locator('#sat-pass-cards')).toContainText('可能肉眼可见');
   await page.locator('#sat-filter').selectOption('geometric');
   await expect(page.locator('#sat-pass-cards')).toContainText('仅几何过境');

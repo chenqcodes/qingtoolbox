@@ -30,6 +30,7 @@ export class Hud {
   private onTour: () => void;
   private onFaceSun: () => void;
   private lastScale: ScaleMode = 'solar';
+  private wasPhone: boolean | undefined;
 
   constructor(
     root: HTMLElement,
@@ -107,6 +108,8 @@ export class Hud {
       left?.classList.toggle('is-collapsed');
       if (this.isPhone() && left && !left.classList.contains('is-collapsed')) {
         this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
+        const explorer = this.q<HTMLDetailsElement>('#sp-explorer');
+        if (explorer) explorer.open = false;
       }
       this.syncLeftToggle();
     };
@@ -117,8 +120,16 @@ export class Hud {
       bottom?.classList.toggle('is-collapsed');
       if (this.isPhone() && bottom && !bottom.classList.contains('is-collapsed')) {
         this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+        const explorer = this.q<HTMLDetailsElement>('#sp-explorer');
+        if (explorer) explorer.open = false;
         this.syncLeftToggle();
       }
+    });
+    this.q<HTMLDetailsElement>('#sp-explorer')?.addEventListener('toggle', () => {
+      if (!this.isPhone() || !this.q<HTMLDetailsElement>('#sp-explorer')?.open) return;
+      this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+      this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
+      this.syncLeftToggle();
     });
     if (this.isPhone()) {
       this.q('#sp-drawer-left')?.classList.add('is-collapsed');
@@ -171,6 +182,17 @@ export class Hud {
   }
 
   render() {
+    // Handle desktop → phone resizing as well as first load. Do not undo a
+    // user's mobile drawer choice on every render, only on breakpoint entry.
+    const phone = this.isPhone();
+    if (phone !== this.wasPhone) {
+      if (phone) {
+        this.q('#sp-drawer-left')?.classList.add('is-collapsed');
+        this.q('#sp-drawer-bottom')?.classList.add('is-collapsed');
+      }
+      this.wasPhone = phone;
+      this.syncLeftToggle();
+    }
     const s = this.getState();
     const meta = this.q('#sp-meta');
     const info = this.q('#sp-info');

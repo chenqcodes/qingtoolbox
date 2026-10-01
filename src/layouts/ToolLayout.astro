@@ -5,9 +5,7 @@ import categories from '../data/categories.json';
 interface Props { title: string; description: string; currentSlug: string; }
 const { title, description, currentSlug } = Astro.props;
 
-function toolHref(t: { slug: string; path?: string }) {
-  return t.path || `/tools/${t.slug}`;
-}
+import { toolHref } from '../lib/urls';
 
 const currentTool = tools.find((tool) => tool.slug === currentSlug);
 const currentCategory = categories.find((category) => category.id === currentTool?.category);

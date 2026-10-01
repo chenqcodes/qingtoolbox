@@ -1,0 +1,3 @@
+# Cloudflare Pages handles this legacy alias before static asset matching.
+/tools/building-sunlight /building-sunlight/ 301
+/tools/building-sunlight/ /building-sunlight/ 301

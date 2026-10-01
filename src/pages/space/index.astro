@@ -1,4 +1,5 @@
 ---
+import Canonical from '../../components/Canonical.astro';
 import { BODIES } from '../../scripts/space/constants';
 import { SPEED_PRESETS, TIME_PRESETS } from '../../scripts/space/constants';
 import { DEST_STARS } from '../../scripts/space/starCatalog';
@@ -28,6 +29,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
 <!doctype html>
 <html lang="zh-CN">
   <head>
+    <Canonical />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="description" content="三维太阳系模拟星图" />
@@ -750,8 +752,8 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
           <button type="button" class="sp-btn sp-muted" id="sp-toggle-left" aria-expanded="false">天体</button>
           <button type="button" class="sp-btn sp-muted" id="sp-tour">自动游览</button>
           <button type="button" class="sp-btn sp-muted" id="sp-return-sol" style="display:none">返回太阳系</button>
-          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/astro-today">今日星空</a>
-          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/orbit-lab">轨道实验</a>
+          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/astro-today/">今日星空</a>
+          <a class="sp-btn sp-muted sp-btn-extra" href="/tools/orbit-lab/">轨道实验</a>
           <a class="sp-btn sp-muted sp-btn-home" href="/">返回</a>
         </div>
       </header>

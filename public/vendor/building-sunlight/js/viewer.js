@@ -12,7 +12,23 @@
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
     camera.position.set(200, 260, 320);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    } catch (error) {
+        const fallback = document.getElementById('graphicsFallback');
+        if (fallback) fallback.hidden = false;
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('controls').hidden = true;
+        console.warn('3D renderer unavailable:', error);
+        return;
+    }
+    renderer.domElement.addEventListener('webglcontextlost', event => {
+        event.preventDefault();
+        const fallback = document.getElementById('graphicsFallback');
+        if (fallback) fallback.hidden = false;
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
@@ -20,7 +36,7 @@
     renderer.shadowMap.autoUpdate = false;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.enableDamping = !reducedMotion;
     controls.maxPolarAngle = Math.PI / 2 - 0.1;
 
     let renderFrameRequested = false;
@@ -1825,21 +1841,8 @@
         syncLocationControls({ latitude: LATITUDE, longitude: LONGITUDE, timeZone: TIME_ZONE });
         updateNorthAngleDisplay();
 
-        // 无缓存项目时，按定位匹配最近城市
-        if (!window.QING_BS?.loadProject?.() && navigator.geolocation && typeof findNearestCity === 'function') {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    if (rawData) return; // 已加载项目则不覆盖
-                    const city = findNearestCity(pos.coords.latitude, pos.coords.longitude);
-                    if (!city) return;
-                    citySelect.innerHTML = generateCityOptions(city.name);
-                    citySelect.value = city.name;
-                    applyLocation(city.lat, city.lon, city.timeZone);
-                },
-                () => { },
-                { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
-            );
-        }
+        // Use the selected city/project coordinates. Never request device location on page load.
+
     }
 
     function clearSunlightResults() {

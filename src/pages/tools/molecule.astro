@@ -9,7 +9,7 @@ import '../../styles/lab-hud.css';
   currentSlug="molecule"
 >
   <h1 slot="header">分子视界</h1>
-  <p class="intro">进入即自动旋转巡游 DNA → 多巴胺 → 5-羟色胺 → 咖啡因 → 水。拖动可手动旋转，滚轮缩放。</p>
+  <p class="intro">浏览 DNA 与小分子示意模型。手动切换会暂停巡游；拖动旋转，滚轮缩放。减少动态效果设置下默认静止。</p>
 
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Oxanium:wght@500;700&display=swap"
@@ -19,9 +19,11 @@ import '../../styles/lab-hud.css';
   <div class="lab-hud lab-hero">
     <canvas id="mol-canvas" class="lab-hero-canvas lab-mol-canvas" aria-label="分子三维视图"></canvas>
     <p class="lab-hero-caption">
-      <span id="mol-name">—</span> · 原子 <span class="lab-amber" id="mol-count">—</span>
-      · <span id="mol-tour-note">自动巡游中</span>
+      <span id="mol-name">—</span> · <span class="lab-amber" id="mol-count">—</span>
+      · <span id="mol-tour-note">已暂停自动切换</span>
     </p>
+    <p id="mol-view-status" role="status" class="lab-note"></p>
+    <p id="mol-model-note" class="lab-note"></p>
     <div class="lab-controls">
       <label>分子
         <select id="mol-select">

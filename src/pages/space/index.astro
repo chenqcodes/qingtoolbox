@@ -31,7 +31,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
   <head>
     <Canonical />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="三维太阳系模拟星图" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -739,10 +739,21 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
         .sp-readout { left: 42px; bottom: 44px; max-width: 58vw; }
         .sp-speed { bottom: 44px; right: 10px; font-size: 0.58rem; }
       }
+      .sp-fallback { position: fixed; z-index: 100; inset: 15% 16px auto; max-width: 600px; margin: auto; padding: 24px; line-height: 1.7; border: 1px solid var(--line); border-radius: 14px; background: #071320; }
+      .sp-fallback[hidden] { display: none; }
+      .sp-fallback h1 { font-size: 1.35rem; }
+      .sp-fallback a { color: var(--cyan); display: inline-block; padding: 10px 0; }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
     </style>
   </head>
   <body>
-    <canvas id="space-canvas"></canvas>
+    <canvas id="space-canvas" aria-label="可交互的三维太阳系与邻近恒星"></canvas>
+    <section id="sp-fallback" class="sp-fallback" hidden role="status" aria-live="polite">
+      <h1>3D 星图暂时不可用</h1>
+      <p id="sp-fallback-message">当前浏览器无法启动 WebGL。可以重新载入，或在支持 WebGL 的浏览器中打开。</p>
+      <p>太阳系视图采用天文计算位置，天体半径与部分卫星距离经过放大；邻近恒星使用独立的光年尺度。这是探索模型，不是导航或观测测量工具。</p>
+      <a href="/tools/astro-today/">查看今日星空</a> · <a href="/tools/orbit-lab/">打开轨道实验</a> · <a href="/">返回工具箱</a>
+    </section>
 
     <div id="space-hud" data-scale="solar" data-rail="bodies">
       <header class="sp-zone sp-top sp-corners">

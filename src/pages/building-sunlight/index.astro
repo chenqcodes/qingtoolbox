@@ -7,7 +7,7 @@ import Canonical from '../../components/Canonical.astro';
   <head>
     <Canonical />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
       content="楼盘日照模拟：全屏查看小区阴影与分户日照估算，可进入规划配置描楼栋，浏览器本地运行。"
@@ -136,7 +136,6 @@ import Canonical from '../../components/Canonical.astro';
       id="bs-frame"
       title="楼盘日照模拟"
       src="/vendor/building-sunlight/index.html"
-      allow="geolocation"
     ></iframe>
     <script is:inline src="/vendor/building-sunlight/js/site-bridge.js"></script>
     <script is:inline>

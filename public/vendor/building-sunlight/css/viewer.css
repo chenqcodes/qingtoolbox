@@ -974,3 +974,10 @@ h2 {
     flex: 1;
     min-height: 280px;
 }
+
+/* Keep a useful route out when graphics are unavailable. */
+.graphics-fallback { position: fixed; z-index: 20000; inset: 12% 16px auto; max-width: 580px; margin: auto; padding: 24px; background: #fff; color: #26364a; border: 1px solid #a9bfd5; border-radius: 16px; line-height: 1.7; box-shadow: 0 10px 60px #17263d33; }
+.graphics-fallback[hidden] { display: none; }
+.graphics-fallback h1 { font-size: 1.3rem; }
+.graphics-fallback a { display: inline-block; padding: 10px; color: #155e75; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }

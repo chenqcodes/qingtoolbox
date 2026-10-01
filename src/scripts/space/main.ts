@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hasWebGL2 } from './runtime';
 import { createScene } from './scene';
 import { BodySystem } from './bodies';
 import { StarSystem } from './stars';
@@ -32,9 +33,10 @@ export function bootSpace() {
     console.warn('[space] nearby-star catalog check failed');
   }
 
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const state: HudState = {
     simDate: new Date(),
-    timeMult: 1,
+    timeMult: reducedMotion ? 0 : 1,
     mode: 'observe',
     focus: 'earth',
     starFocus: 'sol',
@@ -57,15 +59,20 @@ export function bootSpace() {
   let raf = 0;
   let dead = false;
 
-  // 触摸板捏合/Ctrl+滚轮：拦截浏览器页面缩放，留给 OrbitControls 做相机靠近/远离
-  const blockPageZoom = (e: WheelEvent) => {
-    if (e.ctrlKey) e.preventDefault();
+  const showFallback = (message?: string) => {
+    const fallback = document.getElementById('sp-fallback');
+    if (fallback) fallback.hidden = false;
+    const text = document.getElementById('sp-fallback-message');
+    if (text && message) text.textContent = message;
+    hudRoot.hidden = true;
   };
-  const blockGesture = (e: Event) => e.preventDefault();
-  window.addEventListener('wheel', blockPageZoom, { passive: false });
-  document.addEventListener('gesturestart', blockGesture as EventListener, { passive: false } as AddEventListenerOptions);
-  document.addEventListener('gesturechange', blockGesture as EventListener, { passive: false } as AddEventListenerOptions);
-  document.addEventListener('gestureend', blockGesture as EventListener, { passive: false } as AddEventListenerOptions);
+  const onContextLost = (event: Event) => {
+    event.preventDefault();
+    dead = true;
+    cancelAnimationFrame(raf);
+    showFallback('图形上下文已中断。请重新载入页面恢复星图，也可以使用下面的文字与计算工具。');
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
 
   const gotoBody = (id: BodyId) => {
     if (!sceneReady) return;
@@ -250,11 +257,13 @@ export function bootSpace() {
   w.__spaceCleanup = () => {
     dead = true;
     cancelAnimationFrame(raf);
-    window.removeEventListener('wheel', blockPageZoom);
-    document.removeEventListener('gesturestart', blockGesture as EventListener);
-    document.removeEventListener('gesturechange', blockGesture as EventListener);
-    document.removeEventListener('gestureend', blockGesture as EventListener);
+    canvas.removeEventListener('webglcontextlost', onContextLost);
   };
+
+  if (!hasWebGL2(canvas)) {
+    showFallback();
+    return;
+  }
 
   loadSpaceTextures()
     .then((tex) => {
@@ -275,6 +284,7 @@ export function bootSpace() {
       comets.syncOrigin(bodies.floatingOrigin);
       cam.applyOriginShift(d0);
       cam.beginEarthEntryOrbit();
+      if (reducedMotion) cam.stopEntryOrbit();
 
       if (miniCanvas) {
         minimap = new Minimap(miniCanvas, bodies, stars, camera);
@@ -300,7 +310,7 @@ export function bootSpace() {
         if (dead) return;
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
-        const t = (now - t0) / 1000;
+        const t = reducedMotion ? 0 : (now - t0) / 1000;
 
         if (cam.scaleMode == 'solar' && state.timeMult != 0) {
           state.simDate = new Date(state.simDate.getTime() + dt * 1000 * state.timeMult);
@@ -369,5 +379,6 @@ export function bootSpace() {
       console.error(err);
       state.info = '场景加载失败';
       hud.render();
+      showFallback();
     });
 }

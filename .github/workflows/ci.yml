@@ -24,6 +24,8 @@ jobs:
       - run: npm run lint
       - run: npm run test:seo
       - run: npm run test:tools
+      - run: npm run check:labs
+      - run: npm run test:science
       - run: npm run build
       - run: npm run qa:metadata
       - run: npm run qa:seo

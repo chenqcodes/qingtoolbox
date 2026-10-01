@@ -338,3 +338,10 @@
   .lab-hud input[type='text'], .lab-hud input[type='datetime-local'] { min-width: 0; width: 100%; font-size: 16px; min-height: 44px; }
   .lab-hud .lab-btn { min-height: 44px; }
 }
+
+/* Component display rules must not override the native hidden attribute. */
+.lab-hud canvas[hidden] { display: none !important; }
+@media (max-width: 640px) {
+  .lab-hud label:has(input[type='datetime-local']),
+  .lab-hud label:has(input[type='text']) { flex-basis: 100%; }
+}

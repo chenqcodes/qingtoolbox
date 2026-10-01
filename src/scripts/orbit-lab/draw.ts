@@ -108,8 +108,8 @@ export function drawOrbit(
   const burn2 = toScreen(-r2, 0);
   ctx.fillStyle = 'rgba(255,200,87,0.95)';
   ctx.font = '11px sans-serif';
-  ctx.fillText('① 第一次点火', burn1.x + 8, burn1.y - 10);
-  ctx.fillText('③ 第二次点火', burn2.x - 70, burn2.y - 10);
+  ctx.fillText('① 第一次点火', Math.min(w - 106, burn1.x + 8), burn1.y - 10);
+  ctx.fillText('③ 第二次点火', Math.max(8, burn2.x - 70), burn2.y - 10);
 
   const innerLbl = toScreen(0, r1);
   const outerLbl = toScreen(0, -r2);

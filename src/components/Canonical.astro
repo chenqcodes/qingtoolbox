@@ -1,0 +1,5 @@
+---
+import { canonicalPath } from '../lib/urls';
+const canonical = new URL(canonicalPath(Astro.url.pathname), Astro.site);
+---
+<link rel="canonical" href={canonical.href} />

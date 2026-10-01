@@ -1,30 +1,33 @@
 import fs from 'fs';
 import path from 'path';
 import { scoreOpportunity, type GscRow } from './score-opportunities';
+import { parseCsv as parseCsvRecords } from './reporting-utils';
 
 const REPORT_DIR = 'reports/daily';
 
 function parseCsv(file: string): GscRow[] {
   if (!fs.existsSync(file)) return [];
-  const text = fs.readFileSync(file, 'utf-8').trim();
-  if (text.includes('skipped,no_credentials') || text.includes('fetch_failed')) return [];
-
-  const lines = text.split('\n').slice(1);
-  return lines.map((line) => {
-    const parts = line.split(',');
-    if (parts.length < 5) return null;
-    const page = parts[0]?.replace(/^"|"$/g, '') || '';
-    const query = parts.length > 5 ? parts[1]?.replace(/^"|"$/g, '') : undefined;
-    const offset = parts.length > 5 ? 2 : 1;
+  const text = fs.readFileSync(file, 'utf-8');
+  let records: string[][];
+  try { records = parseCsvRecords(text); }
+  catch { return []; }
+  const [header, ...lines] = records;
+  if (!header || header[0] === 'status') return [];
+  const pageIndex = header.indexOf('page');
+  const queryIndex = header.indexOf('query');
+  const metricNames = ['clicks', 'impressions', 'ctr', 'position'] as const;
+  if (pageIndex < 0 || metricNames.some((key) => !header.includes(key))) return [];
+  return lines.map((parts): GscRow | null => {
+    if (parts.length !== header.length) return null;
+    const values = metricNames.map((key) => parts[header.indexOf(key)]);
+    if (values.some((value) => !value?.trim() || !Number.isFinite(Number(value)))) return null;
     return {
-      page,
-      query,
-      clicks: Number(parts[offset]),
-      impressions: Number(parts[offset + 1]),
-      ctr: Number(parts[offset + 2]),
-      position: Number(parts[offset + 3]),
+      page: parts[pageIndex],
+      query: queryIndex >= 0 ? parts[queryIndex] : undefined,
+      clicks: Number(values[0]), impressions: Number(values[1]),
+      ctr: Number(values[2]), position: Number(values[3]),
     };
-  }).filter(Boolean) as GscRow[];
+  }).filter((row): row is GscRow => row !== null);
 }
 
 async function main() {

@@ -3,9 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import tools from '../data/tools.json';
 import categories from '../data/categories.json';
 
-function toolHref(t: { slug: string; path?: string }) {
-  return t.path || `/tools/${t.slug}`;
-}
+import { toolHref } from '../lib/urls';
 
 const categoryIds = new Set(categories.map((category) => category.id));
 const uncategorized = tools.filter((tool) => !categoryIds.has(tool.category));

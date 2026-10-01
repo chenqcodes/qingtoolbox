@@ -19,7 +19,9 @@
     "seo:daily-report": "tsx scripts/seo/daily-report.ts",
     "seo:auto-optimize": "tsx scripts/seo/auto-optimize.ts",
     "qa:links": "tsx scripts/qa/check-links.ts",
-    "qa:metadata": "tsx scripts/qa/check-metadata.ts"
+    "qa:metadata": "tsx scripts/qa/check-metadata.ts",
+    "qa:seo": "node --import tsx scripts/qa/check-seo.ts",
+    "test:seo": "node --import tsx --test scripts/seo/*.test.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.4.0",

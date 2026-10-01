@@ -22,5 +22,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:seo
       - run: npm run build
       - run: npm run qa:metadata
+      - run: npm run qa:seo

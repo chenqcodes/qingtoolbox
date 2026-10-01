@@ -1,3 +1,4 @@
+import { civilTime } from './time';
 import { moonIllumination, planetTable, sunMoonRiseSet } from './ephemeris';
 
 function assert(cond: boolean, msg: string) {
@@ -16,7 +17,7 @@ assert(rs.sun.rise != null && rs.sun.set != null, 'sun rise/set missing');
 assert(rs.sun.rise! < rs.sun.set!, 'sun rise should be before set');
 // 下午读数仍应是「当日」日出（早于 when），而非次日
 assert(rs.sun.rise!.getTime() < when.getTime(), 'today sunrise should precede afternoon when');
-assert(rs.sun.rise!.toDateString() == when.toDateString(), 'sunrise not same local calendar day');
+assert(civilTime(rs.sun.rise!, 'Asia/Shanghai').slice(0, 10) == civilTime(when, 'Asia/Shanghai').slice(0, 10), 'sunrise not same local calendar day');
 
 assert(rs.moon.rise != null || rs.moon.set != null, 'moon rise/set both null');
 

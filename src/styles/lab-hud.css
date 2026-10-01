@@ -99,6 +99,8 @@
   color: var(--muted);
 }
 
+.lab-hud input[type='text'],
+.lab-hud input[type='datetime-local'],
 .lab-hud input[type='number'],
 .lab-hud input[type='range'],
 .lab-hud input[type='file'],
@@ -275,7 +277,9 @@
     flex: 1 1 calc(50% - 0.5rem);
     min-width: 0;
   }
-  .lab-hud input[type='number'],
+  .lab-hud input[type='text'],
+.lab-hud input[type='datetime-local'],
+.lab-hud input[type='number'],
   .lab-hud input[type='file'],
   .lab-hud select {
     font-size: 16px;
@@ -322,4 +326,15 @@
 .lab-hud table tr.sat-row-active td {
   color: var(--amber);
   font-weight: 600;
+}
+
+/* All lab controls, including observer date/zone fields, fit narrow viewports. */
+.lab-hud input, .lab-hud select { box-sizing: border-box; max-width: 100%; }
+.lab-hud :is(button, input, select, summary, a):focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .lab-hud input[type='text'], .lab-hud input[type='datetime-local'] { min-width: 0; width: 100%; font-size: 16px; min-height: 44px; }
+  .lab-hud .lab-btn { min-height: 44px; }
 }

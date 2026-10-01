@@ -20,7 +20,7 @@ import '../../styles/lab-hud.css';
 
   <div class="lab-hud lab-hero">
     <p class="lab-story">
-      <strong>这页干嘛：</strong>查<strong>ISS 过顶时刻</strong>。仰角越高越接近「正头顶」，越好找。星历用仓库内 TLE 快照（非实时联网）。
+      <strong>这页干嘛：</strong>查<strong>ISS 过顶时刻</strong>。仰角越高越接近「正头顶」，越好找。轨道快照由站点定期更新；超过 7 天立即停算。几何过境不保证肉眼可见。
     </p>
 
     <canvas id="sat-canvas" class="lab-hero-canvas" aria-label="ISS 过顶天穹预测"></canvas>
@@ -35,31 +35,38 @@ import '../../styles/lab-hud.css';
         <span class="lab-card-v" id="sat-card-el">—</span>
       </div>
       <div class="lab-card">
-        <span class="lab-card-k">最高时朝哪看</span>
+        <span class="lab-card-k">开始时朝哪看</span>
         <span class="lab-card-v" id="sat-card-az">—</span>
       </div>
     </div>
     <p class="lab-hero-caption lab-amber" id="sat-next">计算中…</p>
 
+    <p class="lab-note">预测范围 <span id="sat-range">—</span></p>
+    <p class="lab-note" role="status" id="sat-fetch-status">使用已校验的内置快照</p>
+    <div class="lab-controls"><label>显示 <select id="sat-filter"><option value="visible">可能肉眼可见</option><option value="geometric">所有几何过境</option></select></label><button type="button" class="lab-btn secondary" id="sat-refresh">刷新轨道数据</button></div>
     <details class="lab-details" open>
       <summary>过顶时刻表（点一行可重播该次轨迹）</summary>
-      <p class="lab-note">星历快照 <span class="lab-amber" id="sat-updated">—</span> · <span id="sat-geo-note">—</span></p>
+      <p class="lab-note">真实 TLE 历元 <span class="lab-amber" id="sat-updated">—</span> · <span id="sat-geo-note">—</span></p>
+      <p class="lab-note">抓取时间 <span id="sat-fetched">—</span> · 抓取时间不等于轨道历元</p>
       <div class="lab-controls">
         <label>纬度 <input type="number" id="sat-lat" step="0.0001" /></label>
         <label>经度 <input type="number" id="sat-lon" step="0.0001" /></label>
+        <label>观测时区 <input type="text" id="sat-zone" aria-label="观测点 IANA 时区" /></label>
         <button type="button" class="lab-btn" id="sat-apply">重算</button>
         <button type="button" class="lab-btn secondary" id="sat-gps">定位</button>
       </div>
       <p class="lab-meta" id="sat-status">—</p>
       <table>
         <thead>
-          <tr><th>出现</th><th>飞到最高</th><th>消失</th><th>有多正头顶</th><th>朝哪看</th></tr>
+          <tr><th>越过地平线</th><th>飞到最高</th><th>落下地平线</th><th>最高高度/方位</th><th>可能可见窗口</th></tr>
         </thead>
         <tbody id="sat-rows"></tbody>
       </table>
     </details>
   </div>
 
+  <p class="intro">例如：北京用 Asia/Shanghai，纽约用 America/New_York。青色轨迹是整次几何过境的加速示意，中心是天顶。筛选条件为 ISS 仰角 ≥10°、太阳高度 ≤−6°、空间站完全受日照；地影采用近似球形地球模型，不计云、地形、光污染和空间站姿态，不能保证看见。</p>
+  <p class="intro">数据：<a href="https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&amp;FORMAT=TLE">CelesTrak ISS TLE</a>；传播：SGP4 / satellite.js；观测条件参考 <a href="https://www.nasa.gov/missions/station/spot-the-station-frequently-asked-questions/">NASA Spot the Station</a>。刷新只向本站请求公开轨道快照，不上传坐标。</p>
   <div class="lab-related">
     <h2>相关</h2>
     <a href="/tools/astro-today/">今日星空</a>

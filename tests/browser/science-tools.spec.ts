@@ -67,7 +67,29 @@ for (const route of ['/tools/astro-today/', '/tools/sat-pass/', '/tools/orbit-la
     await disableWebGL(page);
     await page.goto(route);
     await expect(page.locator('h1')).toBeVisible();
+    const details = page.locator('.lab-details');
+    if (await details.count()) await details.evaluate(node => (node as HTMLDetailsElement).open = true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: `test-results/science-${route.split('/').filter(Boolean).pop()}-mobile.png`, fullPage: true });
   });
 }
+
+test('moon: full and new dates use the selected observer timezone', async ({ page }) => {
+  await page.goto('/tools/astro-today/');
+  await page.locator('#astro-zone').fill('UTC');
+  await page.locator('#astro-apply').click();
+  await page.locator('#astro-date').fill('2024-06-22T01:08');
+  await expect(page.locator('#astro-phase-name')).toContainText('满月');
+  await expect(page.locator('#astro-now')).toContainText('UTC');
+  await page.locator('#astro-date').fill('2024-04-08T18:21');
+  await expect(page.locator('#astro-phase-name')).toContainText('新月');
+  await expect(page.locator('#astro-illum')).toHaveText('0.0%');
+});
+
+test('satellite: stale ephemeris fails closed rather than promising passes', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2030-01-01T00:00:00Z'));
+  await page.goto('/tools/sat-pass/');
+  await expect(page.locator('#sat-next')).toContainText('过期');
+  await expect(page.locator('#sat-rows tr')).toHaveCount(0);
+  await expect(page.locator('#sat-status')).toContainText('7 天');
+});

@@ -24,7 +24,7 @@
     "test:seo": "node --import tsx --test scripts/seo/*.test.ts",
     "test:tools": "node --import tsx --test src/scripts/image-compress*.test.ts src/scripts/hanzi-worksheet/*.test.ts",
     "test:browser": "playwright test",
-    "test:science": "node --import tsx --test src/scripts/audio-viz/*.test.ts src/scripts/molecule/*.test.ts src/scripts/space/*.test.ts public/vendor/building-sunlight/tests/*.test.js"
+    "test:science": "node --import tsx --test src/scripts/audio-viz/*.test.ts src/scripts/molecule/*.test.ts src/scripts/space/*.test.ts public/vendor/building-sunlight/tests/*.test.js src/scripts/astro-today/*.test.ts src/scripts/sat-pass/*.test.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.4.0",

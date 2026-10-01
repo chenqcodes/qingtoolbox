@@ -1,4 +1,4 @@
-import { geodeticAt, loadSatrec, lookAt } from './propagate';
+import { geodeticAt, loadSatrec, lookAt, tleMeta } from './propagate';
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
@@ -6,7 +6,7 @@ function assert(cond: boolean, msg: string) {
 
 const satrec = loadSatrec();
 // TLE 历元附近抽样
-const when = new Date(Date.UTC(2026, 6, 15, 12, 0, 0));
+const when = tleMeta().epoch;
 const geo = geodeticAt(satrec, when);
 assert(geo != null, 'geodetic null');
 assert(geo!.lat >= -90 && geo!.lat <= 90, `lat ${geo!.lat}`);

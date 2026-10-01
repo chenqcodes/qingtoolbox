@@ -1,9 +1,10 @@
 import { hohmann, transferPos } from './physics';
 
-function phaseLabel(t: number) {
-  if (t < 0.08) return '① 近地点火离站';
+function phaseLabel(t: number, equal = false) {
+  if (equal) return '等半径 · 无需点火，保持圆轨';
+  if (t < 0.08) return '① 出发点火';
   if (t < 0.92) return '② 转移椭圆飞行中';
-  return '③ 到达 · 二次点火入轨';
+  return '③ 到达 · 二次点火圆化';
 }
 
 export function drawOrbit(
@@ -107,25 +108,25 @@ export function drawOrbit(
   const burn2 = toScreen(-r2, 0);
   ctx.fillStyle = 'rgba(255,200,87,0.95)';
   ctx.font = '11px sans-serif';
-  ctx.fillText('① 第一次点火', burn1.x + 8, burn1.y - 10);
-  ctx.fillText('③ 第二次点火', burn2.x - 70, burn2.y - 10);
+  ctx.fillText('① 第一次点火', Math.min(w - 106, burn1.x + 8), burn1.y - 10);
+  ctx.fillText('③ 第二次点火', Math.max(8, burn2.x - 70), burn2.y - 10);
 
   const innerLbl = toScreen(0, r1);
   const outerLbl = toScreen(0, -r2);
   ctx.fillStyle = 'rgba(0,232,255,0.75)';
-  ctx.fillText('近地圆轨', innerLbl.x + 6, innerLbl.y + 4);
+  ctx.fillText('出发圆轨', innerLbl.x + 6, innerLbl.y + 4);
   ctx.fillText('目标圆轨', outerLbl.x + 6, outerLbl.y + 4);
 
   ctx.fillStyle = 'rgba(232,244,255,0.85)';
   ctx.font = '13px sans-serif';
-  ctx.fillText(phaseLabel(t), 14, 28);
+  ctx.fillText(phaseLabel(t, r1 === r2), 14, 28);
 
   const { dvTotal } = hohmann(r1, r2);
   ctx.fillStyle = 'rgba(232,244,255,0.55)';
   ctx.font = '11px monospace';
-  ctx.fillText(`r1=${r1.toFixed(2)}  r2=${r2.toFixed(2)}  油耗Σ=${dvTotal.toFixed(4)}`, 14, h - 14);
+  ctx.fillText(`r1=${r1.toFixed(2)}  r2=${r2.toFixed(2)}  总Δv=${dvTotal.toFixed(4)}`, 14, h - 14);
 }
 
-export function orbitPhaseText(t: number) {
-  return phaseLabel(t);
+export function orbitPhaseText(t: number, equal = false) {
+  return phaseLabel(t, equal);
 }

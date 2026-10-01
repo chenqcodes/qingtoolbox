@@ -31,35 +31,19 @@ function loadMoonTex() {
 export function moonPhaseInfo(when: Date): MoonPhaseInfo {
   const ill = Astronomy.Illumination(Astronomy.Body.Moon, when);
   const f = ill.phase_fraction;
-  const angle = ill.phase_angle;
-  let name = '新月';
-  let emoji = '🌑';
-  if (f < 0.03 || f > 0.97) {
-    name = '新月';
-    emoji = '🌑';
-  } else if (f < 0.22) {
-    name = angle < 90 ? '娥眉月' : '残月';
-    emoji = angle < 90 ? '🌒' : '🌘';
-  } else if (f < 0.28) {
-    name = angle < 90 ? '上弦月' : '下弦月';
-    emoji = angle < 90 ? '🌓' : '🌗';
-  } else if (f < 0.47) {
-    name = angle < 90 ? '盈凸月' : '亏凸月';
-    emoji = angle < 90 ? '🌔' : '🌖';
-  } else if (f < 0.53) {
-    name = '满月';
-    emoji = '🌕';
-  } else if (f < 0.72) {
-    name = angle < 90 ? '盈凸月' : '亏凸月';
-    emoji = angle < 90 ? '🌔' : '🌖';
-  } else if (f < 0.78) {
-    name = angle < 90 ? '上弦月' : '下弦月';
-    emoji = angle < 90 ? '🌓' : '🌗';
-  } else {
-    name = angle < 90 ? '娥眉月' : '残月';
-    emoji = angle < 90 ? '🌒' : '🌘';
-  }
-  return { fraction: f, angleDeg: angle, name, emoji };
+  // MoonPhase is the 0..360° lunar cycle; phase_angle is a different 0..180° geometry.
+  const angle = Astronomy.MoonPhase(when);
+  const names = ['新月', '娥眉月', '上弦月', '盈凸月', '满月', '亏凸月', '下弦月', '残月'];
+  const emojis = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+  const index = Math.round(angle / 45) % 8;
+  return { fraction: f, angleDeg: angle, name: names[index], emoji: emojis[index] };
+}
+
+/** Normalized shadow edge. Illuminated disk area is exactly fraction, not cycle fraction. */
+export function moonTerminator(fraction: number, cycleDeg: number, y: number) {
+  const halfWidth = Math.sqrt(Math.max(0, 1 - y * y));
+  const waxing = cycleDeg < 180;
+  return { halfWidth, edge: (waxing ? 1 : -1) * (1 - 2 * fraction) * halfWidth, waxing };
 }
 
 function drawStarfield(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
@@ -85,57 +69,22 @@ function drawStarfield(ctx: CanvasRenderingContext2D, w: number, h: number, seed
   }
 }
 
-function shadeMoonDisk(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, phase: number) {
-  const p = ((phase % 1) + 1) % 1;
-  if (p < 0.02 || p > 0.98) {
-    ctx.fillStyle = 'rgba(0,0,0,0.92)';
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-  if (p > 0.48 && p < 0.52) return;
-
+export function shadeMoonDisk(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, fraction: number, cycleDeg: number) {
   ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = 'rgba(2,4,8,0.94)';
+  // Fill a shadow polygon without destination-out, which would erase the texture beneath it.
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-
-  const waxing = p <= 0.5;
-  const k = waxing ? 1 - p * 2 : (p - 0.5) * 2;
-
-  ctx.fillStyle = 'rgba(2,4,8,0.96)';
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.globalCompositeOperation = 'destination-out';
-  if (waxing) {
-    const ex = cx + r * (1 - k * 2);
-    const rx = Math.max(r * k * 2, 0.5);
-    ctx.beginPath();
-    ctx.ellipse(ex, cy, rx, r, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (k < 0.5) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2);
-      ctx.lineTo(cx, cy);
-      ctx.fill();
-    }
-  } else {
-    const ex = cx - r * (1 - k * 2);
-    const rx = Math.max(r * k * 2, 0.5);
-    ctx.beginPath();
-    ctx.ellipse(ex, cy, rx, r, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (k < 0.5) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, true);
-      ctx.lineTo(cx, cy);
-      ctx.fill();
-    }
+  for (let i = 0; i <= 160; i++) {
+    const y = -1 + i / 80; const { halfWidth, waxing } = moonTerminator(fraction, cycleDeg, y);
+    const x = (waxing ? -1 : 1) * halfWidth;
+    if (i === 0) ctx.moveTo(cx + x * r, cy + y * r); else ctx.lineTo(cx + x * r, cy + y * r);
   }
-  ctx.restore();
+  for (let i = 160; i >= 0; i--) {
+    const y = -1 + i / 80; const { edge } = moonTerminator(fraction, cycleDeg, y);
+    ctx.lineTo(cx + edge * r, cy + y * r);
+  }
+  ctx.closePath(); ctx.fill(); ctx.restore();
 }
 
 function drawHudFrame(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -166,7 +115,7 @@ export async function drawMoonHero(
   drawStarfield(ctx, w, h, Math.floor(when.getTime() / 86400000));
   drawHudFrame(ctx, w, h);
 
-  const img = await loadMoonTex();
+  const img = await loadMoonTex().catch(() => null);
   const cx = w * 0.5;
   const cy = h * 0.48;
   const r = Math.min(w, h) * 0.32;
@@ -183,7 +132,8 @@ export async function drawMoonHero(
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.clip();
-  ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+  if (img) ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+  else { ctx.fillStyle = '#c8cdd4'; ctx.fillRect(cx - r, cy - r, r * 2, r * 2); }
   const limb = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
   limb.addColorStop(0, 'rgba(0,0,0,0)');
   limb.addColorStop(1, 'rgba(0,0,0,0.45)');
@@ -192,7 +142,7 @@ export async function drawMoonHero(
   ctx.restore();
 
   const info = moonPhaseInfo(when);
-  shadeMoonDisk(ctx, cx, cy, r, info.fraction);
+  shadeMoonDisk(ctx, cx, cy, r, info.fraction, info.angleDeg);
 
   ctx.strokeStyle = 'rgba(0,232,255,0.5)';
   ctx.lineWidth = 2;
@@ -205,7 +155,7 @@ export async function drawMoonHero(
   ctx.fillText(`${phaseName}  ·  照明 ${illumPct.toFixed(1)}%`, 24, h - 36);
   ctx.fillStyle = 'rgba(0,232,255,0.65)';
   ctx.font = `${Math.floor(11 * dpr)}px monospace`;
-  ctx.fillText('LIVE · LOCAL EPHEMERIS', 24, h - 18);
+  ctx.fillText('北向上月相示意 · 非地平视角', 24, h - 18);
 }
 
 export function drawMoonHeroSync(canvas: HTMLCanvasElement, when: Date, illumPct: number, phaseName: string) {

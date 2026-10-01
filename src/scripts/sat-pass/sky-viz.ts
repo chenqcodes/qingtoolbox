@@ -1,9 +1,11 @@
-import { findPasses, loadSatrec, lookAt, type Pass, type LookSample } from './propagate';
+import { findPasses, loadSatrec, lookAt, visibilityAt, type Pass, type LookSample } from './propagate';
 
 export type SkyVizState = {
   passes: Pass[];
   track: LookSample[];
   passIndex: number;
+  emptyMessage?: string;
+  timeZone?: string;
 };
 
 export function samplePassTrack(
@@ -18,7 +20,7 @@ export function samplePassTrack(
   const t1 = pass.end.getTime();
   for (let t = t0; t <= t1; t += stepSec * 1000) {
     const s = lookAt(satrec, new Date(t), lat, lon);
-    if (s && s.elevation >= -2) out.push(s);
+    if (s && s.elevation >= -2) out.push({ ...s, likelyVisible: visibilityAt(satrec, s.time, lat, lon).likelyVisible });
   }
   return out;
 }
@@ -34,16 +36,12 @@ export function buildSkyState(
   return { passes, track, passIndex: 0 };
 }
 
-function azElToXY(azDeg: number, elDeg: number, cx: number, cy: number, radius: number) {
+export function azElToXY(azDeg: number, elDeg: number, cx: number, cy: number, radius: number) {
   const az = ((azDeg % 360) + 360) % 360;
   const el = Math.max(0, Math.min(90, elDeg));
   const r = radius * (1 - el / 90);
   const rad = ((az - 90) * Math.PI) / 180;
   return { x: cx + Math.cos(rad) * r, y: cy + Math.sin(rad) * r };
-}
-
-function formatShort(d: Date) {
-  return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeMs: number) {
@@ -58,8 +56,8 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
   }
 
   const cx = w * 0.5;
-  const cy = h * 0.92;
-  const R = Math.min(w, h) * 0.78;
+  const cy = h * 0.55;
+  const R = Math.max(1, Math.min(w * 0.5 - 32 * dpr, h * 0.42 - 18 * dpr));
 
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   sky.addColorStop(0, '#020610');
@@ -80,7 +78,7 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
   ctx.strokeStyle = 'rgba(0,232,255,0.55)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(cx, cy, R, Math.PI, 0);
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.stroke();
 
   for (const el of [30, 60]) {
@@ -88,7 +86,7 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
     ctx.strokeStyle = 'rgba(0,232,255,0.12)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, Math.PI, 0);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = 'rgba(0,232,255,0.4)';
     ctx.font = `${9 * dpr}px monospace`;
@@ -137,7 +135,8 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
     const i0 = Math.floor(idx);
     const i1 = Math.min(track.length - 1, i0 + 1);
     const f = idx - i0;
-    const az = track[i0].azimuth + (track[i1].azimuth - track[i0].azimuth) * f;
+    const deltaAz = ((track[i1].azimuth - track[i0].azimuth + 540) % 360) - 180;
+    const az = track[i0].azimuth + deltaAz * f;
     const el = track[i0].elevation + (track[i1].elevation - track[i0].elevation) * f;
     const sat = azElToXY(az, el, cx, cy, R);
 
@@ -158,19 +157,21 @@ export function drawSkyDome(canvas: HTMLCanvasElement, state: SkyVizState, timeM
     if (pass) {
       ctx.fillStyle = 'rgba(232,244,255,0.9)';
       ctx.font = `${11 * dpr}px monospace`;
-      const label = state.passIndex == 0 ? '下次过顶' : `第 ${state.passIndex + 1} 次过顶`;
-      ctx.fillText(`${label} · 最高 ${pass.maxEl.toFixed(0)}° · ${formatShort(pass.max)}`, 16, 28);
+      const label = `轨迹演示（非实时）`;
+      ctx.fillText(`${label} · 最高 ${pass.maxEl.toFixed(0)}° · ${pass.max.toLocaleString('zh-CN', { timeZone: state.timeZone || 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`, 16, 28);
       ctx.fillStyle = 'rgba(0,232,255,0.65)';
       ctx.font = `${10 * dpr}px monospace`;
-      ctx.fillText('亮点沿弧线飞 = ISS；N/E/S/W 是方位，仰角越高越接近头顶', 16, 46);
+      ctx.fillText('全天投影：中心为头顶，外圈为地平线', 16, 46);
     }
   } else {
     ctx.fillStyle = 'rgba(232,244,255,0.85)';
     ctx.font = `bold ${14 * dpr}px sans-serif`;
-    ctx.fillText('未来 48 小时没有好看的过顶', cx - 130 * dpr, h * 0.38);
+    ctx.textAlign = 'center';
+    ctx.fillText(state.emptyMessage || '所选范围内暂无过境', cx, h * 0.48);
     ctx.fillStyle = 'rgba(0,232,255,0.55)';
     ctx.font = `${11 * dpr}px monospace`;
-    ctx.fillText('仰角需 ≥10°；可换定位或稍后再查', cx - 110 * dpr, h * 0.38 + 22 * dpr);
+    ctx.fillText('请查看下方数据与观测条件', cx, h * 0.48 + 22 * dpr);
+    ctx.textAlign = 'left';
   }
 
   ctx.strokeStyle = 'rgba(0,232,255,0.25)';
@@ -184,8 +185,12 @@ export function startSkyAnim(canvas: HTMLCanvasElement, getState: () => SkyVizSt
   let raf = 0;
   const frame = (t: number) => {
     drawSkyDome(canvas, getState(), t);
-    raf = requestAnimationFrame(frame);
+    if (!document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) raf = requestAnimationFrame(frame);
   };
+  const resume = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); };
+  document.addEventListener('visibilitychange', resume);
+  window.addEventListener('resize', resume);
+  canvas.addEventListener('skychange', resume);
   raf = requestAnimationFrame(frame);
   return () => cancelAnimationFrame(raf);
 }

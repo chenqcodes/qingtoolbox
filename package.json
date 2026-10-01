@@ -11,7 +11,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "lint": "astro check",
-    "check:labs": "tsx src/scripts/astro-today/self-check.ts && tsx src/scripts/orbit-lab/self-check.ts && tsx src/scripts/sat-pass/self-check.ts && tsx src/scripts/molecule/self-check.ts && tsx src/scripts/audio-viz/self-check.ts && tsx src/scripts/invisible-chars/self-check.ts",
+    "check:labs": "node --import tsx src/scripts/astro-today/self-check.ts && node --import tsx src/scripts/orbit-lab/self-check.ts && node --import tsx src/scripts/sat-pass/self-check.ts && node --import tsx src/scripts/molecule/self-check.ts && node --import tsx src/scripts/audio-viz/self-check.ts && node --import tsx src/scripts/invisible-chars/self-check.ts",
     "seo:fetch-gsc": "tsx scripts/seo/fetch-gsc.ts",
     "seo:fetch-bing": "tsx scripts/seo/fetch-bing.ts",
     "seo:keyword-hints": "tsx scripts/seo/keyword-hints.ts",
@@ -23,7 +23,8 @@
     "qa:seo": "node --import tsx scripts/qa/check-seo.ts",
     "test:seo": "node --import tsx --test scripts/seo/*.test.ts",
     "test:tools": "node --import tsx --test src/scripts/image-compress*.test.ts src/scripts/hanzi-worksheet/*.test.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:science": "node --import tsx --test src/scripts/audio-viz/*.test.ts src/scripts/molecule/*.test.ts src/scripts/space/*.test.ts public/vendor/building-sunlight/tests/*.test.js src/scripts/astro-today/*.test.ts src/scripts/sat-pass/*.test.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.4.0",

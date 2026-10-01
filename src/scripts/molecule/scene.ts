@@ -43,7 +43,7 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  controls.autoRotate = true;
+  controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
   controls.autoRotateSpeed = 0.85;
   // 单指旋转时不要带动页面滚动
   canvas.style.touchAction = 'none';
@@ -83,7 +83,7 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
 
   const setMolecule = (mol: Molecule, showPairs: boolean) => {
     while (root.children.length) {
-      const ch = root.children.pop()!;
+      const ch = root.children[0];
       root.remove(ch);
       ch.traverse((o) => {
         const m = o as THREE.Mesh;
@@ -173,6 +173,12 @@ export function createMolScene(canvas: HTMLCanvasElement): MolScene {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
       controls.dispose();
+      scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
+        materials.forEach((material) => material.dispose());
+      });
       renderer.dispose();
     },
   };

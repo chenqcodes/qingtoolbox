@@ -9,7 +9,7 @@ import '../../styles/lab-hud.css';
   currentSlug="astro-today"
 >
   <h1 slot="header">今日星空</h1>
-  <p class="intro">出门看天前瞄一眼：今晚月相、日月升落，以及此刻哪颗行星在地平线上。</p>
+  <p class="intro">出门看天前瞄一眼：所选时刻月相、日月升落，以及此刻哪颗行星在地平线上。</p>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,7 +20,7 @@ import '../../styles/lab-hud.css';
 
   <div class="lab-hud lab-hero" id="astro-root">
     <p class="lab-story">
-      <strong>这页干嘛：</strong>根据你的经纬度，算出<strong>今晚月亮什么样</strong>、<strong>太阳几点落</strong>，以及<strong>金星火星等现在能不能看见</strong>。
+      <strong>这页干嘛：</strong>根据你的经纬度，算出<strong>今晚月亮什么样</strong>、<strong>太阳几点落</strong>，以及<strong>五颗亮行星当前方位与观测条件</strong>。
     </p>
 
     <canvas id="astro-moon" class="lab-hero-canvas" aria-label="月相主视图"></canvas>
@@ -32,7 +32,7 @@ import '../../styles/lab-hud.css';
 
     <div class="lab-cards" aria-label="今晚要点">
       <div class="lab-card">
-        <span class="lab-card-k">今晚月相</span>
+        <span class="lab-card-k">所选时刻月相</span>
         <span class="lab-card-v amber" id="astro-card-phase">—</span>
       </div>
       <div class="lab-card">
@@ -40,11 +40,12 @@ import '../../styles/lab-hud.css';
         <span class="lab-card-v" id="astro-card-sunset">—</span>
       </div>
       <div class="lab-card">
-        <span class="lab-card-k">此刻最亮行星</span>
+        <span class="lab-card-k">地平线上视星等最亮</span>
         <span class="lab-card-v" id="astro-card-planet">—</span>
       </div>
     </div>
 
+    <p class="lab-note" id="astro-light-note" role="status"></p>
     <details class="lab-details" open>
       <summary>观测点与升落明细</summary>
       <p class="lab-note" id="astro-geo-note">初始化中…</p>
@@ -52,7 +53,11 @@ import '../../styles/lab-hud.css';
       <div class="lab-controls">
         <label>纬度 <input type="number" id="astro-lat" step="0.0001" /></label>
         <label>经度 <input type="number" id="astro-lon" step="0.0001" /></label>
+        <label>观测时区 <input type="text" id="astro-zone" list="astro-zones" aria-describedby="astro-geo-note" /></label>
+        <datalist id="astro-zones"><option value="Asia/Shanghai" /><option value="UTC" /><option value="America/New_York" /><option value="Europe/London" /><option value="Asia/Tokyo" /><option value="Australia/Sydney" /></datalist>
+        <label>日期与时间 <input type="datetime-local" id="astro-date" /></label>
         <button type="button" class="lab-btn" id="astro-apply">应用</button>
+        <button type="button" class="lab-btn secondary" id="astro-live">回到此刻</button>
         <button type="button" class="lab-btn secondary" id="astro-gps">定位</button>
         <a class="lab-btn secondary" href="/space/">打开轻星图</a>
       </div>
@@ -67,13 +72,14 @@ import '../../styles/lab-hud.css';
       </table>
       <table>
         <thead>
-          <tr><th>行星</th><th>高度</th><th>朝哪边看</th><th>状态</th></tr>
+          <tr><th>行星</th><th>视星等</th><th>高度</th><th>朝哪边看</th><th>状态</th></tr>
         </thead>
         <tbody id="astro-planets"></tbody>
       </table>
     </details>
   </div>
 
+  <p class="intro">例如：北京选择 Asia/Shanghai，纽约选择 America/New_York。日月升落按所选时区的日历日计算；月相图为北向上示意，不是当地月面旋转角。月相与星历使用 <a href="https://github.com/cosinekitty/astronomy/blob/master/source/js/README.md">Astronomy Engine</a> 本地计算。</p>
   <div class="lab-related">
     <h2>相关</h2>
     <a href="/space/">轻星图</a>

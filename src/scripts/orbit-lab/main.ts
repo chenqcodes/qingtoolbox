@@ -33,7 +33,7 @@ export function bootOrbitLab() {
     $('orbit-a').textContent = h.a.toFixed(3);
     $('orbit-r1-val').textContent = r1.toFixed(2);
     $('orbit-r2-val').textContent = r2.toFixed(2);
-    $('orbit-phase').textContent = orbitPhaseText(t);
+    $('orbit-phase').textContent = orbitPhaseText(t, r1 === r2);
   };
 
   const frame = (now: number) => {
@@ -46,7 +46,7 @@ export function bootOrbitLab() {
     const r1 = Number(r1El.value);
     const r2 = Number(r2El.value);
     drawOrbit(ctx, canvas.width, canvas.height, r1, r2, t);
-    $('orbit-phase').textContent = orbitPhaseText(t);
+    $('orbit-phase').textContent = orbitPhaseText(t, r1 === r2);
     requestAnimationFrame(frame);
   };
 

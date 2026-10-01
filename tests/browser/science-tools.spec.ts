@@ -93,3 +93,19 @@ test('satellite: stale ephemeris fails closed rather than promising passes', asy
   await expect(page.locator('#sat-rows tr')).toHaveCount(0);
   await expect(page.locator('#sat-status')).toContainText('7 天');
 });
+
+
+test('satellite expiry clears predictions even with an invalid unfinished observer edit', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install({ time: new Date('2026-10-01T11:00:00Z') });
+  await page.route('**/data/iss-tle.json?*', route => route.abort());
+  await page.goto('/tools/sat-pass/');
+  await page.locator('#sat-filter').selectOption('geometric');
+  await expect(page.locator('#sat-rows tr').first()).toBeVisible();
+  await page.locator('#sat-zone').fill('Invalid/Zone');
+  await page.clock.setSystemTime(new Date('2026-10-09T00:00:00Z'));
+  await page.clock.runFor(60_100);
+  await expect(page.locator('#sat-next')).toContainText('预测已暂停');
+  await expect(page.locator('#sat-rows tr')).toHaveCount(0);
+  await expect(page.locator('#sat-range')).toHaveText('—');
+});

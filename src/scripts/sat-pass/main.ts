@@ -29,6 +29,7 @@ export function bootSatPass() {
     canvas.dispatchEvent(new Event('skychange'));
   };
   function renderPasses() {
+    if (!tleFreshness(data).usable) { run(); return; }
     const passes = filter.value === 'visible' ? allPasses.filter(p => p.visible.some(v => v.end > new Date())) : allPasses;
     skyState = { passes, track: [], passIndex: 0, timeZone: zone };
     if (!passes.length) {
@@ -46,14 +47,22 @@ export function bootSatPass() {
     selectPass(0);
   }
   function run() {
+    // Expiry is independent of an unfinished/invalid observer edit.
+    const now = new Date(), f = tleFreshness(data, now);
+    if (!f.usable) {
+      $('sat-updated').textContent = `${f.epoch.toISOString()} · 年龄 ${f.ageDays.toFixed(1)} 天`;
+      const badge = document.getElementById('sat-freshness');
+      if (badge) { badge.textContent = `轨道数据不可用 · 年龄 ${f.ageDays.toFixed(1)} 天`; badge.classList.add('sat-warning'); }
+      $('sat-range').textContent = '—'; allPasses = []; clear('轨道数据过期，预测已暂停');
+      $('sat-status').textContent = 'TLE 历元超过 7 天或异常地位于未来。请刷新数据；不会使用陈旧数据生成抬头时间。';
+      return;
+    }
     const p = latInput.value.trim() && lonInput.value.trim() ? parseLatLon(latInput.value, lonInput.value) : null;
     if (!p || !validTimeZone(zoneInput.value.trim())) { $('sat-geo-note').textContent = '请输入有效经纬度与 IANA 时区'; return; }
     lat = p.lat; lon = p.lon; zone = zoneInput.value.trim();
-    const now = new Date(), f = tleFreshness(data, now);
     $('sat-updated').textContent = `${f.epoch.toISOString().replace('T', ' ').slice(0, 19)} UTC · 年龄 ${f.ageDays.toFixed(1)} 天${f.status === 'aging' ? ' · 偏旧，建议刷新' : ''}`;
     $('sat-fetched').textContent = data.fetchedAt ? new Date(data.fetchedAt).toISOString() : '未知';
     $('sat-geo-note').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} · 所有时刻 ${zone}。定位不自动推断时区。`;
-    if (!f.usable) { allPasses = []; clear('轨道数据过期，预测已暂停'); $('sat-status').textContent = 'TLE 历元超过 7 天或异常地位于未来。请刷新数据；不会使用陈旧数据生成抬头时间。'; return; }
     try {
       allPasses = findPasses(satrec, lat, lon, now);
       $('sat-range').textContent = `${fmt(now)}–${fmt(new Date(Math.min(now.getTime() + 48 * 3600000, f.expires.getTime())))} · ${zone}`;

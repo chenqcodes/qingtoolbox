@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { C_AU_PER_S, BODY_BY_ID, BODIES, satelliteEnvelope, type BodyId } from './constants';
-
-/** 自动游览只绕行主星/主行星，不穿插卫星，避免近距连跳 */
-const TOUR_IDS: BodyId[] = BODIES.filter((b) => !b.moonOf).map((b) => b.id);
+import { C_AU_PER_S, BODY_BY_ID, BODIES, type BodyId } from './constants';
 import type { BodySystem } from './bodies';
 import type { TravelTrail } from './minimap';
 import type { StarSystem, StarId } from './stars';
@@ -12,11 +9,18 @@ import { applyScaleVisibility, type ScaleMode } from './scale';
 import type { CometSystem } from './cometSystem';
 import type { CometId } from './comets';
 import { COMET_BY_ID } from './comets';
+import { ViewTransition } from './transition';
 
 export type CamMode = 'observe' | 'fly' | 'travel' | 'tour' | 'facesun';
-
 type TravelDomain = 'body' | 'star' | 'comet';
+type Destination = { domain: TravelDomain; id: BodyId | StarId | CometId };
+const UP = new THREE.Vector3(0, 1, 0);
+const VIEW_DIRECTION = new THREE.Vector3(.65, .35, 1).normalize();
+const TOUR_IDS = BODIES.filter(body => !body.moonOf).map(body => body.id);
 
+/** Camera position, attitude, target and lens always have exactly one owner.
+ * Transitions start at the rendered pose; interrupts invalidate their callbacks.
+ * AU and ly are deliberately separate visual models, joined by a scene dissolve. */
 export class CameraController {
   mode: CamMode = 'observe';
   speedMult = 1;
@@ -27,83 +31,28 @@ export class CameraController {
   touring = false;
   reducedMotion = false;
   travelTrail: TravelTrail | null = null;
-  /** 跃迁目标（飞行过程中 focus 不变，避免逻辑错乱） */
   travelDestId: BodyId = 'earth';
   travelDestStar: StarId = 'sirius';
   travelDestComet: CometId = 'halley';
   cometFocus: CometId | null = null;
   travelDomain: TravelDomain = 'body';
-
   private orbit: OrbitControls;
   private keys = new Set<string>();
   private yaw = 0;
   private pitch = 0;
-
-  private travelFrom = new THREE.Vector3();
-  private travelMid = new THREE.Vector3();
-  private travelPivotStart = new THREE.Vector3();
-  private travelViewDir = new THREE.Vector3();
-  private travelViewDist = 0;
-  private travelFromQuat = new THREE.Quaternion();
-  private travelT = 0;
-  private travelDur = 1;
+  private flyRoll = 0;
+  private baseFov: number;
+  private transition: ViewTransition | null = null;
+  private destination: Destination | null = null;
+  private endOffset = new THREE.Vector3();
+  private targetOffset = new THREE.Vector3();
+  private trackedPivot = new THREE.Vector3();
   private travelDone: (() => void) | null = null;
-  /**
-   * 跃迁分镜：起飞 → 转向对准 → 加速 → 光跃（不灵不灵）→ 降落接近 → 缓停 → 环绕
-   */
-  private travelPhase:
-    | 'liftoff'
-    | 'turn'
-    | 'boost'
-    | 'warp'
-    | 'arrive'
-    | 'settle'
-    | 'orbit' = 'boost';
-  private travelPhaseT = 0;
-  private travelPhaseDur = 1;
-  private travelLiftFrom = new THREE.Vector3();
-  private travelLiftTo = new THREE.Vector3();
-  private travelOrbitAng = 0;
-  private travelOrbitNeed = Math.PI * 0.55;
-  private travelSettlePos = new THREE.Vector3();
-  private baseFov = 58;
-  private matLook = new THREE.Matrix4();
-
-  /** 离场 / 入场跨尺度 */
-  private crossPhase: null | 'leave' | 'enter' = null;
-  private pendingStar: StarId | null = null;
-  private leaveFrom = new THREE.Vector3();
-  private leaveTo = new THREE.Vector3();
-  private leaveLook = new THREE.Vector3();
-  private leaveT = 0;
-  private leaveDur = 1.4;
-  private returningToSol = false;
-
   private tourIndex = 0;
-  private tourSpin = 0;
-  private tourSpinStart = 0;
-  private tourRadiusFrom = 0.1;
-  private tourRadiusTo = 0.1;
-  private tourHeightFrom = 0;
-  private tourHeightTo = 0;
-  private tourOrbitBlend = 0;
-  private tourPhase: 'goto' | 'spin' = 'goto';
-
-  /** 面向太阳：绕当前轨道中心旋转，距离不变，始终注视中心天体 */
-  private faceSunHold = false;
-  private faceSunDist = 0;
-  private faceSunFromDir = new THREE.Vector3();
-  private faceSunToDir = new THREE.Vector3();
-  private faceSunPivotOffset = new THREE.Vector3();
-  private faceSunT = 0;
-  private faceSunDur = 1;
-
-  private lookQuat = new THREE.Quaternion();
-
-  private tmp = new THREE.Vector3();
-  private tmp2 = new THREE.Vector3();
-  private tmp3 = new THREE.Vector3();
-  private tmpSun = new THREE.Vector3();
+  private tourElapsed = 0;
+  private entryOrbit = true;
+  private entryOrbitLeft = 14;
+  private abort = new AbortController();
 
   constructor(
     private camera: THREE.PerspectiveCamera,
@@ -112,1163 +61,397 @@ export class CameraController {
     private stars: StarSystem,
     private comets: CometSystem,
     private onScaleChange?: (mode: ScaleMode) => void,
+    private onBeforeScaleChange?: () => void,
   ) {
+    this.baseFov = camera.fov;
     this.orbit = new OrbitControls(camera, canvas);
     this.orbit.enableDamping = true;
-    this.orbit.dampingFactor = 0.08;
-    this.orbit.rotateSpeed = 0.6;
+    this.orbit.dampingFactor = .08;
+    this.orbit.rotateSpeed = .6;
     this.orbit.zoomSpeed = 1.25;
-    this.orbit.enableZoom = true;
-    this.orbit.panSpeed = 0.45;
-    this.orbit.enablePan = true;
+    this.orbit.panSpeed = .45;
     this.orbit.screenSpacePanning = true;
-    this.orbit.mouseButtons = {
-      LEFT: THREE.MOUSE.ROTATE,
-      MIDDLE: THREE.MOUSE.DOLLY,
-      RIGHT: THREE.MOUSE.PAN,
-    };
-    this.orbit.touches = {
-      ONE: THREE.TOUCH.ROTATE,
-      TWO: THREE.TOUCH.DOLLY_PAN,
-    };
+    this.orbit.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    this.orbit.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
     this.orbit.addEventListener('start', () => {
-      this.faceSunHold = false;
-      this.stopEntryOrbit();
+      // OrbitControls dispatches start before its first movement: the exact current
+      // frame becomes its anchor, so dragging can also interrupt an automatic flight.
+      this.cancelNavigation();
+      this.adoptRenderedView();
     });
-
     canvas.style.touchAction = 'none';
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    let flyDrag = false;
-    let lastX = 0;
-    let lastY = 0;
-    canvas.addEventListener('pointerdown', (e) => {
-      if (this.mode != 'fly') return;
-      flyDrag = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      canvas.setPointerCapture(e.pointerId);
-    });
-    canvas.addEventListener('pointermove', (e) => {
-      if (!flyDrag || this.mode != 'fly') return;
-      this.yaw -= (e.clientX - lastX) * 0.003;
-      this.pitch -= (e.clientY - lastY) * 0.003;
-      this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch));
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    canvas.addEventListener('pointerup', () => {
-      flyDrag = false;
-    });
-
-    window.addEventListener('keydown', (e) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag == 'INPUT' || tag == 'SELECT' || tag == 'TEXTAREA') return;
-      this.keys.add(e.code);
-      if (e.code == 'KeyF') {
-        this.stopTour();
-        this.setMode(this.mode == 'fly' ? 'observe' : 'fly');
-      }
-      if (e.code == 'KeyT') this.toggleTour();
-    });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-
-    this.focus = 'earth';
-    this.placeEarthEntryView();
-    this.baseFov = camera.fov;
+    const options = { signal: this.abort.signal };
+    canvas.addEventListener('contextmenu', event => event.preventDefault(), options);
+    canvas.addEventListener('wheel', event => {
+      if (this.mode === 'fly') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1;
+      this.zoomBy(Math.exp(THREE.MathUtils.clamp(event.deltaY * units * .0015, -1, 1)));
+    }, { ...options, capture: true, passive: false });
+    let drag = false, x = 0, y = 0;
+    canvas.addEventListener('pointerdown', event => {
+      if (this.mode !== 'fly') return;
+      drag = true; x = event.clientX; y = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+    }, options);
+    canvas.addEventListener('pointermove', event => {
+      if (!drag || this.mode !== 'fly') return;
+      this.yaw -= (event.clientX - x) * .003;
+      if (event.clientY !== y) this.pitch = THREE.MathUtils.clamp(this.pitch - (event.clientY - y) * .003, -Math.PI / 2 + .0001, Math.PI / 2 - .0001);
+      x = event.clientX; y = event.clientY;
+    }, options);
+    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(event, () => { drag = false; }, options);
+    window.addEventListener('keydown', event => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes((event.target as HTMLElement)?.tagName)) return;
+      this.keys.add(event.code);
+      if (event.repeat) return;
+      if (event.code === 'KeyF') this.setMode(this.mode === 'fly' ? 'observe' : 'fly');
+      if (event.code === 'KeyT') this.toggleTour();
+    }, options);
+    window.addEventListener('keyup', event => this.keys.delete(event.code), options);
+    window.addEventListener('blur', () => { this.keys.clear(); drag = false; }, options);
+    this.beginEarthEntryOrbit();
   }
 
-  /** 入场：晨昏线视角看地球，画面边缘能瞥见太阳；缓缓环绕便于定位 */
-  private entryOrbit = true;
-  private entryOrbitLeft = 14;
-  private entryOrbitSpeed = 0.12;
-
-  private placeEarthEntryView() {
-    const earth = this.bodies.getWorldPos('earth', this.tmp).clone();
-    const sun = this.bodies.getWorldPos('sun', this.tmpSun);
-    const dist = Math.max(this.bodies.getDef('earth').visualRadius * 14, 0.04);
-    // 背阳略偏侧：地球居中，太阳贴在画面一侧
-    const away = this.tmp2.copy(earth).sub(sun);
-    if (away.lengthSq() < 1e-12) away.set(0, 0, 1);
-    away.normalize();
-    let side = this.tmp3.set(0, 1, 0).cross(away);
-    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
-    side.normalize();
-    this.camera.position
-      .copy(earth)
-      .addScaledVector(away, dist * 0.28)
-      .addScaledVector(side, dist * 0.92);
-    this.camera.position.y += dist * 0.22;
-    this.orbit.target.copy(earth);
-    this.orbit.minDistance = Math.max(this.bodies.getDef('earth').visualRadius * 1.6, 0.0005);
-    this.orbit.update();
-    this.entryOrbit = true;
+  dispose() { this.abort.abort(); this.orbit.dispose(); }
+  stopEntryOrbit() { this.entryOrbit = false; }
+  beginEarthEntryOrbit() {
+    this.jumpToBody('earth');
+    this.entryOrbit = !this.reducedMotion;
     this.entryOrbitLeft = 14;
   }
 
-  stopEntryOrbit() {
-    this.entryOrbit = false;
+  private currentDestination(): Destination {
+    if (this.scaleMode === 'stellar') return { domain: 'star', id: this.starFocus };
+    if (this.cometFocus) return { domain: 'comet', id: this.cometFocus };
+    return { domain: 'body', id: this.focus };
+  }
+  private pivot(dest = this.currentDestination()): THREE.Vector3 {
+    const out = new THREE.Vector3();
+    if (dest.domain === 'star') return this.stars.getWorldPos(dest.id as StarId, out);
+    if (dest.domain === 'comet') return this.comets.getWorldPos(dest.id as CometId, out);
+    return this.bodies.getWorldPos(dest.id as BodyId, out);
+  }
+  private minimum(dest: Destination) {
+    if (dest.domain === 'star') return Math.max(STAR_BY_ID[dest.id as StarId].visualRadius * 8, .45);
+    if (dest.domain === 'comet') return Math.max(COMET_BY_ID[dest.id as CometId].visualRadius * 40, .08);
+    return dest.id === 'sun' ? .7 : Math.max(this.bodies.getDef(dest.id as BodyId).visualRadius * 1.6, .0005);
+  }
+  private viewDistance(dest: Destination) {
+    if (dest.domain === 'star') return Math.max(STAR_BY_ID[dest.id as StarId].visualRadius * 22, 1.15);
+    if (dest.domain === 'comet') return .65;
+    if (dest.id === 'sun') return 1.4;
+    const def = this.bodies.getDef(dest.id as BodyId);
+    const target = this.pivot(dest);
+    let envelope = def.visualRadius;
+    for (const moon of BODIES.filter(body => body.parent === dest.id)) {
+      envelope = Math.max(envelope, this.bodies.getWorldPos(moon.id, new THREE.Vector3()).distanceTo(target) + moon.visualRadius);
+    }
+    const vertical = this.baseFov * Math.PI / 360;
+    const horizontal = Math.atan(Math.tan(vertical) * this.camera.aspect);
+    return Math.max(def.visualRadius * 10, envelope / Math.sin(Math.min(vertical, horizontal)) * 1.2, .025);
+  }
+  private viewOffset(dest: Destination) {
+    if (dest.domain !== 'comet') return VIEW_DIRECTION.clone().multiplyScalar(this.viewDistance(dest));
+    const away = this.comets.antiSunDir(dest.id as CometId, new THREE.Vector3()).normalize();
+    const side = new THREE.Vector3().crossVectors(UP, away);
+    if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
+    return away.addScaledVector(side.normalize(), .28).addScaledVector(UP, .08).normalize().multiplyScalar(this.viewDistance(dest));
+  }
+  private setDestination(dest: Destination) {
+    this.travelDomain = dest.domain;
+    this.cometFocus = null;
+    if (dest.domain === 'star') this.starFocus = this.travelDestStar = dest.id as StarId;
+    else if (dest.domain === 'comet') this.cometFocus = this.travelDestComet = dest.id as CometId;
+    else { this.focus = this.travelDestId = dest.id as BodyId; this.starFocus = 'sol'; }
+    this.trackedPivot.copy(this.pivot(dest));
   }
 
-  /** 场景 FO 就绪后再摆入场机位 */
-  beginEarthEntryOrbit() {
-    if (this.scaleMode != 'solar') return;
-    this.focus = 'earth';
-    this.cometFocus = null;
+  /** Flush controls' private inertia by updating once with damping off, but restore
+   * the rendered pose afterwards. Merely disabling controls does not clear inertia. */
+  private drainOrbit() {
+    const position = this.camera.position.clone(), quaternion = this.camera.quaternion.clone();
+    const target = this.orbit.target.clone();
+    const damping = this.orbit.enableDamping, minimum = this.orbit.minDistance, maximum = this.orbit.maxDistance;
+    this.orbit.enableDamping = false;
+    this.orbit.minDistance = 0;
+    this.orbit.maxDistance = Infinity;
+    this.orbit.update();
+    this.camera.position.copy(position);
+    this.camera.quaternion.copy(quaternion);
+    this.orbit.target.copy(target);
+    this.orbit.enableDamping = damping;
+    this.orbit.minDistance = minimum;
+    this.orbit.maxDistance = maximum;
+  }
+  private cancelNavigation() {
+    this.transition = null;
+    this.destination = null;
+    this.travelDone = null;
+    this.travelTrail = null;
+    this.touring = false;
+    this.stopEntryOrbit();
+    this.keys.clear();
+    this.drainOrbit();
+  }
+  private renderedTarget() {
+    const distance = Math.max(this.camera.position.distanceTo(this.orbit.target), .001);
+    return this.camera.position.clone().addScaledVector(this.camera.getWorldDirection(new THREE.Vector3()), distance);
+  }
+  private adoptRenderedView() {
+    this.orbit.target.copy(this.renderedTarget());
+    this.trackedPivot.copy(this.pivot());
+    this.targetOffset.copy(this.orbit.target).sub(this.trackedPivot);
+    this.orbit.minDistance = Math.min(this.minimum(this.currentDestination()), this.camera.position.distanceTo(this.orbit.target));
+    this.orbit.maxDistance = Math.max(120, this.camera.position.distanceTo(this.orbit.target));
+    // OrbitControls.lookAt must inherit the in-flight roll on takeover. Relax
+    // its up vector gradually in update(), rather than snapping it to world-up.
+    const roll = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').z;
+    this.camera.up.copy(UP);
+    if (Math.abs(roll) > 1e-8) this.camera.up.applyQuaternion(this.camera.quaternion);
     this.mode = 'observe';
     this.orbit.enabled = true;
-    this.placeEarthEntryView();
   }
 
-  /** 背阳侧略偏：相机在夜侧看行星，太阳在侧后方（用真实太阳世界坐标） */
-  private sunOffsetDir(pivot: THREE.Vector3, out: THREE.Vector3) {
-    this.bodies.getWorldPos('sun', this.tmpSun);
-    const away = out.copy(pivot).sub(this.tmpSun);
-    if (away.lengthSq() < 1e-12) away.set(0, 0, 1);
-    away.normalize();
-    let side = this.tmp2.set(0, 1, 0).cross(away);
-    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
-    side.normalize();
-    return out.copy(away).multiplyScalar(0.9).addScaledVector(side, 0.32).normalize();
-  }
-
-  private applyFaceSunPose(pivot: THREE.Vector3, dir: THREE.Vector3) {
-    this.camera.position.copy(pivot).addScaledVector(dir, this.faceSunDist);
-    this.camera.lookAt(pivot);
-  }
-
-  private slerpLookAt(fromQ: THREE.Quaternion, pos: THREE.Vector3, target: THREE.Vector3, t: number) {
-    if (t <= 0) {
-      this.camera.quaternion.copy(fromQ);
-      return;
+  setMode(mode: CamMode) {
+    if (mode === 'tour') { this.startTour(); return; }
+    if (mode !== 'fly' && mode !== 'observe') return;
+    this.cancelNavigation();
+    if (mode === 'observe') this.adoptRenderedView();
+    else {
+      this.mode = 'fly';
+      this.orbit.enabled = false;
+      const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
+      this.yaw = euler.y; this.pitch = euler.x; this.flyRoll = euler.z;
     }
-    this.matLook.lookAt(pos, target, UP);
-    this.lookQuat.setFromRotationMatrix(this.matLook);
-    if (t >= 1) {
-      this.camera.quaternion.copy(this.lookQuat);
-      return;
+  }
+  setReducedMotion(enabled: boolean) {
+    this.reducedMotion = enabled;
+    this.orbit.enableDamping = !enabled;
+    if (enabled) {
+      const dest = this.destination ?? this.currentDestination();
+      this.jump(dest);
     }
-    this.camera.quaternion.copy(fromQ).slerp(this.lookQuat, t);
   }
 
-  private resetFov() {
+  /** A scale change cannot be a physical zoom: the two views use different units
+   * and deliberately exaggerated radii. Capture the old rendered scene first;
+   * the renderer blends it with the new live scene without a blank/flash frame. */
+  private switchScale(scale: ScaleMode) {
+    if (scale === this.scaleMode) return false;
+    if (!this.reducedMotion) this.onBeforeScaleChange?.();
+    this.scaleMode = scale;
+    applyScaleVisibility(scale, this.bodies, this.stars);
+    this.comets.setRootVisible(scale === 'solar');
+    this.onScaleChange?.(scale);
+    return true;
+  }
+  private jump(dest: Destination) {
+    this.cancelNavigation();
+    this.switchScale(dest.domain === 'star' ? 'stellar' : 'solar');
+    this.setDestination(dest);
+    this.targetOffset.set(0, 0, 0);
+    this.orbit.target.copy(this.pivot(dest));
+    this.camera.position.copy(this.orbit.target).add(this.viewOffset(dest));
+    this.camera.up.copy(UP);
+    this.camera.lookAt(this.orbit.target);
     this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
+    this.orbit.minDistance = this.minimum(dest);
+    this.orbit.maxDistance = 120;
+    this.mode = 'observe';
+    this.orbit.enabled = true;
+  }
+  jumpToBody(id: BodyId) { this.jump({ domain: 'body', id }); }
+  jumpToStar(id: StarId) { id === 'sol' ? this.jumpToBody('earth') : this.jump({ domain: 'star', id }); }
+
+  private navigate(dest: Destination, onDone?: () => void, offset?: THREE.Vector3, duration?: number, targetOffset = new THREE.Vector3()) {
+    if (this.reducedMotion) {
+      this.jump(dest);
+      if (offset) {
+        this.targetOffset.copy(targetOffset);
+        this.orbit.target.copy(this.pivot(dest)).add(targetOffset);
+        this.camera.position.copy(this.orbit.target).add(offset);
+        this.camera.lookAt(this.orbit.target);
+      }
+      onDone?.(); return;
+    }
+    const wasTouring = this.touring;
+    // Snapshot before canceling anything, including a partially interpolated look.
+    const from = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone(), target: this.renderedTarget(), fov: this.camera.fov };
+    this.cancelNavigation();
+    const changedScale = this.switchScale(dest.domain === 'star' ? 'stellar' : 'solar');
+    this.setDestination(dest);
+    this.targetOffset.copy(targetOffset);
+    const target = this.pivot(dest).add(targetOffset);
+    const endOffset = offset?.clone() ?? this.viewOffset(dest);
+    if (changedScale) {
+      // Destination scale starts already framed, behind the captured source image.
+      // The dissolve owns this boundary; never interpolate AU values as ly.
+      this.camera.position.copy(target).add(endOffset);
+      this.camera.up.copy(UP);
+      this.camera.lookAt(target);
+      this.camera.fov = this.baseFov;
+      this.camera.updateProjectionMatrix();
+      from.position.copy(this.camera.position);
+      from.quaternion.copy(this.camera.quaternion);
+      from.target.copy(target);
+      from.fov = this.baseFov;
+    }
+    this.orbit.target.copy(from.target);
+    this.endOffset.copy(endOffset);
+    this.destination = dest;
+    this.transition = new ViewTransition(from, changedScale ? .85 : duration ?? Math.min(2.8, Math.max(.8, 1 + Math.log1p(from.position.distanceTo(target)) * .3)));
+    this.travelDone = onDone ?? null;
+    this.mode = 'travel';
+    this.touring = wasTouring;
+    // Controls remain interactive, but update() is exclusively owned by transition
+    // until an actual gesture explicitly cancels it.
+    this.orbit.enabled = true;
+    this.orbit.minDistance = 0;
+    this.orbit.maxDistance = Infinity;
+    this.travelTrail = { from: from.position.clone(), mid: from.position.clone().lerp(target, .5), to: target.clone().add(endOffset), progress: 0 };
+  }
+  navigateToBody(id: BodyId, onDone?: () => void) { this.stopTour(); this.navigate({ domain: 'body', id }, onDone); }
+  navigateToStar(id: StarId, onDone?: () => void) {
+    this.stopTour();
+    this.navigate(id === 'sol' ? { domain: 'body', id: 'earth' } : { domain: 'star', id }, onDone);
+  }
+  travelTo(id: BodyId, onDone?: () => void) { this.navigate({ domain: 'body', id }, onDone); }
+  travelToStar(id: StarId, onDone?: () => void) { this.navigateToStar(id, onDone); }
+  returnToSol(onDone?: () => void) { this.navigateToBody('earth', onDone); }
+  travelToComet(id: CometId, onDone?: () => void) { this.stopTour(); this.navigate({ domain: 'comet', id }, onDone); }
+  setFocus(id: BodyId) { if (id !== this.focus || this.cometFocus) this.navigateToBody(id); }
+  setStarFocus(id: StarId) { if (id !== this.starFocus) this.navigateToStar(id); }
+  resetView() { this.stopTour(); this.navigate(this.destination ?? this.currentDestination()); }
+
+  zoomBy(factor: number) {
+    if (!Number.isFinite(factor) || factor <= 0) return;
+    const dest = this.destination ?? this.currentDestination();
+    const target = this.renderedTarget();
+    const offset = this.camera.position.clone().sub(target);
+    const desired = this.transition && this.destination ? this.endOffset.length() : offset.length();
+    const length = THREE.MathUtils.clamp(desired * factor, this.minimum(dest), 120);
+    const targetOffset = target.clone().sub(this.pivot(dest));
+    const end = offset.normalize().multiplyScalar(length);
+    this.stopTour();
+    if (this.reducedMotion) {
+      this.cancelNavigation(); this.setDestination(dest); this.targetOffset.copy(targetOffset);
+      this.orbit.target.copy(target); this.camera.position.copy(target).add(end);
+      this.mode = 'observe'; this.orbit.enabled = true;
+      this.orbit.minDistance = this.minimum(dest); this.orbit.maxDistance = 120;
+    } else this.navigate(dest, undefined, end, .45, targetOffset);
   }
 
-  /** Floating Origin 重设后：场景点与相机同步平移 */
+  faceSun() {
+    if (this.scaleMode !== 'solar') return;
+    this.stopTour();
+    const dest = this.destination ?? this.currentDestination();
+    const target = this.pivot(dest);
+    const away = target.clone().sub(this.bodies.getWorldPos('sun', new THREE.Vector3()));
+    if (away.lengthSq() < 1e-10) away.set(0, .12, 1);
+    away.normalize();
+    const side = new THREE.Vector3().crossVectors(UP, away).normalize();
+    const distance = Math.max(this.camera.position.distanceTo(target), this.minimum(dest));
+    const offset = away.multiplyScalar(.9).addScaledVector(side, .32).normalize().multiplyScalar(distance);
+    this.navigate(dest, undefined, offset, 1.3);
+  }
+  toggleTour() { this.touring ? this.stopTour() : this.startTour(); }
+  startTour() {
+    if (this.reducedMotion || this.scaleMode !== 'solar') return;
+    this.stopTour();
+    this.touring = true;
+    const parent = BODY_BY_ID[this.focus]?.moonOf;
+    this.tourIndex = Math.max(0, TOUR_IDS.indexOf(parent ?? this.focus));
+    this.gotoTourBody();
+  }
+  stopTour() {
+    const active = this.touring;
+    this.touring = false;
+    if (active) { this.cancelNavigation(); this.adoptRenderedView(); }
+  }
+  private gotoTourBody() {
+    this.navigate({ domain: 'body', id: TOUR_IDS[this.tourIndex] }, () => {
+      if (!this.touring) return;
+      this.mode = 'tour'; this.tourElapsed = 0;
+    });
+  }
+
   applyOriginShift(delta: THREE.Vector3) {
     if (delta.lengthSq() < 1e-18) return;
     this.camera.position.sub(delta);
     this.orbit.target.sub(delta);
-    this.travelFrom.sub(delta);
-    this.travelMid.sub(delta);
-    this.travelPivotStart.sub(delta);
-    this.travelSettlePos.sub(delta);
-    this.travelLiftFrom.sub(delta);
-    this.travelLiftTo.sub(delta);
-    this.leaveFrom.sub(delta);
-    this.leaveTo.sub(delta);
-    this.leaveLook.sub(delta);
-    if (this.travelTrail) {
-      this.travelTrail.from.sub(delta);
-      this.travelTrail.mid.sub(delta);
-      this.travelTrail.to.sub(delta);
-    }
+    this.trackedPivot.sub(delta);
+    this.transition?.shift(delta);
+    if (this.travelTrail) { this.travelTrail.from.sub(delta); this.travelTrail.mid.sub(delta); this.travelTrail.to.sub(delta); }
   }
-
-  private clearance(): number {
-    return this.scaleMode == 'stellar' ? 0.35 : 1.25;
+  getAdaptiveSpeedAu() {
+    if (this.mode === 'fly' && this.scaleMode === 'solar') return Math.max(this.camera.position.clone().add(this.bodies.floatingOrigin).length() * .22, .025) * this.speedMult;
+    return Math.max(this.camera.position.distanceTo(this.pivot()) * .55, this.scaleMode === 'stellar' ? .02 : .015) * this.speedMult;
   }
-
-  /** 跃迁弧线控制点：抬高并绕开原点大质量体 */
-  private buildTravelMid(from: THREE.Vector3, to: THREE.Vector3, out: THREE.Vector3) {
-    const CLR = this.clearance();
-    out.copy(from).lerp(to, 0.5);
-    const chord = from.distanceTo(to);
-    const lift = Math.min(this.scaleMode == 'stellar' ? 6 : 4.5, Math.max(0.2, chord * 0.38));
-    out.y += lift;
-
-    let r = out.length();
-    if (r < CLR) {
-      if (r < 1e-5) {
-        out.set(0, CLR, 0);
-      } else {
-        out.multiplyScalar(CLR / r);
-      }
-    }
-
-    const a = this.tmp.copy(from).normalize();
-    const b = this.tmp2.copy(to).normalize();
-    if (a.lengthSq() > 1e-6 && b.lengthSq() > 1e-6 && a.dot(b) < 0.25) {
-      const outer = Math.max(from.length(), to.length(), CLR) * 1.2;
-      const midDir = a.add(b);
-      if (midDir.lengthSq() < 1e-6) midDir.set(0, 1, 0);
-      midDir.normalize();
-      out.copy(midDir).multiplyScalar(outer);
-      out.y += lift * 0.8;
-    }
-    return out;
-  }
-
-  private travelEndPos(destPivot: THREE.Vector3, out: THREE.Vector3) {
-    if (this.travelDomain == 'comet') {
-      // 从彗尾侧后方看向彗核，略偏轴，避免钻进发光粒子里
-      this.comets.antiSunDir(this.travelDestComet, this.tmp3);
-      const dist = Math.max(this.travelViewDist, 0.35);
-      out.copy(destPivot).addScaledVector(this.tmp3, dist);
-      let side = this.tmp.set(0, 1, 0).cross(this.tmp3);
-      if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
-      side.normalize();
-      return out.addScaledVector(side, dist * 0.28).addScaledVector(this.tmp2.set(0, 1, 0), dist * 0.08);
-    }
-    return out.copy(destPivot).addScaledVector(this.travelViewDir, this.travelViewDist);
-  }
-
-  private destPivot(out: THREE.Vector3): THREE.Vector3 {
-    if (this.travelDomain == 'star') return this.stars.getWorldPos(this.travelDestStar, out);
-    if (this.travelDomain == 'comet') return this.comets.getWorldPos(this.travelDestComet, out);
-    return this.bodies.getWorldPos(this.travelDestId, out);
-  }
-
-  getAdaptiveSpeedAu(): number {
-    // 巡航：按日心距离自适应，便于小行星带遨游
-    if (this.mode == 'fly' && this.scaleMode == 'solar') {
-      this.tmp.copy(this.camera.position).add(this.bodies.floatingOrigin);
-      const r = Math.max(this.tmp.length(), 0.05);
-      return Math.max(r * 0.22, 0.025) * this.speedMult;
-    }
-    if (this.scaleMode == 'stellar') {
-      const id = this.mode == 'travel' ? this.travelDestStar : this.starFocus;
-      const def = STAR_BY_ID[id];
-      const dist = this.camera.position.distanceTo(this.stars.getWorldPos(id, this.tmp));
-      const base = Math.max(dist * 0.55, (def?.visualRadius || 0.05) * 35, 0.02);
-      return base * this.speedMult;
-    }
-    if (this.cometFocus) {
-      const dist = this.camera.position.distanceTo(this.comets.getWorldPos(this.cometFocus, this.tmp));
-      const base = Math.max(dist * 0.55, 0.02);
-      return base * this.speedMult;
-    }
-    const def = this.bodies.getDef(this.focus);
-    const dist = this.camera.position.distanceTo(this.bodies.getWorldPos(this.focus, this.tmp));
-    const base = Math.max(dist * 0.55, def.visualRadius * 35, 0.015);
-    return base * this.speedMult;
-  }
-
-  setMode(m: CamMode) {
-    if (m != 'tour') this.touring = false;
-    if (m != 'observe') this.stopEntryOrbit();
-    this.mode = m;
-    this.faceSunHold = false;
-    this.orbit.enabled = m == 'observe';
-    if (m == 'observe') this.syncOrbitFromCamera();
-    if (m == 'fly') this.syncFlyAngles();
-  }
-
-  /** Accessible instant navigation also provides a reliable escape from any flight. */
-  private stopNavigation() {
-    this.stopTour();
-    this.stopEntryOrbit();
-    this.crossPhase = null;
-    this.pendingStar = null;
-    this.returningToSol = false;
-    this.travelDone = null;
-    this.travelTrail = null;
-    this.faceSunHold = false;
-    this.keys.clear();
-    this.mode = 'observe';
-    this.orbit.enabled = true;
-    this.resetFov();
-  }
-
-  setReducedMotion(enabled: boolean) {
-    this.reducedMotion = enabled;
-    this.orbit.enableDamping = !enabled;
-    if (enabled) this.resetView();
-  }
-
-  jumpToBody(id: BodyId) {
-    this.stopNavigation();
-    this.scaleMode = 'solar';
-    applyScaleVisibility('solar', this.bodies, this.stars);
-    this.comets.setRootVisible(true);
-    this.cometFocus = null;
-    this.focus = id;
-    this.starFocus = 'sol';
-    this.travelDestId = id;
-    this.bodies.getLogicalPos(id, this.tmp);
-    this.bodies.setFloatingOrigin(this.tmp);
-    this.comets.syncOrigin(this.bodies.floatingOrigin);
-    const target = this.bodies.getWorldPos(id, this.tmp).clone();
-    const def = this.bodies.getDef(id);
-    let envelope = def.visualRadius;
-    for (const moon of BODIES.filter(body => body.parent === id)) {
-      envelope = Math.max(envelope, this.bodies.getWorldPos(moon.id, this.tmp2).distanceTo(target) + moon.visualRadius);
-    }
-    const verticalHalfAngle = this.camera.fov * Math.PI / 360;
-    const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * this.camera.aspect);
-    const limitingHalfAngle = Math.min(verticalHalfAngle, horizontalHalfAngle);
-    const distance = id === 'sun' ? 1.4 : Math.max(def.visualRadius * 10, envelope / Math.sin(limitingHalfAngle) * 1.2, .025);
-    this.placeInstantView(target, distance, id === 'sun' ? .7 : Math.max(def.visualRadius * 1.6, .0005));
-    this.onScaleChange?.('solar');
-  }
-
-  jumpToStar(id: StarId) {
-    if (id === 'sol') { this.jumpToBody('earth'); return; }
-    this.stopNavigation();
-    this.scaleMode = 'stellar';
-    applyScaleVisibility('stellar', this.bodies, this.stars);
-    this.comets.setRootVisible(false);
-    this.cometFocus = null;
-    this.starFocus = id;
-    this.travelDestStar = id;
-    this.stars.getLogicalPos(id, this.tmp);
-    this.stars.setFloatingOrigin(this.tmp);
-    const target = this.stars.getWorldPos(id, this.tmp).clone();
-    this.placeInstantView(target, Math.max(STAR_BY_ID[id].visualRadius * 22, 1.15), .45);
-    this.onScaleChange?.('stellar');
-  }
-
-  private jumpToComet(id: CometId) {
-    this.jumpToBody('earth');
-    this.cometFocus = id;
-    this.travelDestComet = id;
-    this.comets.getLogicalPos(id, this.tmp);
-    this.bodies.setFloatingOrigin(this.tmp);
-    this.comets.syncOrigin(this.bodies.floatingOrigin);
-    this.placeInstantView(this.comets.getWorldPos(id, this.tmp).clone(), .65, .01);
-  }
-
-  private placeInstantView(target: THREE.Vector3, distance: number, minimum: number) {
-    this.orbit.target.copy(target);
-    this.camera.position.copy(target).add(new THREE.Vector3(.65, .35, 1).normalize().multiplyScalar(distance));
-    this.orbit.minDistance = minimum;
-    this.orbit.maxDistance = 120;
-    this.camera.lookAt(target);
-    // Drain residual damping before a deterministic reset.
-    const damping = this.orbit.enableDamping;
-    this.orbit.enableDamping = false;
-    this.orbit.update();
-    this.orbit.enableDamping = damping;
-  }
-
-  resetView() {
-    if (this.scaleMode === 'stellar') this.jumpToStar(this.starFocus);
-    else if (this.cometFocus) this.jumpToComet(this.cometFocus);
-    else this.jumpToBody(this.focus);
-  }
-
-  zoomBy(factor: number) {
-    this.stopNavigation();
-    const offset = this.camera.position.clone().sub(this.orbit.target);
-    const length = Math.max(this.orbit.minDistance, Math.min(this.orbit.maxDistance, offset.length() * factor));
-    this.camera.position.copy(this.orbit.target).add(offset.normalize().multiplyScalar(length));
-    this.orbit.update();
-  }
-
-  setFocus(id: BodyId) {
-    this.focus = id;
-    if (this.mode == 'observe' && this.scaleMode == 'solar') {
-      this.bodies.getWorldPos(id, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(
-        this.bodies.getDef(id).visualRadius * (id == 'sun' ? 18 : 1.6),
-        id == 'sun' ? 0.7 : 0.0005,
-      );
-    }
-  }
-
-  setStarFocus(id: StarId) {
-    this.starFocus = id;
-    if (this.mode == 'observe' && this.scaleMode == 'stellar') {
-      this.stars.getWorldPos(id, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(STAR_BY_ID[id].visualRadius * 8, 0.45);
-    }
-  }
-
-  /** 绕当前轨道中心旋转，保持距离，直到背阳构图（始终看见中心天体） */
-  faceSun() {
-    if (this.scaleMode != 'solar') return;
-    this.stopTour();
-    this.stopEntryOrbit();
-    this.faceSunHold = false;
-
-    const planet = this.bodies.getWorldPos(this.focus, this.tmp);
-    const pivot = this.tmp2.copy(this.orbit.target);
-    this.faceSunPivotOffset.copy(pivot).sub(planet);
-
-    const offset = this.tmp3.copy(this.camera.position).sub(pivot);
-    const dist = offset.length();
-    if (dist < 1e-6) return;
-
-    this.faceSunDist = dist;
-    this.faceSunFromDir.copy(offset).normalize();
-
-    if (this.focus == 'sun') {
-      this.faceSunToDir.set(0, 0.12, 1).normalize();
-    } else {
-      this.sunOffsetDir(pivot, this.faceSunToDir);
-    }
-
-    const dot = Math.max(-1, Math.min(1, this.faceSunFromDir.dot(this.faceSunToDir)));
-    const angle = Math.acos(dot);
-    this.faceSunT = 0;
-    this.faceSunDur = Math.min(3.2, Math.max(0.9, (angle / Math.PI) * 2.8));
-
-    if (this.reducedMotion) {
-      this.applyFaceSunPose(pivot, this.faceSunToDir);
-      this.mode = 'observe';
-      this.orbit.enabled = true;
-      this.orbit.target.copy(pivot);
-      this.orbit.update();
-      return;
-    }
-    this.mode = 'facesun';
-    this.orbit.enabled = false;
-    this.travelTrail = null;
-  }
-
-  private faceSunPivot(out: THREE.Vector3) {
-    const planet = this.bodies.getWorldPos(this.focus, this.tmp);
-    return out.copy(planet).add(this.faceSunPivotOffset);
-  }
-
-  toggleTour() {
-    if (this.scaleMode != 'solar') return;
-    if (this.touring) this.stopTour();
-    else this.startTour();
-  }
-
-  startTour() {
-    if (this.reducedMotion) return;
-    if (this.scaleMode != 'solar') return;
-    this.touring = true;
-    let idx = TOUR_IDS.indexOf(this.focus);
-    if (idx < 0) {
-      const parent = BODY_BY_ID[this.focus]?.moonOf;
-      idx = parent ? TOUR_IDS.indexOf(parent) : 0;
-    }
-    this.tourIndex = Math.max(0, idx);
-    this.tourPhase = 'goto';
-    this.mode = 'tour';
-    this.orbit.enabled = false;
-    this.gotoTourBody();
-  }
-
-  stopTour() {
-    this.touring = false;
-    if (this.mode == 'tour') {
-      this.mode = 'observe';
-      this.orbit.enabled = true;
-      this.syncOrbitFromCamera();
-    }
-  }
-
-  private gotoTourBody() {
-    const id = TOUR_IDS[this.tourIndex];
-    this.travelTo(id, () => {
-      if (!this.touring) return;
-      this.beginTourSpin(id);
-    });
-  }
-
-  /** 从跃迁落点连续切入环视：保留当前方位角/距离，再缓入标准环视半径 */
-  private beginTourSpin(id: BodyId) {
-    this.focus = id;
-    this.tourPhase = 'spin';
-    this.mode = 'tour';
-    this.orbit.enabled = false;
-
-    const def = this.bodies.getDef(id);
-    this.bodies.getWorldPos(id, this.tmp);
-    const off = this.tmp2.copy(this.camera.position).sub(this.tmp);
-    const flat = Math.hypot(off.x, off.z);
-
-    this.tourSpin = Math.atan2(off.z, off.x);
-    this.tourSpinStart = this.tourSpin;
-    this.tourRadiusFrom = Math.max(flat, 1e-5);
-    this.tourHeightFrom = off.y;
-    this.tourRadiusTo = id == 'sun'
-      ? Math.max(def.visualRadius * 28, 1.2)
-      : Math.max(def.visualRadius * 11, 0.04);
-    this.tourHeightTo = this.tourRadiusTo * 0.28;
-    this.tourOrbitBlend = 0;
-  }
-
-  /** 从太阳系跃迁到邻近恒星；已在星域则同尺度飞行 */
-  travelToStar(id: StarId, onDone?: () => void) {
-    if (this.reducedMotion) { this.jumpToStar(id); onDone?.(); return; }
-    if (id == 'sol') {
-      this.returnToSol(onDone);
-      return;
-    }
-    this.stopTour();
-    this.stopEntryOrbit();
-    this.faceSunHold = false;
-    this.cometFocus = null;
-    this.returningToSol = false;
-    this.travelDone = onDone || null;
-
-    if (this.scaleMode == 'solar') {
-      this.beginLeaveSolar(id);
-      return;
-    }
-    this.beginStarTravel(id);
-  }
-
-  /** 从星域返回太阳系（停靠地球） */
-  returnToSol(onDone?: () => void) {
-    if (this.reducedMotion) { this.jumpToBody('earth'); onDone?.(); return; }
-    this.stopTour();
-    this.faceSunHold = false;
-    this.travelDone = onDone || null;
-    if (this.scaleMode == 'solar') {
-      this.travelTo('earth', onDone);
-      return;
-    }
-    this.returningToSol = true;
-    this.beginStarTravel('sol');
-  }
-
-  private beginLeaveSolar(starId: StarId) {
-    this.pendingStar = starId;
-    this.crossPhase = 'leave';
-    this.mode = 'travel';
-    this.orbit.enabled = false;
-    this.travelDomain = 'body';
-    this.travelDestStar = starId;
-
-    this.leaveFrom.copy(this.camera.position);
-    this.leaveLook.copy(this.orbit.target);
-    // 沿目标恒星方向拉远离场（AU 尺度）
-    this.stars.getLogicalPos(starId, this.tmp);
-    if (this.tmp.lengthSq() < 1e-8) this.tmp.set(1, 0.2, 0);
-    this.tmp.normalize();
-    const pull = 55;
-    this.leaveTo.copy(this.tmp).multiplyScalar(pull);
-    this.leaveT = 0;
-    this.leaveDur = 1.55;
-    this.travelTrail = null;
-  }
-
-  private finishLeaveSolar() {
-    const starId = this.pendingStar!;
-    this.pendingStar = null;
-    this.crossPhase = null;
-
-    applyScaleVisibility('stellar', this.bodies, this.stars);
-    this.comets.setRootVisible(false);
-    this.scaleMode = 'stellar';
-    this.onScaleChange?.('stellar');
-
-    // 星域：相机放在太阳附近朝向目标
-    this.stars.getLogicalPos(starId, this.tmp);
-    const dir = this.tmp2.copy(this.tmp);
-    if (dir.lengthSq() < 1e-8) dir.set(1, 0.15, 0);
-    dir.normalize();
-
-    this.stars.setFloatingOrigin(this.tmp3.set(0, 0, 0));
-    const startDist = 1.1;
-    this.camera.position.copy(dir).multiplyScalar(startDist);
-    this.orbit.target.set(0, 0, 0);
-    this.camera.lookAt(this.stars.getWorldPos(starId, this.tmp));
-    this.starFocus = 'sol';
-
-    this.beginStarTravel(starId);
-  }
-
-  private beginEnterSolar() {
-    this.crossPhase = null;
-    this.returningToSol = false;
-
-    applyScaleVisibility('solar', this.bodies, this.stars);
-    this.comets.setRootVisible(true);
-    this.scaleMode = 'solar';
-    this.onScaleChange?.('solar');
-
-    this.bodies.getLogicalPos('earth', this.tmp);
-    this.bodies.setFloatingOrigin(this.tmp);
-    this.comets.syncOrigin(this.bodies.floatingOrigin);
-    this.stars.setFloatingOrigin(this.tmp3.set(0, 0, 0));
-
-    this.focus = 'earth';
-    this.starFocus = 'sol';
-    const target = this.bodies.getWorldPos('earth', this.tmp);
-    const dist = Math.max(this.bodies.getDef('earth').visualRadius * 12, 0.035);
-    this.orbit.target.copy(target);
-    this.camera.position.set(target.x + dist * 0.65, target.y + dist * 0.35, target.z + dist);
-    this.orbit.minDistance = Math.max(this.bodies.getDef('earth').visualRadius * 1.6, 0.0005);
-    this.orbit.maxDistance = 120;
-    this.mode = 'observe';
-    this.orbit.enabled = true;
-    this.orbit.update();
-    this.resetFov();
-    this.travelTrail = null;
-
-    const done = this.travelDone;
-    this.travelDone = null;
-    done?.();
-  }
-
-  private beginStarTravel(id: StarId) {
-    this.travelDomain = 'star';
-    this.travelDestStar = id;
-    this.mode = 'travel';
-    this.orbit.enabled = false;
-    this.faceSunHold = false;
-
-    this.travelFrom.copy(this.camera.position);
-    this.travelPivotStart.copy(this.orbit.target);
-    this.travelFromQuat.copy(this.camera.quaternion);
-
-    const off = this.tmp.copy(this.camera.position).sub(this.travelPivotStart);
-    this.travelViewDist = off.length();
-    if (this.travelViewDist < 1e-6) {
-      this.travelViewDir.set(0.65, 0.35, 1).normalize();
-      this.travelViewDist = 0.35;
-    } else {
-      this.travelViewDir.copy(off).normalize();
-    }
-
-    const def = STAR_BY_ID[id];
-    const maxView = Math.max(def.visualRadius * 22, 1.15);
-    const minView = Math.max(def.visualRadius * 14, 0.75);
-    if (this.travelViewDist > maxView * 2.2) this.travelViewDist = maxView * 2.2;
-    if (this.travelViewDist < minView) this.travelViewDist = minView;
-
-    const dest = this.stars.getWorldPos(id, this.tmp);
-    const endPos = this.travelEndPos(dest, this.tmp2);
-    this.buildTravelMid(this.travelFrom, endPos, this.travelMid);
-
-    this.travelT = 0;
-    const dist = this.travelFrom.distanceTo(endPos);
-    this.travelDur = Math.min(7.5, Math.max(2.0, Math.log10(dist + 1) * 2.2 + dist * 0.12));
-    this.beginCinematicTravel(dist);
-
-    this.travelTrail = {
-      from: this.travelFrom.clone(),
-      mid: this.travelMid.clone(),
-      to: endPos.clone(),
-      progress: 0,
-    };
-  }
-
-  /** 跃迁到彗星，落点在彗尾后方朝向彗核 */
-  travelToComet(id: CometId, onDone?: () => void) {
-    if (this.reducedMotion) { this.jumpToComet(id); onDone?.(); return; }
-    if (this.scaleMode != 'solar') return;
-    if (this.cometFocus == id && this.mode != 'travel') return;
-    this.stopTour();
-    this.stopEntryOrbit();
-    this.faceSunHold = false;
-    this.cometFocus = id;
-    this.travelDomain = 'comet';
-    this.travelDestComet = id;
-    this.mode = 'travel';
-    this.orbit.enabled = false;
-
-    this.travelFrom.copy(this.camera.position);
-    this.travelPivotStart.copy(this.orbit.target);
-    this.travelFromQuat.copy(this.camera.quaternion);
-    this.travelViewDist = Math.max(COMET_BY_ID[id].visualRadius * 120, 0.42);
-    this.travelViewDir.set(0.5, 0.25, 1).normalize();
-
-    const dest = this.comets.getWorldPos(id, this.tmp);
-    const endPos = this.travelEndPos(dest, this.tmp2);
-    this.buildTravelMid(this.travelFrom, endPos, this.travelMid);
-
-    this.travelT = 0;
-    const dist = this.travelFrom.distanceTo(endPos);
-    this.travelDur = Math.min(6.5, Math.max(2.2, Math.log10(dist + 1) * 2.1 + dist * 0.16));
-    this.beginCinematicTravel(dist);
-    this.travelDone = onDone || null;
-    this.travelTrail = {
-      from: this.travelFrom.clone(),
-      mid: this.travelMid.clone(),
-      to: endPos.clone(),
-      progress: 0,
-    };
-  }
-
-  travelTo(id: BodyId, onDone?: () => void) {
-    if (this.reducedMotion) { this.jumpToBody(id); onDone?.(); return; }
-    if (this.scaleMode != 'solar') {
-      // 星域下点行星无效，忽略
-      return;
-    }
-    if (id == this.focus && this.mode != 'travel' && !this.touring && !this.cometFocus) return;
-    this.stopEntryOrbit();
-    this.cometFocus = null;
-    this.faceSunHold = false;
-    this.travelDomain = 'body';
-    this.travelDestId = id;
-    this.mode = 'travel';
-    this.orbit.enabled = false;
-
-    this.travelFrom.copy(this.camera.position);
-    this.travelPivotStart.copy(this.orbit.target);
-    this.travelFromQuat.copy(this.camera.quaternion);
-
-    const off = this.tmp.copy(this.camera.position).sub(this.travelPivotStart);
-    this.travelViewDist = off.length();
-    if (this.travelViewDist < 1e-6) {
-      this.travelViewDir.set(0.65, 0.35, 1).normalize();
-      this.travelViewDist = 0.035;
-    } else {
-      this.travelViewDir.copy(off).normalize();
-    }
-    const destDef = this.bodies.getDef(id);
-    let maxView = Math.max(destDef.visualRadius * 14, 0.04);
-    let minView = 0;
-    if (id == 'sun') {
-      maxView = Math.max(destDef.visualRadius * 32, 1.4);
-      minView = Math.max(destDef.visualRadius * 22, 0.95);
-    } else if (destDef.parent) {
-      maxView = Math.max(maxView, satelliteEnvelope(destDef.parent) * 0.4);
-    } else {
-      maxView = Math.max(maxView, satelliteEnvelope(id) * 0.65);
-    }
-
-    // 游览：落点贴近后续环视环，减少「飞停 → 突然换半径」
-    if (this.touring) {
-      const r = id == 'sun'
-        ? Math.max(destDef.visualRadius * 28, 1.2)
-        : Math.max(destDef.visualRadius * 11, 0.04);
-      this.travelViewDist = Math.sqrt(r * r + (r * 0.28) ** 2);
-      this.travelViewDir.y = 0.28;
-      const flatLen = Math.hypot(this.travelViewDir.x, this.travelViewDir.z);
-      if (flatLen < 1e-6) this.travelViewDir.set(1, 0.28, 0);
-      else {
-        this.travelViewDir.x /= flatLen;
-        this.travelViewDir.z /= flatLen;
-      }
-      this.travelViewDir.normalize();
-    } else {
-      if (this.travelViewDist > maxView * 2.5) this.travelViewDist = maxView * 2.5;
-      if (minView > 0 && this.travelViewDist < minView) this.travelViewDist = minView;
-      if (!destDef.parent && id != 'sun') {
-        const env = satelliteEnvelope(id);
-        if (this.travelViewDist < env * 0.55) this.travelViewDist = env * 0.55;
-      }
-    }
-
-    const dest = this.bodies.getWorldPos(id, this.tmp);
-    const endPos = this.travelEndPos(dest, this.tmp2);
-    this.buildTravelMid(this.travelFrom, endPos, this.travelMid);
-
-    this.travelT = 0;
-    const dist = this.travelFrom.distanceTo(endPos);
-    this.travelDur = Math.min(6.2, Math.max(1.8, Math.log10(dist + 1) * 2.0 + dist * 0.18));
-    this.beginCinematicTravel(dist);
-
-    this.travelTrail = {
-      from: this.travelFrom.clone(),
-      mid: this.travelMid.clone(),
-      to: endPos.clone(),
-      progress: 0,
-    };
-    this.travelDone = onDone || null;
-  }
-
-  /** 启动起飞→光跃→环绕分镜 */
-  private beginCinematicTravel(dist: number) {
-    this.travelLiftFrom.copy(this.travelFrom);
-    // 起飞：沿视线反方向略抬升 + 抬高
-    const lift = this.touring
-      ? Math.min(0.08, dist * 0.04 + 0.01)
-      : Math.min(this.scaleMode == 'stellar' ? 1.2 : 0.35, Math.max(0.02, dist * 0.06 + 0.015));
-    this.travelLiftTo
-      .copy(this.travelFrom)
-      .addScaledVector(this.travelViewDir, lift * 0.35)
-      .y += lift;
-    this.travelPhase = 'liftoff';
-    this.travelPhaseT = 0;
-    this.travelPhaseDur = this.touring ? 0.22 : 0.55;
-    this.travelOrbitAng = 0;
-    this.travelOrbitNeed = this.touring ? Math.PI * 0.35 : Math.PI * 0.65;
-  }
-
-  private syncOrbitFromCamera() {
-    if (this.scaleMode == 'stellar') {
-      const def = STAR_BY_ID[this.starFocus];
-      this.stars.getWorldPos(this.starFocus, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(def.visualRadius * 8, 0.45);
-      this.orbit.maxDistance = 120;
-      this.orbit.update();
-      return;
-    }
-    const def = this.bodies.getDef(this.focus);
-    this.bodies.getWorldPos(this.focus, this.tmp);
-    this.orbit.target.copy(this.tmp);
-    this.orbit.minDistance = Math.max(def.visualRadius * (def.id == 'sun' ? 18 : 1.6), def.id == 'sun' ? 0.7 : 0.0005);
-    this.orbit.maxDistance = 120;
-    this.orbit.update();
-  }
-
-  private syncFlyAngles() {
-    const e = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
-    this.yaw = e.y;
-    this.pitch = e.x;
-  }
-
-  private finishTravel() {
-    const done = this.travelDone;
-    this.travelDone = null;
-    this.travelTrail = null;
-    this.travelPhase = 'boost';
-    this.resetFov();
-
-    if (this.travelDomain == 'star') {
-      if (this.returningToSol && this.travelDestStar == 'sol') {
-        this.beginEnterSolar();
-        return;
-      }
-      this.starFocus = this.travelDestStar;
-      this.mode = 'observe';
-      this.orbit.enabled = true;
-      this.stars.getWorldPos(this.travelDestStar, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(STAR_BY_ID[this.travelDestStar].visualRadius * 8, 0.45);
-      done?.();
-      return;
-    }
-
-    if (this.travelDomain == 'comet') {
-      this.cometFocus = this.travelDestComet;
-      this.mode = 'observe';
-      this.orbit.enabled = true;
-      this.comets.getWorldPos(this.travelDestComet, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(COMET_BY_ID[this.travelDestComet].visualRadius * 40, 0.08);
-      done?.();
-      return;
-    }
-
-    if (this.touring && this.tourPhase == 'goto') {
-      done?.();
-      return;
-    }
-    if (!this.touring) {
-      this.focus = this.travelDestId;
-      this.mode = 'observe';
-      this.orbit.enabled = true;
-      this.bodies.getWorldPos(this.travelDestId, this.tmp);
-      this.orbit.target.copy(this.tmp);
-      this.orbit.minDistance = Math.max(
-        this.bodies.getDef(this.travelDestId).visualRadius * (this.travelDestId == 'sun' ? 18 : 1.6),
-        this.travelDestId == 'sun' ? 0.7 : 0.0005,
-      );
-    }
-    done?.();
-  }
-
-  update(dt: number) {
+  update(delta: number) {
+    const dt = Math.min(.05, Math.max(0, Number.isFinite(delta) ? delta : 0));
     this.currentSpeedAu = this.getAdaptiveSpeedAu();
-
-    // 离场：太阳系拉远后切入星域
-    if (this.crossPhase == 'leave') {
-      this.leaveT += dt / this.leaveDur;
-      const t = easeInOutCubic(Math.min(1, this.leaveT));
-      this.camera.position.lerpVectors(this.leaveFrom, this.leaveTo, t);
-      this.camera.lookAt(this.leaveLook);
-      this.camera.fov = this.baseFov + Math.sin(t * Math.PI) * 6;
-      this.camera.updateProjectionMatrix();
-      if (this.leaveT >= 1) this.finishLeaveSolar();
-      return;
-    }
-
-    if (this.mode == 'facesun') {
-      this.faceSunT += dt / this.faceSunDur;
-      const t = easeInOutCubic(Math.min(1, this.faceSunT));
-      const pivot = this.faceSunPivot(this.tmp);
-
-      const dir = slerpDir(this.faceSunFromDir, this.faceSunToDir, t, this.tmp3);
-      this.applyFaceSunPose(pivot, dir);
-
-      if (this.faceSunT >= 1) {
+    if (this.transition && this.destination) {
+      this.trackedPivot.copy(this.pivot(this.destination));
+      const target = this.trackedPivot.clone().add(this.targetOffset);
+      const pose = this.transition.sample(dt, target, this.endOffset, this.baseFov);
+      this.camera.position.copy(pose.position); this.camera.quaternion.copy(pose.quaternion);
+      this.orbit.target.copy(pose.target);
+      if (this.camera.fov !== pose.fov) { this.camera.fov = pose.fov; this.camera.updateProjectionMatrix(); }
+      if (this.travelTrail) { this.travelTrail.progress = pose.progress; this.travelTrail.to.copy(target).add(this.endOffset); }
+      if (pose.done) {
+        const done = this.travelDone;
+        this.transition = null; this.destination = null; this.travelDone = null; this.travelTrail = null;
         this.mode = 'observe';
-        this.orbit.enabled = true;
-        this.faceSunHold = true;
-        this.orbit.target.copy(pivot);
-        this.orbit.minDistance = Math.max(this.bodies.getDef(this.focus).visualRadius * 1.6, 0.0005);
+        this.camera.up.copy(UP);
+        this.orbit.minDistance = Math.min(this.minimum(this.currentDestination()), this.endOffset.length());
+        this.orbit.maxDistance = Math.max(120, this.endOffset.length());
+        done?.();
       }
       return;
     }
-
-    if (this.mode == 'travel') {
-      const destPivot = this.destPivot(this.tmp);
-      const endPos = this.travelEndPos(destPivot, this.tmp2);
-
-      if (this.travelPhase == 'liftoff') {
-        this.travelPhaseT += dt / this.travelPhaseDur;
-        const t = easeOutCubic(Math.min(1, this.travelPhaseT));
-        this.camera.position.lerpVectors(this.travelLiftFrom, this.travelLiftTo, t);
-        this.camera.quaternion.copy(this.travelFromQuat);
-        this.camera.fov = this.baseFov + t * 3;
-        this.camera.updateProjectionMatrix();
-        if (this.travelPhaseT >= 1) {
-          this.travelFrom.copy(this.camera.position);
-          this.buildTravelMid(this.travelFrom, endPos, this.travelMid);
-          if (this.travelTrail) {
-            this.travelTrail.from.copy(this.travelFrom);
-            this.travelTrail.mid.copy(this.travelMid);
-          }
-          this.travelPhase = 'turn';
-          this.travelPhaseT = 0;
-          this.travelPhaseDur = this.touring ? 0.35 : 0.75;
-        }
-        return;
-      }
-
-      if (this.travelPhase == 'turn') {
-        this.travelPhaseT += dt / this.travelPhaseDur;
-        const t = easeInOutCubic(Math.min(1, this.travelPhaseT));
-        // 转向并对准目标
-        this.slerpLookAt(this.travelFromQuat, this.camera.position, destPivot, t);
-        this.camera.fov = this.baseFov + Math.sin(t * Math.PI) * 2;
-        this.camera.updateProjectionMatrix();
-        if (this.travelPhaseT >= 1) {
-          this.travelFromQuat.copy(this.camera.quaternion);
-          this.travelPhase = 'boost';
-          this.travelPhaseT = 0;
-          this.travelT = 0;
-        }
-        return;
-      }
-
-      if (this.travelPhase == 'settle') {
-        this.travelPhaseT += dt / this.travelPhaseDur;
-        const ease = easeOutCubic(Math.min(1, this.travelPhaseT));
-        this.camera.position.lerpVectors(this.travelSettlePos, endPos, ease);
-        this.camera.lookAt(destPivot);
-        this.camera.fov = this.baseFov + (1 - ease) * 3;
-        this.camera.updateProjectionMatrix();
-        if (this.travelPhaseT >= 1) {
-          // 缓慢环绕：从落点方位角开始转一小段
-          const off = this.tmp3.copy(this.camera.position).sub(destPivot);
-          this.travelOrbitAng = Math.atan2(off.z, off.x);
-          this.tourRadiusFrom = Math.max(Math.hypot(off.x, off.z), 1e-5);
-          this.tourHeightFrom = off.y;
-          this.travelPhase = 'orbit';
-          this.travelPhaseT = 0;
-        }
-        return;
-      }
-
-      if (this.travelPhase == 'orbit') {
-        const spinSpeed = (Math.PI * 2) / (this.touring ? 5 : 7);
-        this.travelOrbitAng += spinSpeed * dt;
-        this.travelPhaseT += spinSpeed * dt;
-        const r = this.tourRadiusFrom;
-        const h = this.tourHeightFrom;
-        this.camera.position.set(
-          destPivot.x + Math.cos(this.travelOrbitAng) * r,
-          destPivot.y + h,
-          destPivot.z + Math.sin(this.travelOrbitAng) * r,
-        );
-        this.camera.lookAt(destPivot);
-        this.camera.fov = this.baseFov;
-        this.camera.updateProjectionMatrix();
-        if (this.travelPhaseT >= this.travelOrbitNeed) this.finishTravel();
-        return;
-      }
-
-      // boost / warp / arrive：沿贝塞尔弧线平滑分段（无位置硬抖）
-      this.travelT += dt / this.travelDur;
-      const raw = Math.min(1, this.travelT);
-
-      let pathT: number;
-      let fovExtra = 0;
-      if (raw < 0.3) {
-        this.travelPhase = 'boost';
-        const u = raw / 0.3;
-        pathT = easeInOutCubic(u) * 0.3;
-        fovExtra = u * 6;
-      } else if (raw < 0.62) {
-        this.travelPhase = 'warp';
-        const u = (raw - 0.3) / 0.32;
-        // 「接近光速」感：平滑加速曲线 + FOV 呼吸，不用位置抖动
-        pathT = 0.3 + easeCinematic(u) * 0.32;
-        fovExtra = 8 + Math.sin(u * Math.PI) * 7;
-      } else {
-        this.travelPhase = 'arrive';
-        const u = (raw - 0.62) / 0.38;
-        pathT = 0.62 + easeOutCubic(u) * 0.38;
-        fovExtra = (1 - u) * 8;
-      }
-
-      const pos = quadBezier(this.travelFrom, this.travelMid, endPos, pathT);
-      this.camera.position.copy(pos);
-      this.camera.lookAt(destPivot);
-
-      this.camera.fov = this.baseFov + fovExtra;
-      this.camera.updateProjectionMatrix();
-
-      if (this.travelTrail) {
-        this.travelTrail.progress = pathT;
-        this.travelTrail.to.copy(endPos);
-      }
-
-      if (this.travelT >= 1) {
-        this.travelPhase = 'settle';
-        this.travelPhaseT = 0;
-        this.travelPhaseDur = this.touring ? 0.28 : 0.55;
-        this.travelSettlePos.copy(this.camera.position);
-      }
+    if (this.mode === 'fly') {
+      const turn = 1.2 * dt;
+      if (this.keys.has('ArrowLeft')) this.yaw += turn;
+      if (this.keys.has('ArrowRight')) this.yaw -= turn;
+      const pitchInput = Number(this.keys.has('ArrowUp')) - Number(this.keys.has('ArrowDown'));
+      if (pitchInput) this.pitch = THREE.MathUtils.clamp(this.pitch + pitchInput * turn, -Math.PI / 2 + .0001, Math.PI / 2 - .0001);
+      this.flyRoll *= Math.exp(-3 * dt);
+      this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, this.flyRoll, 'YXZ'));
+      const forward = this.camera.getWorldDirection(new THREE.Vector3());
+      const right = new THREE.Vector3().crossVectors(forward, UP).normalize();
+      const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+      const x = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
+      const y = Number(this.keys.has('KeyE') || this.keys.has('Space')) - Number(this.keys.has('KeyQ') || this.keys.has('ShiftLeft'));
+      const z = Number(this.keys.has('KeyW')) - Number(this.keys.has('KeyS'));
+      this.camera.position.add(forward.multiplyScalar(z).addScaledVector(right, x).addScaledVector(up, y).normalize().multiplyScalar(this.currentSpeedAu * dt));
       return;
     }
-
-    if (this.mode == 'tour' && this.tourPhase == 'spin') {
-      // 约 1.2s 内从落地半径/高度缓到标准环视，避免方位瞬间跳变
-      this.tourOrbitBlend = Math.min(1, this.tourOrbitBlend + dt / 1.2);
-      const b = easeInOutCubic(this.tourOrbitBlend);
-      const r = this.tourRadiusFrom + (this.tourRadiusTo - this.tourRadiusFrom) * b;
-      const h = this.tourHeightFrom + (this.tourHeightTo - this.tourHeightFrom) * b;
-      this.tourSpin += (Math.PI * 2 * dt) / 9;
-      const target = this.bodies.getWorldPos(this.focus, this.tmp);
-      const a = this.tourSpin;
-      this.camera.position.set(
-        target.x + Math.cos(a) * r,
-        target.y + h,
-        target.z + Math.sin(a) * r,
-      );
-      this.camera.lookAt(target);
-      if (this.tourSpin - this.tourSpinStart >= Math.PI * 2) {
-        this.tourIndex = (this.tourIndex + 1) % TOUR_IDS.length;
-        this.tourPhase = 'goto';
-        this.gotoTourBody();
-      }
-      return;
-    }
-
-    if (this.mode == 'observe') {
-      if (this.entryOrbit && this.scaleMode == 'solar' && this.focus == 'earth' && !this.cometFocus) {
-        this.entryOrbitLeft -= dt;
-        if (this.entryOrbitLeft <= 0) {
-          this.stopEntryOrbit();
-        } else {
-          this.bodies.getWorldPos('earth', this.tmp);
-          this.tmp2.copy(this.camera.position).sub(this.tmp);
-          this.tmp2.applyAxisAngle(UP, this.entryOrbitSpeed * dt);
-          this.camera.position.copy(this.tmp).add(this.tmp2);
-          this.orbit.target.copy(this.tmp);
-          this.orbit.update();
-          return;
-        }
-      }
-
-      if (this.faceSunHold && this.scaleMode == 'solar') {
-        const pivot = this.faceSunPivot(this.tmp);
-        this.applyFaceSunPose(pivot, this.faceSunToDir);
-        this.orbit.target.copy(pivot);
+    // Follow only the body's movement. Do not replace a panned/flight view's target.
+    const livePivot = this.pivot();
+    const movement = livePivot.clone().sub(this.trackedPivot);
+    this.camera.position.add(movement);
+    this.orbit.target.add(movement);
+    this.trackedPivot.copy(livePivot);
+    const target = this.orbit.target;
+    if (this.mode === 'tour' || this.entryOrbit) {
+      if (this.entryOrbit) { this.entryOrbitLeft -= dt; if (this.entryOrbitLeft <= 0) this.entryOrbit = false; }
+      const offset = this.camera.position.clone().sub(target).applyAxisAngle(UP, (this.mode === 'tour' ? .3 : .12) * dt);
+      this.camera.position.copy(target).add(offset); this.camera.lookAt(target);
+      if (this.mode === 'tour') {
+        this.tourElapsed += dt;
+        if (this.tourElapsed >= 9) { this.tourIndex = (this.tourIndex + 1) % TOUR_IDS.length; this.gotoTourBody(); }
         return;
       }
-
-      if (this.scaleMode == 'stellar') {
-        this.stars.getWorldPos(this.starFocus, this.tmp);
-        this.tmp2.copy(this.camera.position).sub(this.orbit.target);
-        this.orbit.target.copy(this.tmp);
-        this.camera.position.copy(this.tmp).add(this.tmp2);
-        this.orbit.update();
-        return;
-      }
-
-      // 跟随彗星
-      if (this.cometFocus) {
-        this.comets.getWorldPos(this.cometFocus, this.tmp);
-        this.tmp2.copy(this.camera.position).sub(this.orbit.target);
-        this.orbit.target.copy(this.tmp);
-        this.camera.position.copy(this.tmp).add(this.tmp2);
-        this.orbit.update();
-        return;
-      }
-
-      this.bodies.getWorldPos(this.focus, this.tmp);
-      this.tmp2.copy(this.camera.position).sub(this.orbit.target);
-      this.orbit.target.copy(this.tmp);
-      this.camera.position.copy(this.tmp).add(this.tmp2);
-      this.orbit.update();
-      return;
     }
-
-    const turn = 1.2 * dt;
-    if (this.keys.has('ArrowLeft')) this.yaw += turn;
-    if (this.keys.has('ArrowRight')) this.yaw -= turn;
-    if (this.keys.has('ArrowUp')) this.pitch += turn;
-    if (this.keys.has('ArrowDown')) this.pitch -= turn;
-    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch));
-
-    const speed = this.getAdaptiveSpeedAu();
-    const forward = new THREE.Vector3(
-      -Math.sin(this.yaw) * Math.cos(this.pitch),
-      Math.sin(this.pitch),
-      -Math.cos(this.yaw) * Math.cos(this.pitch),
-    ).normalize();
-    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
-
-    let mx = 0;
-    let my = 0;
-    let mz = 0;
-    if (this.keys.has('KeyW')) mz += 1;
-    if (this.keys.has('KeyS')) mz -= 1;
-    if (this.keys.has('KeyD')) mx += 1;
-    if (this.keys.has('KeyA')) mx -= 1;
-    if (this.keys.has('KeyE') || this.keys.has('Space')) my += 1;
-    if (this.keys.has('KeyQ') || this.keys.has('ShiftLeft')) my -= 1;
-
-    if (mx || my || mz) {
-      this.tmp
-        .copy(forward)
-        .multiplyScalar(mz)
-        .addScaledVector(right, mx)
-        .addScaledVector(up, my)
-        .normalize()
-        .multiplyScalar(speed * dt);
-      this.camera.position.add(this.tmp);
-    }
-
-    this.tmp2.copy(this.camera.position).add(forward);
-    this.camera.lookAt(this.tmp2);
+    this.camera.up.lerp(UP, 1 - Math.exp(-3 * dt)).normalize();
+    this.orbit.update(dt);
+    // Keep manual pan rather than snapping it back on the next frame.
+    this.targetOffset.copy(this.orbit.target).sub(this.pivot());
   }
 }
-
-function quadBezier(a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, t: number, out = new THREE.Vector3()) {
-  const u = 1 - t;
-  out.set(
-    u * u * a.x + 2 * u * t * b.x + t * t * c.x,
-    u * u * a.y + 2 * u * t * b.y + t * t * c.y,
-    u * u * a.z + 2 * u * t * b.z + t * t * c.z,
-  );
-  return out;
-}
-
-function slerpDir(a: THREE.Vector3, b: THREE.Vector3, t: number, out: THREE.Vector3) {
-  const dot = Math.max(-1, Math.min(1, a.dot(b)));
-  const theta = Math.acos(dot);
-  if (theta < 1e-5) return out.copy(a);
-  const sinT = Math.sin(theta);
-  const w1 = Math.sin((1 - t) * theta) / sinT;
-  const w2 = Math.sin(t * theta) / sinT;
-  return out.set(a.x * w1 + b.x * w2, a.y * w1 + b.y * w2, a.z * w1 + b.z * w2).normalize();
-}
-
-function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
-
-function easeCinematic(t: number) {
-  return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
-}
-
-function easeOutCubic(t: number) {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-const UP = new THREE.Vector3(0, 1, 0);
 
 /** 光速：ly / 秒 */
 const C_LY_PER_S = 1 / (365.25 * 86400);

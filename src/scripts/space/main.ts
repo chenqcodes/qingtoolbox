@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { hasWebGL2 } from './runtime';
+import { SceneDissolve } from './scene-dissolve';
 import { bindExplorer } from './explorer-ui';
 import type { SpaceScene } from './scene';
 import { createScene } from './scene';
@@ -59,6 +60,7 @@ export function bootSpace() {
   let labels: BodyLabels | null = null;
   let sceneReady = false;
   let scenePack: SpaceScene | null = null;
+  let dissolve: SceneDissolve | null = null;
   let cleanupExplorer: (() => void) | null = null;
   const resizeMinimap = () => minimap?.resize();
   let raf = 0;
@@ -76,16 +78,16 @@ export function bootSpace() {
     event.preventDefault();
     dead = true;
     cancelAnimationFrame(raf);
+    dissolve?.clear();
     showFallback('图形上下文已中断。请重新载入页面恢复星图，也可以使用下面的文字与计算工具。');
   };
   canvas.addEventListener('webglcontextlost', onContextLost);
 
   const gotoBody = (id: BodyId) => {
     if (!sceneReady) return;
-    if (cam.scaleMode != 'solar') return;
     // 已在看这颗星：再点不跳转
-    if (id == cam.focus && cam.mode != 'travel' && !cam.cometFocus) return;
-    if (cam.mode == 'travel' && cam.travelDestId == id) return;
+    if (id == cam.focus && cam.mode != 'travel' && !cam.cometFocus && cam.scaleMode === 'solar') return;
+    if (cam.mode == 'travel' && cam.travelDomain == 'body' && cam.travelDestId == id) return;
     cam.stopTour();
     state.touring = false;
     cam.travelTo(id);
@@ -98,7 +100,7 @@ export function bootSpace() {
   const gotoStar = (id: StarId) => {
     if (!sceneReady) return;
     if (id == cam.starFocus && cam.mode != 'travel' && cam.scaleMode == 'stellar') return;
-    if (cam.mode == 'travel' && cam.travelDestStar == id && cam.scaleMode == 'stellar') return;
+    if (cam.mode == 'travel' && cam.travelDomain == 'star' && cam.travelDestStar == id && cam.scaleMode == 'stellar') return;
     cam.stopTour();
     state.touring = false;
     cam.travelToStar(id);
@@ -114,11 +116,7 @@ export function bootSpace() {
     if (cam.cometFocus == id && cam.mode != 'travel') return;
     cam.stopTour();
     state.touring = false;
-    if (cam.scaleMode != 'solar') {
-      cam.returnToSol(() => cam.travelToComet(id));
-    } else {
-      cam.travelToComet(id);
-    }
+    cam.travelToComet(id);
     state.mode = cam.mode;
     rebuildInfo();
     hud.render();
@@ -268,6 +266,8 @@ export function bootSpace() {
     dead = true;
     cancelAnimationFrame(raf);
     cleanupExplorer?.();
+    dissolve?.clear();
+    cam?.dispose();
     scenePack?.dispose();
     window.removeEventListener('resize', resizeMinimap);
     canvas.removeEventListener('webglcontextlost', onContextLost);
@@ -290,7 +290,8 @@ export function bootSpace() {
       stars = new StarSystem(pack.scene, tex.sun);
       bodies.updatePositions(state.simDate, true);
       comets.updatePositions(state.simDate);
-      cam = new CameraController(camera, canvas, bodies, stars, comets, onScaleChange);
+      dissolve = new SceneDissolve(canvas, () => pack.render());
+      cam = new CameraController(camera, canvas, bodies, stars, comets, onScaleChange, () => dissolve?.capture());
       cam.setFocus('earth');
       cam.speedMult = state.speedMult;
       bodies.getLogicalPos('earth', foTarget);
@@ -323,18 +324,18 @@ export function bootSpace() {
       cleanupExplorer = bindExplorer(hudRoot, {
         onStop: stop => {
           state.timeMult = 0;
-          if (stop.body) cam.jumpToBody(stop.body);
-          else if (stop.star) cam.jumpToStar(stop.star);
+          if (stop.body) cam.navigateToBody(stop.body);
+          else if (stop.star) cam.navigateToStar(stop.star);
           syncNavigation();
         },
-        onHome: () => { cam.jumpToBody('earth'); syncNavigation(); },
+        onHome: () => { cam.navigateToBody('earth'); syncNavigation(); },
         onReset: () => { cam.resetView(); syncNavigation(); },
         onZoom: factor => { cam.zoomBy(factor); syncNavigation(); },
         onQuality: quality => pack.setQuality(quality),
         onMotion: enabled => {
           reducedMotion = enabled;
           cam.setReducedMotion(enabled);
-          if (enabled) state.timeMult = 0;
+          if (enabled) { state.timeMult = 0; dissolve?.clear(); }
           const tour = document.getElementById('sp-tour') as HTMLButtonElement | null;
           if (tour) { tour.disabled = enabled; tour.title = enabled ? '减少动态已开启；请使用逐站导览' : ''; }
           syncNavigation();
@@ -414,7 +415,8 @@ export function bootSpace() {
 
         if (((now / 250) | 0) != (((now - dt * 1000) / 250) | 0)) hud.render();
 
-        pack.composer.render();
+        pack.render();
+        dissolve?.update(dt);
         raf = requestAnimationFrame(frame);
       }
       raf = requestAnimationFrame(frame);

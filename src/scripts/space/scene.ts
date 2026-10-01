@@ -12,6 +12,7 @@ export interface SpaceScene {
   camera: THREE.PerspectiveCamera;
   sunLight: THREE.PointLight;
   composer: EffectComposer;
+  render: () => void;
   setQuality: (mode: QualityMode) => void;
   dispose: () => void;
 }
@@ -87,5 +88,11 @@ export function createScene(canvas: HTMLCanvasElement, tex: SpaceTextures): Spac
     composer.dispose();
     renderer.dispose();
   };
-  return { renderer, scene, camera, sunLight, composer, setQuality, dispose };
+  const render = () => {
+    // The celestial background is infinitely far away: floating-origin rebases
+    // must never move its texture or make a flight leave its enclosing sphere.
+    sky.position.copy(camera.position);
+    composer.render();
+  };
+  return { renderer, scene, camera, sunLight, composer, render, setQuality, dispose };
 }

@@ -17,6 +17,8 @@ export function createSunGroup(radius: number, map: THREE.Texture): {
     uniforms,
     toneMapped: false,
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vView;
@@ -26,9 +28,11 @@ export function createSunGroup(radius: number, map: THREE.Texture): {
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vView = normalize(-mv.xyz);
         gl_Position = projectionMatrix * mv;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <logdepthbuf_pars_fragment>
       uniform sampler2D uMap;
       uniform float uTime;
       varying vec2 vUv;
@@ -50,6 +54,7 @@ export function createSunGroup(radius: number, map: THREE.Texture): {
       }
 
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 base = texture2D(uMap, vUv).rgb;
         float n = noise(vUv * 48.0 + uTime * 0.12);
         n += 0.5 * noise(vUv * 96.0 - uTime * 0.18);
@@ -58,7 +63,7 @@ export function createSunGroup(radius: number, map: THREE.Texture): {
         float ndv = max(dot(normalize(vNormal), normalize(vView)), 0.0);
         float limb = pow(ndv, 0.4);
         col *= 0.65 + 0.55 * limb;
-        col += hot * pow(1.0 - limb, 2.0) * 0.85;
+        col += hot * pow(1.0 - limb, 2.0) * 0.12;
         col *= 1.55;
         gl_FragColor = vec4(col, 1.0);
       }
@@ -68,30 +73,61 @@ export function createSunGroup(radius: number, map: THREE.Texture): {
   const core = new THREE.Mesh(new THREE.SphereGeometry(radius, 96, 64), mat);
   group.add(core);
 
-  // 多层加法日冕（亮度抬高，交给 Bloom）
-  const coronaColors = [0xffc266, 0xff8c2a, 0xffe0a8];
-  const coronaScales = [1.22, 1.55, 2.05];
-  const coronaOpacity = [0.22, 0.1, 0.045];
-  for (let i = 0; i < 3; i++) {
-    const c = new THREE.Mesh(
-      new THREE.SphereGeometry(radius * coronaScales[i], 48, 32),
-      new THREE.MeshBasicMaterial({
-        color: coronaColors[i],
-        transparent: true,
-        opacity: coronaOpacity[i],
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.BackSide,
-        toneMapped: false,
-      }),
-    );
-    group.add(c);
-  }
+  // A continuous optically thin corona: inverse-power envelope, narrow streamers,
+  // and a warm chromosphere. No nested opaque-looking sphere silhouettes.
+  const coronaUniforms = { uTime: { value: 0 } };
+  const corona = new THREE.Mesh(
+    new THREE.PlaneGeometry(radius * 8, radius * 8),
+    new THREE.ShaderMaterial({
+      uniforms: coronaUniforms,
+      transparent: true, depthWrite: false, depthTest: true,
+      blending: THREE.AdditiveBlending, toneMapped: false,
+      vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          vec4 center = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          center.xy += position.xy;
+          gl_Position = projectionMatrix * center;
+          #include <logdepthbuf_vertex>
+        }
+      `,
+      fragmentShader: /* glsl */ `
+      #include <logdepthbuf_pars_fragment>
+        varying vec2 vUv;
+        uniform float uTime;
+        void main() {
+          #include <logdepthbuf_fragment>
+          vec2 p = (vUv * 2.0 - 1.0) * 4.0;
+          float r = length(p);
+          float h = max(r - 1.0, 0.0);
+          float angle = atan(p.y, p.x);
+          float drift = uTime * 0.006;
+          float fine = pow(0.5 + 0.5 * sin(angle * 53.0 + sin(angle * 13.0 + drift) * 2.0 + h * 2.0), 6.0);
+          float streams = pow(0.5 + 0.5 * sin(angle * 9.0 + sin(angle * 5.0 - drift) * 1.8), 7.0);
+          float envelope = exp(-h * 2.3) / max(r * r, 1.0);
+          float plasma = envelope * (0.09 + streams * 0.15 + fine * 0.07);
+          float chromosphere = exp(-h * 32.0) * 0.3;
+          float edgeFade = 1.0 - smoothstep(3.0, 3.9, r);
+          float limbMask = smoothstep(0.985, 1.015, r);
+          vec3 color = mix(vec3(1.0, 0.36, 0.07), vec3(1.0, 0.82, 0.57), smoothstep(0.0, 0.3, h));
+          gl_FragColor = vec4(color, (plasma + chromosphere) * edgeFade * limbMask);
+        }
+      `,
+    }),
+  );
+  corona.name = 'solar-streamer-corona';
+  // The shader turns its quad toward the camera; use a conservative sphere bound.
+  corona.frustumCulled = false;
+  group.add(corona);
 
   return {
     group,
     update(t: number) {
       uniforms.uTime.value = t;
+      coronaUniforms.uTime.value = t;
       core.rotation.y = t * 0.02;
     },
   };
@@ -151,6 +187,8 @@ export function createTintedStarGroup(
     uniforms,
     toneMapped: false,
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vView;
@@ -160,9 +198,11 @@ export function createTintedStarGroup(
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vView = normalize(-mv.xyz);
         gl_Position = projectionMatrix * mv;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <logdepthbuf_pars_fragment>
       uniform sampler2D uMap;
       uniform float uTime;
       uniform vec3 uTint;
@@ -186,6 +226,7 @@ export function createTintedStarGroup(
       }
 
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 base = texture2D(uMap, vUv).rgb;
         float lum = dot(base, vec3(0.299, 0.587, 0.114));
         float n = noise(vUv * 40.0 + uTime * 0.1);
@@ -232,6 +273,8 @@ export function createAtmosphere(radius: number, color = new THREE.Color(0x7ad0f
       uColor: { value: color },
     },
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       varying vec3 vNormal;
       varying vec3 vView;
       void main() {
@@ -239,13 +282,16 @@ export function createAtmosphere(radius: number, color = new THREE.Color(0x7ad0f
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vView = normalize(-mv.xyz);
         gl_Position = projectionMatrix * mv;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <logdepthbuf_pars_fragment>
       uniform vec3 uColor;
       varying vec3 vNormal;
       varying vec3 vView;
       void main() {
+        #include <logdepthbuf_fragment>
         float f = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 2.2);
         gl_FragColor = vec4(uColor, f * 1.05);
       }
@@ -278,6 +324,8 @@ export function createEarthGroup(
   const earthMat = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       varying vec2 vUv;
       varying vec3 vNormalW;
       varying vec3 vPosW;
@@ -287,9 +335,11 @@ export function createEarthGroup(
         vPosW = wp.xyz;
         vNormalW = normalize(mat3(modelMatrix) * normal);
         gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
+      #include <logdepthbuf_pars_fragment>
       uniform sampler2D uDay;
       uniform sampler2D uNight;
       uniform sampler2D uNormal;
@@ -300,6 +350,7 @@ export function createEarthGroup(
       varying vec3 vPosW;
 
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 day = texture2D(uDay, vUv).rgb;
         vec3 night = texture2D(uNight, vUv).rgb;
         vec3 nTex = texture2D(uNormal, vUv).xyz * 2.0 - 1.0;

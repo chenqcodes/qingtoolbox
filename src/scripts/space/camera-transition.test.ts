@@ -186,7 +186,7 @@ test('floating-origin updates during navigation preserve the entire physical cam
 test('arrival tracks moving astronomical targets and remains stable in observation mode', t => {
   const { cam, camera, orbit, bodies, movement } = createController(t);
   cam.travelTo('mars');
-  for (let i = 0; i < 500 && cam.mode === 'travel'; i++) {
+  for (let i = 0; i < 1200 && cam.mode === 'travel'; i++) {
     movement.add(new THREE.Vector3(.0001, .00002, -.00003));
     cam.update(1 / 120);
   }
@@ -231,4 +231,36 @@ test('interrupting an oblique, partially rolled flight keeps its rendered attitu
     advance(cam, .25);
     samePose(camera, before, `${mode} idle preserves roll`);
   }
+});
+
+test('planet journeys last long enough to show departure, wide transfer and approach', t => {
+  const { cam, camera, orbit, bodies } = createController(t);
+  const origin = orbit.target.clone();
+  const initialDistance = camera.position.distanceTo(origin);
+  cam.navigateToBody('jupiter');
+  advance(cam, 1);
+  assert.equal(cam.mode, 'travel');
+  assert.ok(orbit.target.distanceTo(origin) < 1e-9, 'departure holds source framing');
+  assert.ok(camera.position.distanceTo(origin) > initialDistance * 2, 'clear visible pullback');
+  advance(cam, 1.5);
+  const destination = bodies.getWorldPos('jupiter', new THREE.Vector3());
+  assert.ok(camera.position.distanceTo(orbit.target) > origin.distanceTo(destination), 'wide transfer is not close-up translation');
+  advance(cam, 1.5);
+  assert.equal(cam.mode, 'travel', 'four seconds is still a real in-flight frame');
+  assert.ok(orbit.target.distanceTo(destination) < 1e-9, 'approach already frames destination');
+  finish(cam);
+  assert.equal(cam.mode, 'observe');
+});
+
+test('comet close-up resolves its nucleus and views the tail side-on', t => {
+  const { cam, camera, orbit, comets } = createController(t);
+  cam.travelToComet('halley');
+  finish(cam);
+  const offset = camera.position.clone().sub(orbit.target);
+  assert.ok(Math.abs(offset.length() - .045) < 1e-10);
+  const tail = comets.antiSunDir('halley', new THREE.Vector3());
+  assert.ok(Math.abs(offset.normalize().dot(tail)) < .35, 'tail is not foreshortened by an end-on camera');
+  cam.zoomBy(.72);
+  finish(cam);
+  assert.ok(camera.position.distanceTo(orbit.target) < .045, 'close-up can zoom in without a minimum-distance jump');
 });

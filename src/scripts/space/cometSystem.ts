@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COMETS, cometPosition, type CometDef, type CometId } from './comets';
+import { createRockGeometry, createComa } from './naturalDetails';
 
 /** 彗星核 + 背日彗尾粒子 */
 export class CometSystem {
@@ -7,7 +8,8 @@ export class CometSystem {
   floatingOrigin = new THREE.Vector3();
   private meshes = new Map<CometId, THREE.Group>();
   private logical = new Map<CometId, THREE.Vector3>();
-  private tails = new Map<CometId, THREE.Points>();
+  private tails = new Map<CometId, THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[]>();
+  private comas = new Map<CometId, ReturnType<typeof createComa>>();
   private tmp = new THREE.Vector3();
   private tmpSun = new THREE.Vector3();
 
@@ -21,55 +23,87 @@ export class CometSystem {
 
   private createComet(def: CometDef) {
     const g = new THREE.Group();
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(def.visualRadius, 20, 14),
-      new THREE.MeshStandardMaterial({
-        color: def.color,
-        emissive: def.color,
-        emissiveIntensity: 0.12,
-        roughness: 0.7,
-        metalness: 0.05,
-      }),
-    );
+    const core = new THREE.Mesh(createRockGeometry(2), new THREE.MeshStandardMaterial({
+      color: 0x746b60, roughness: 1, metalness: 0, flatShading: true,
+    }));
+    core.name = `${def.id}-nucleus`;
+    core.scale.set(def.visualRadius * 1.3, def.visualRadius, def.visualRadius * 0.85);
+    core.rotation.set(0.4, 0.7, 0.2);
     g.add(core);
-
-    // 彗尾：背日粒子条带（弱发光，避免跃迁贴脸刺眼）
-    const N = 120;
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
-    const r = ((def.color >> 16) & 255) / 255;
-    const gg = ((def.color >> 8) & 255) / 255;
-    const b = (def.color & 255) / 255;
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      pos[i * 3] = 0;
-      pos[i * 3 + 1] = 0;
-      pos[i * 3 + 2] = 0;
-      const a = (1 - t * 0.9) * 0.55;
-      col[i * 3] = r * a;
-      col[i * 3 + 1] = gg * a;
-      col[i * 3 + 2] = b * a;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const tail = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        size: 0.006,
-        sizeAttenuation: true,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.55,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    g.add(tail);
-    this.tails.set(def.id, tail);
-
+    const coma = createComa(def.visualRadius);
+    coma.frustumCulled = false;
+    this.comas.set(def.id, coma);
+    g.add(coma);
+    const tails = [this.createTail(false), this.createTail(true)];
+    tails.forEach(tail => g.add(tail));
+    this.tails.set(def.id, tails);
     this.root.add(g);
     return g;
+  }
+
+  /** A continuous ribbon expanded perpendicular to its projected tangent, never square points. */
+  private createTail(dust: boolean) {
+    const segments = 64;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array((segments + 1) * 2 * 3);
+    const tangents = new Float32Array(positions.length);
+    const uv = new Float32Array((segments + 1) * 4);
+    const indices: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+      uv.set([i / segments, 0, i / segments, 1], i * 4);
+      if (i < segments) { const k = i * 2; indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    }
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('tangent', new THREE.BufferAttribute(tangents, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geometry.setIndex(indices);
+    const material = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uWidth: { value: 0.01 }, uActivity: { value: 1 },
+        uColor: { value: new THREE.Color(dust ? 0xe4c9a1 : 0x71a9eb) },
+        uDust: { value: dust ? 1 : 0 },
+      },
+      vertexShader: /* glsl */ `
+        #include <common>
+      #include <logdepthbuf_pars_vertex>
+        attribute vec3 tangent;
+        varying vec2 vUv;
+        uniform float uWidth;
+        uniform float uDust;
+        void main() {
+          vUv = uv;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vec3 dir = mat3(modelViewMatrix) * tangent;
+          vec2 side = vec2(-dir.y, dir.x);
+          side = length(side) > 0.00001 ? normalize(side) : vec2(1.0, 0.0);
+          float spread = mix(0.11 + uv.x * 0.55, 0.06 + pow(uv.x, 0.8) * 1.3, uDust);
+          mv.xy += side * (uv.y * 2.0 - 1.0) * uWidth * spread;
+          gl_Position = projectionMatrix * mv;
+          #include <logdepthbuf_vertex>
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        #include <logdepthbuf_pars_fragment>
+        varying vec2 vUv;
+        uniform vec3 uColor;
+        uniform float uActivity;
+        uniform float uDust;
+        void main() {
+          #include <logdepthbuf_fragment>
+          float crossTail = abs(vUv.y * 2.0 - 1.0);
+          float feather = exp(-crossTail * crossTail * 5.0) * (1.0 - smoothstep(0.7, 1.0, crossTail));
+          float fade = pow(1.0 - vUv.x, 1.5) * smoothstep(0.0, 0.015, vUv.x);
+          float striae = 0.85 + 0.15 * sin(vUv.y * 47.0 + vUv.x * 15.0);
+          gl_FragColor = vec4(uColor, feather * fade * striae * uActivity * mix(0.30, 0.20, uDust));
+        }
+      `,
+    });
+    const tail = new THREE.Mesh(geometry, material);
+    tail.name = dust ? 'curved-dust-tail' : 'anti-solar-ion-tail';
+    tail.frustumCulled = false;
+    return tail;
   }
 
   updatePositions(when: Date) {
@@ -77,32 +111,43 @@ export class CometSystem {
       const p = cometPosition(def, when);
       this.logical.get(def.id)!.set(p.x, p.y, p.z);
       this.applyLocal(def.id);
-      this.updateTail(def);
+      this.updateTail(def, when);
     }
   }
 
-  private updateTail(def: CometDef) {
-    const tail = this.tails.get(def.id)!;
+  private updateTail(def: CometDef, when: Date) {
     const log = this.logical.get(def.id)!;
-    // 背日方向（太阳在原点）
-    this.tmpSun.copy(log).normalize();
-    if (this.tmpSun.lengthSq() < 1e-8) this.tmpSun.set(1, 0, 0);
-    const away = this.tmp.copy(this.tmpSun); // 从太阳指向彗星 = 尾向外？ 尾应指远离太阳
-    // 太阳在 0，彗星在 log → 太阳→彗星方向是 log；彗尾在反太阳方向继续延伸 = +log 方向
-    const len = Math.min(0.55, Math.max(0.12, 0.35 / Math.max(log.length(), 0.5)));
-    const pos = tail.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const N = pos.count;
-    let s = def.id.length * 97;
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      s = (s * 16807) % 2147483647;
-      const jitter = ((s % 1000) / 1000 - 0.5) * 0.012 * t;
-      // 尾在局部坐标：核在 0，沿 away 延伸
-      pos.array[i * 3] = away.x * len * t + jitter;
-      pos.array[i * 3 + 1] = away.y * len * t + jitter * 0.5;
-      pos.array[i * 3 + 2] = away.z * len * t - jitter;
-    }
-    pos.needsUpdate = true;
+    const away = this.tmpSun.copy(log).normalize();
+    if (away.lengthSq() < 1e-8) away.set(1, 0, 0);
+    // Dust lags orbital motion; ionized gas follows the anti-solar wind more directly.
+    const before = cometPosition(def, new Date(when.getTime() - 86400000));
+    const lag = new THREE.Vector3(before.x - log.x, before.y - log.y, before.z - log.z);
+    lag.addScaledVector(away, -lag.dot(away)).normalize();
+    const distance = Math.max(log.length(), 0.5);
+    const activity = Math.min(1, 2.5 / (distance * distance));
+    const len = Math.min(0.55, Math.max(def.visualRadius * 12, 0.35 / distance));
+    this.comas.get(def.id)!.material.uniforms.uActivity.value = activity;
+    this.tails.get(def.id)!.forEach((tail, index) => {
+      const dust = index === 1;
+      const pos = tail.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const tangent = tail.geometry.getAttribute('tangent') as THREE.BufferAttribute;
+      const segments = pos.count / 2 - 1;
+      const length = len * (dust ? 0.8 : 1);
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const curve = dust ? length * 0.32 * t * t : 0;
+        for (let side = 0; side < 2; side++) {
+          const k = i * 2 + side;
+          pos.setXYZ(k, away.x * length * t + lag.x * curve, away.y * length * t + lag.y * curve, away.z * length * t + lag.z * curve);
+          const bend = dust ? 0.64 * t : 0;
+          tangent.setXYZ(k, away.x + lag.x * bend, away.y + lag.y * bend, away.z + lag.z * bend);
+        }
+      }
+      pos.needsUpdate = true;
+      tangent.needsUpdate = true;
+      tail.material.uniforms.uWidth.value = Math.max(def.visualRadius * 3, length * (dust ? 0.065 : 0.017));
+      tail.material.uniforms.uActivity.value = activity;
+    });
   }
 
   private applyLocal(id: CometId) {

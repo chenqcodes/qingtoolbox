@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { SpaceTextures } from './textures';
+import { disposeSceneResources } from './disposeSceneResources';
 import { qualitySettings, type QualityMode } from './exploration';
 
 export interface SpaceScene {
@@ -82,9 +83,14 @@ export function createScene(canvas: HTMLCanvasElement, tex: SpaceTextures): Spac
     onResize();
   };
   setQuality('auto');
+  let disposed = false;
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    disposeSceneResources(scene, Object.values(tex));
     window.removeEventListener('resize', onResize);
     bloom.dispose();
+    output.dispose();
     composer.dispose();
     renderer.dispose();
   };

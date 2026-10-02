@@ -38,7 +38,7 @@ type TickFn = (t: number) => void;
 
 const DIST_RINGS_LY = [5, 10, 25];
 
-/** 星域网格：太阳贴图染色 + 软光晕；ly 尺度环 + Sol→目标连线 */
+/** 星域网格：太阳贴图染色 + 软光晕；ly 尺度环 */
 export class StarSystem {
   root = new THREE.Group();
   meshes = new Map<StarId, StarMeshes>();
@@ -46,10 +46,7 @@ export class StarSystem {
   floatingOrigin = new THREE.Vector3();
   private ticks: TickFn[] = [];
   private tmp = new THREE.Vector3();
-  private tmp2 = new THREE.Vector3();
   private ringGroup = new THREE.Group();
-  private linkLine: THREE.Line;
-  private linkAttr: THREE.BufferAttribute;
 
   constructor(scene: THREE.Scene, sunMap: THREE.Texture) {
     this.root.visible = false;
@@ -61,22 +58,6 @@ export class StarSystem {
     }
     this.buildDistanceRings();
     this.root.add(this.ringGroup);
-
-    const linkPos = new Float32Array(6);
-    const geo = new THREE.BufferGeometry();
-    this.linkAttr = new THREE.BufferAttribute(linkPos, 3);
-    geo.setAttribute('position', this.linkAttr);
-    this.linkLine = new THREE.Line(
-      geo,
-      new THREE.LineBasicMaterial({
-        color: 0xffc857,
-        transparent: true,
-        opacity: 0.35,
-        depthWrite: false,
-      }),
-    );
-    this.linkLine.frustumCulled = false;
-    this.root.add(this.linkLine);
   }
 
   private buildDistanceRings() {
@@ -120,16 +101,6 @@ export class StarSystem {
 
   setVisible(v: boolean) {
     this.root.visible = v;
-  }
-
-  /** 更新太阳→焦点连线（场景坐标） */
-  updateLink(focusId: StarId) {
-    this.getWorldPos('sol', this.tmp);
-    this.getWorldPos(focusId, this.tmp2);
-    this.linkAttr.setXYZ(0, this.tmp.x, this.tmp.y, this.tmp.z);
-    this.linkAttr.setXYZ(1, this.tmp2.x, this.tmp2.y, this.tmp2.z);
-    this.linkAttr.needsUpdate = true;
-    this.linkLine.visible = focusId != 'sol';
   }
 
   private applyLocal(id: StarId) {

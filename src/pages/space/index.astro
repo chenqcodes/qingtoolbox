@@ -84,6 +84,17 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
       }
       #space-canvas:active { cursor: grabbing; }
 
+      :global(#sp-sun-direction) {
+        position: fixed; width: 44px; height: 44px; z-index: 12;
+        transform: translate(-50%, -50%); pointer-events: none;
+        color: #ffd38c; text-align: center;
+        filter: drop-shadow(0 1px 3px #000);
+      }
+      :global(#sp-sun-direction[hidden]) { display: none; }
+      :global(.sp-sun-symbol) { position: absolute; inset: 8px 0 auto; font-size: 20px; line-height: 20px; }
+      :global(.sp-sun-caption) { position: absolute; inset: auto 0 0; font-size: 9px; line-height: 12px; letter-spacing: .08em; }
+      :global(.sp-sun-arrow) { position: absolute; inset: 0; font-size: 12px; line-height: 44px; text-align: right; transform-origin: center; }
+
       #space-hud {
         position: fixed; inset: 0; z-index: 10;
         pointer-events: none;
@@ -822,6 +833,7 @@ const moonsOf = (id: string) => BODIES.filter((b) => b.moonOf == id);
             <p>行星、月球、木星四大卫星位置使用 Astronomy Engine；土卫六是示意圆轨道，彗星为固定轨道根数的二体近似。邻近恒星使用静态星表，不计算自行和双星轨道。</p>
             <p>半径与卫星间距均有视觉放大；光照、贴图、彗尾与飞行速度用于演示。距离读数中的“镜头”是虚拟相机到显示目标，不是地球观测距离；不能用于航天导航、食相或精密观测。</p>
             <p>电脑：拖动旋转，滚轮缩放，巡航用 WASD。手机：单指旋转、双指缩放和平移；下方按钮也可缩放与回家。浏览器缩放仍可用。</p>
+            <p>小行星的大小与数量为可视化示意；彗发、离子尾与尘埃尾使用简化模型，非实时观测影像。</p>
           </details>
           <div class="sp-explorer-settings">
             <label>画质 <select id="sp-quality"><option value="auto">自适应</option><option value="light">省电</option><option value="high">精细</option></select></label>

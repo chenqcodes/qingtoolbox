@@ -10,14 +10,15 @@ export interface ViewPose {
 const UP = new THREE.Vector3(0, 1, 0);
 export const smoothStep = (t: number) => { const u = Math.max(0, Math.min(1, t)); return u * u * u * (u * (u * 6 - 15) + 10); };
 
-/** One owner for an entire navigation. No phase edges, shared scratch vectors or
- * FOV kicks. Log-distance interpolation gives small destinations a real approach
- * instead of spending almost the whole flight at interplanetary distance. */
+/** One owner for an entire navigation. Local adjustments use log-distance easing;
+ * journeys pull back before transferring the pivot, then approach the destination.
+ * Overlapping quintic envelopes keep position, velocity and acceleration continuous
+ * without phase callbacks, FOV kicks or camera-up flips. */
 export class ViewTransition {
   elapsed = 0;
   readonly from: ViewPose;
   readonly fromOffset: THREE.Vector3;
-  constructor(from: ViewPose, readonly duration: number) {
+  constructor(from: ViewPose, readonly duration: number, readonly cruiseRadius = 0) {
     this.from = { position: from.position.clone(), quaternion: from.quaternion.clone(), target: from.target.clone(), fov: from.fov };
     this.fromOffset = from.position.clone().sub(from.target);
   }
@@ -30,7 +31,8 @@ export class ViewTransition {
     this.elapsed += Math.min(.05, Math.max(0, Number.isFinite(dt) ? dt : 0));
     const raw = Math.min(1, this.elapsed / this.duration);
     const t = smoothStep(raw);
-    const pivot = this.from.target.clone().lerp(target, t);
+    const transfer = this.cruiseRadius > 0 ? smoothStep((raw - .3) / .4) : t;
+    const pivot = this.from.target.clone().lerp(target, transfer);
     const fromRadius = this.fromOffset.length();
     const toRadius = offset.length();
     // A fly camera can be exactly on its pivot. Give a zero-length offset a
@@ -44,9 +46,15 @@ export class ViewTransition {
     const direction = new THREE.Vector3().setFromSpherical(new THREE.Spherical(
       1, a.phi + (b.phi - a.phi) * t, a.theta + wrap(b.theta - a.theta) * t,
     ));
-    const radius = fromRadius === 0 || toRadius === 0
-      ? fromRadius + (toRadius - fromRadius) * t
-      : Math.exp(Math.log(fromRadius) * (1 - t) + Math.log(toRadius) * t);
+    const interpolateRadius = (a: number, b: number, amount: number) => a === 0 || b === 0
+      ? a + (b - a) * amount
+      : Math.exp(Math.log(a) * (1 - amount) + Math.log(b) * amount);
+    const wide = Math.max(this.cruiseRadius, fromRadius * 1.2, toRadius * 1.2);
+    const radius = this.cruiseRadius > 0
+      ? raw < .5
+        ? interpolateRadius(fromRadius, wide, smoothStep(raw / .35))
+        : interpolateRadius(wide, toRadius, smoothStep((raw - .65) / .35))
+      : interpolateRadius(fromRadius, toRadius, t);
     const position = pivot.clone().addScaledVector(direction, radius);
     const look = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(toDir, new THREE.Vector3(), UP));
     // Interpolate endpoint yaw/pitch with a wrapped yaw. This avoids both the

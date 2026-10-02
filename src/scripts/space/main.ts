@@ -10,6 +10,7 @@ import { CometSystem } from './cometSystem';
 import { CameraController, formatSpeed } from './camera';
 import { Hud, describeFocus, describeStarFocus, type HudState } from './hud';
 import { Minimap } from './minimap';
+import { SunIndicator } from './sun-indicator';
 import { BodyLabels } from './labels';
 import { ScenePicker } from './pick';
 import { BODIES, BODY_BY_ID, type BodyId } from './constants';
@@ -58,6 +59,7 @@ export function bootSpace() {
   let camera!: THREE.PerspectiveCamera;
   let minimap: Minimap | null = null;
   let labels: BodyLabels | null = null;
+  let sunIndicator: SunIndicator | null = null;
   let sceneReady = false;
   let scenePack: SpaceScene | null = null;
   let dissolve: SceneDissolve | null = null;
@@ -72,6 +74,7 @@ export function bootSpace() {
     const text = document.getElementById('sp-fallback-message');
     if (text && message) text.textContent = message;
     hudRoot.hidden = true;
+    sunIndicator?.dispose();
     cleanupExplorer?.();
   };
   const onContextLost = (event: Event) => {
@@ -267,6 +270,7 @@ export function bootSpace() {
     cancelAnimationFrame(raf);
     cleanupExplorer?.();
     dissolve?.clear();
+    sunIndicator?.dispose();
     cam?.dispose();
     scenePack?.dispose();
     window.removeEventListener('resize', resizeMinimap);
@@ -307,6 +311,7 @@ export function bootSpace() {
         minimap.resize();
         window.addEventListener('resize', resizeMinimap);
       }
+      sunIndicator = new SunIndicator(hudRoot, canvas);
       labels = new BodyLabels(hudRoot);
       labels.bind(gotoBody, gotoStar, gotoComet);
       new ScenePicker(canvas, camera, () => cam.scaleMode, bodies, stars, gotoBody, gotoStar);
@@ -375,10 +380,7 @@ export function bootSpace() {
         }
 
         if (cam.scaleMode == 'solar') bodies.tick(t, state.simDate);
-        else {
-          stars.tick(t);
-          stars.updateLink(cam.mode == 'travel' ? cam.travelDestStar : cam.starFocus);
-        }
+        else stars.tick(t);
         cam.update(dt);
         rebaseFloatingOrigin();
         state.mode = cam.mode;
@@ -415,6 +417,11 @@ export function bootSpace() {
 
         if (((now / 250) | 0) != (((now - dt * 1000) / 250) | 0)) hud.render();
 
+        // Use the active scene's local coordinates after any origin rebase.
+        const sun = cam.scaleMode === 'stellar'
+          ? stars.getWorldPos('sol', tmp)
+          : bodies.getWorldPos('sun', tmp);
+        sunIndicator?.update(camera, sun, now);
         pack.render();
         dissolve?.update(dt);
         raf = requestAnimationFrame(frame);

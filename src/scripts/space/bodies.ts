@@ -3,6 +3,7 @@ import { BODIES, BODY_BY_ID, type BodyId, type BodyDef } from './constants';
 import { bodyPosition, sampleOrbit, sampleSatelliteOrbitRel, type Vec3 } from './astronomy';
 import type { SpaceTextures } from './textures';
 import { createEarthGroup, createSunGroup } from './materials';
+import { createRockGeometry } from './naturalDetails';
 
 /** 轻量程序化卫星贴图（无 2K 资源时用） */
 function makeMoonCanvasTex(baseColor: number, seed: number): THREE.CanvasTexture {
@@ -63,10 +64,8 @@ export class BodySystem {
   private sunScene = new THREE.Vector3(0, 0, 0);
   private sunLight: THREE.PointLight | null = null;
   private tmp = new THREE.Vector3();
-  /** 小行星带逻辑坐标（日心 AU），渲染时扣 FO */
-  private asteroidLogical: Float32Array | null = null;
-  private asteroidBelt: THREE.Points | null = null;
-  private asteroidRocks: THREE.Mesh[] = [];
+  /** Instance transforms remain heliocentric; only the group moves on an origin shift. */
+  private asteroidBelt: THREE.InstancedMesh | null = null;
 
   constructor(
     scene: THREE.Scene,
@@ -91,83 +90,43 @@ export class BodySystem {
     if (this.sunLight) this.sunLight.position.copy(this.sunScene);
   }
 
-  /** 火星–木星之间主带（约 2.1–3.3 AU）+ 近距大石块 */
+  /** Irregular, sun-lit main-belt rocks in one draw call, rather than square point sprites. */
   private createAsteroidBelt() {
-    const N = 1400;
-    this.asteroidLogical = new Float32Array(N * 3);
-    const colors = new Float32Array(N * 3);
-    let s = 314159;
-    const rnd = () => {
-      s = (s * 16807) % 2147483647;
-      return (s - 1) / 2147483646;
-    };
-    for (let i = 0; i < N; i++) {
+    const compact = typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches;
+    const count = compact ? 720 : 1400;
+    const geometry = createRockGeometry(1);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: 1, metalness: 0.02, flatShading: true,
+    });
+    const belt = new THREE.InstancedMesh(geometry, material, count);
+    belt.name = 'resolved-asteroid-belt';
+    const transform = new THREE.Object3D();
+    const color = new THREE.Color();
+    let seed = 314159;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    for (let i = 0; i < count; i++) {
+      // Broad, sparse belt; size distribution favors small bodies over identical boulders.
       const r = 2.1 + rnd() * 1.2;
       const a = rnd() * Math.PI * 2;
-      const y = (rnd() - 0.5) * 0.06 * r;
-      this.asteroidLogical[i * 3] = Math.cos(a) * r;
-      this.asteroidLogical[i * 3 + 1] = y;
-      this.asteroidLogical[i * 3 + 2] = Math.sin(a) * r;
-      const warm = 0.55 + rnd() * 0.45;
-      colors[i * 3] = 0.55 * warm;
-      colors[i * 3 + 1] = 0.48 * warm;
-      colors[i * 3 + 2] = 0.4 * warm;
+      transform.position.set(Math.cos(a) * r, (rnd() - 0.5) * 0.06 * r, Math.sin(a) * r);
+      const size = 0.0015 + Math.pow(rnd(), 4) * 0.011;
+      transform.scale.set(size * (0.8 + rnd() * 0.5), size, size * (0.7 + rnd() * 0.6));
+      transform.rotation.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28);
+      transform.updateMatrix();
+      belt.setMatrixAt(i, transform.matrix);
+      color.setHSL(0.065 + rnd() * 0.04, 0.09 + rnd() * 0.12, 0.24 + rnd() * 0.22);
+      belt.setColorAt(i, color);
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const mat = new THREE.PointsMaterial({
-      size: 0.02,
-      sizeAttenuation: true,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.9,
-      depthWrite: false,
-    });
-    this.asteroidBelt = new THREE.Points(geo, mat);
-    this.asteroidBelt.frustumCulled = false;
-    this.root.add(this.asteroidBelt);
-
-    // 几十块稍大的「陨石」便于巡航贴近观看
-    const rockGeo = new THREE.IcosahedronGeometry(1, 0);
-    const rockMat = new THREE.MeshStandardMaterial({
-      color: 0x8a7a68,
-      roughness: 0.9,
-      metalness: 0.05,
-      flatShading: true,
-    });
-    for (let i = 0; i < 48; i++) {
-      const r = 2.15 + rnd() * 1.1;
-      const a = rnd() * Math.PI * 2;
-      const y = (rnd() - 0.5) * 0.05 * r;
-      const mesh = new THREE.Mesh(rockGeo, rockMat);
-      const scale = 0.004 + rnd() * 0.01;
-      mesh.scale.setScalar(scale);
-      mesh.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6);
-      mesh.userData.logical = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
-      this.asteroidRocks.push(mesh);
-      this.root.add(mesh);
-    }
+    belt.instanceMatrix.needsUpdate = true;
+    if (belt.instanceColor) belt.instanceColor.needsUpdate = true;
+    belt.computeBoundingSphere();
+    this.asteroidBelt = belt;
+    this.root.add(belt);
     this.syncAsteroidBelt();
   }
 
   private syncAsteroidBelt() {
-    if (!this.asteroidBelt || !this.asteroidLogical) return;
-    const pos = this.asteroidBelt.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const ox = this.floatingOrigin.x;
-    const oy = this.floatingOrigin.y;
-    const oz = this.floatingOrigin.z;
-    const src = this.asteroidLogical;
-    for (let i = 0; i < src.length; i += 3) {
-      pos.array[i] = src[i] - ox;
-      pos.array[i + 1] = src[i + 1] - oy;
-      pos.array[i + 2] = src[i + 2] - oz;
-    }
-    pos.needsUpdate = true;
-    for (const rock of this.asteroidRocks) {
-      const L = rock.userData.logical as THREE.Vector3;
-      rock.position.set(L.x - ox, L.y - oy, L.z - oz);
-    }
+    this.asteroidBelt?.position.copy(this.floatingOrigin).negate();
   }
 
   private mapFor(id: BodyId): THREE.Texture | null {

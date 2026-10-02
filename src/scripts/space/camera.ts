@@ -135,12 +135,12 @@ export class CameraController {
   }
   private minimum(dest: Destination) {
     if (dest.domain === 'star') return Math.max(STAR_BY_ID[dest.id as StarId].visualRadius * 8, .45);
-    if (dest.domain === 'comet') return Math.max(COMET_BY_ID[dest.id as CometId].visualRadius * 40, .08);
+    if (dest.domain === 'comet') return Math.max(COMET_BY_ID[dest.id as CometId].visualRadius * 8, .006);
     return dest.id === 'sun' ? .7 : Math.max(this.bodies.getDef(dest.id as BodyId).visualRadius * 1.6, .0005);
   }
   private viewDistance(dest: Destination) {
     if (dest.domain === 'star') return Math.max(STAR_BY_ID[dest.id as StarId].visualRadius * 22, 1.15);
-    if (dest.domain === 'comet') return .65;
+    if (dest.domain === 'comet') return .045;
     if (dest.id === 'sun') return 1.4;
     const def = this.bodies.getDef(dest.id as BodyId);
     const target = this.pivot(dest);
@@ -157,7 +157,7 @@ export class CameraController {
     const away = this.comets.antiSunDir(dest.id as CometId, new THREE.Vector3()).normalize();
     const side = new THREE.Vector3().crossVectors(UP, away);
     if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
-    return away.addScaledVector(side.normalize(), .28).addScaledVector(UP, .08).normalize().multiplyScalar(this.viewDistance(dest));
+    return side.normalize().addScaledVector(away, .25).addScaledVector(UP, .12).normalize().multiplyScalar(this.viewDistance(dest));
   }
   private setDestination(dest: Destination) {
     this.travelDomain = dest.domain;
@@ -278,6 +278,8 @@ export class CameraController {
       onDone?.(); return;
     }
     const wasTouring = this.touring;
+    const source = this.currentDestination();
+    const isJourney = duration === undefined && (source.domain !== dest.domain || source.id !== dest.id);
     // Snapshot before canceling anything, including a partially interpolated look.
     const from = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone(), target: this.renderedTarget(), fov: this.camera.fov };
     this.cancelNavigation();
@@ -302,7 +304,16 @@ export class CameraController {
     this.orbit.target.copy(from.target);
     this.endOffset.copy(endOffset);
     this.destination = dest;
-    this.transition = new ViewTransition(from, changedScale ? .85 : duration ?? Math.min(2.8, Math.max(.8, 1 + Math.log1p(from.position.distanceTo(target)) * .3)));
+    const separation = from.target.distanceTo(target);
+    const cinematic = isJourney && !changedScale;
+    // Give both endpoints spatial context instead of translating a close-up camera
+    // through empty space. Fit the separation against the narrower viewport axis.
+    const vertical = this.baseFov * Math.PI / 360;
+    const halfAngle = Math.min(vertical, Math.atan(Math.tan(vertical) * this.camera.aspect));
+    const cruiseRadius = cinematic ? separation * .8 / Math.tan(halfAngle) : 0;
+    const seconds = cinematic ? Math.min(6.5, 4.2 + Math.log1p(separation) * .45)
+      : duration ?? Math.min(2.8, Math.max(.8, 1 + Math.log1p(from.position.distanceTo(target)) * .3));
+    this.transition = new ViewTransition(from, changedScale ? .85 : seconds, cruiseRadius);
     this.travelDone = onDone ?? null;
     this.mode = 'travel';
     this.touring = wasTouring;

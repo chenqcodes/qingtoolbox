@@ -125,3 +125,34 @@ test('crossing the camera-up pole never flips attitude between adjacent frames',
   }
   assert.equal(prior.done, true);
 });
+
+test('cinematic journey establishes a wide view before transferring and gives arrival a visible approach', () => {
+  const origin = new THREE.Vector3();
+  const startOffset = new THREE.Vector3(.65, .35, 1).normalize().multiplyScalar(.025);
+  const finishOffset = startOffset.clone().multiplyScalar(2);
+  const destination = new THREE.Vector3(5, .2, 2);
+  const quaternion = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(startOffset, origin, new THREE.Vector3(0, 1, 0)));
+  const from = { position: startOffset, target: origin, quaternion, fov: 58 };
+  const sampleAt = (fraction: number) => {
+    const transition = new ViewTransition(from, 5, 8);
+    transition.elapsed = fraction * 5;
+    return transition.sample(0, destination, finishOffset, 58);
+  };
+  equalPose(sampleAt(0), from);
+  const departure = sampleAt(.2), middle = sampleAt(.5), approach = sampleAt(.8);
+  assert.ok(departure.target.distanceTo(origin) < 1e-12, 'source stays centered while pulling back');
+  assert.ok(departure.position.distanceTo(origin) > startOffset.length() * 10, 'departure visibly changes apparent scale');
+  assert.ok(middle.position.distanceTo(middle.target) >= 8 - 1e-10, 'transfer happens at system-context scale');
+  assert.ok(middle.target.distanceTo(destination.clone().multiplyScalar(.5)) < 1e-10);
+  assert.ok(approach.target.distanceTo(destination) < 1e-12, 'destination is framed before close approach');
+  assert.ok(approach.position.distanceTo(destination) > finishOffset.length() * 10, 'arrival has a long visible approach');
+  assert.ok(sampleAt(1).position.distanceTo(destination.clone().add(finishOffset)) < 1e-10);
+  for (const fraction of [.3, .35, .5, .65, .7]) {
+    const left = sampleAt(fraction - 1e-5), at = sampleAt(fraction), right = sampleAt(fraction + 1e-5);
+    const incoming = at.position.clone().sub(left.position).divideScalar(5e-5);
+    const outgoing = right.position.clone().sub(at.position).divideScalar(5e-5);
+    assert.ok(incoming.distanceTo(outgoing) < .01, `continuous velocity at ${fraction}`);
+  }
+  const interrupted = new ViewTransition(approach, 5, 20);
+  equalPose(interrupted.sample(0, origin, startOffset, 58), approach);
+});

@@ -1,5 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error' && /WebGL|Shader|VALIDATE_STATUS/i.test(message.text())) errors.push(message.text()); });
+  (page as any).__graphicsErrors = errors;
+});
+test.afterEach(async ({ page }) => { expect((page as any).__graphicsErrors).toEqual([]); });
+
 async function open(page: Page) {
   await page.setViewportSize({ width: 1000, height: 700 });
   await page.emulateMedia({ reducedMotion: 'reduce' });

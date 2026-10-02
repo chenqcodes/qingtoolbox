@@ -10,6 +10,9 @@ test('rain budget, wet editing, rainfall stop and reset', async ({ page }, testI
   const lab = page.locator('#city-rain-lab');
   await expect(lab).toHaveAttribute('data-time', '0.00');
   await page.getByRole('button', { name: '开始降雨', exact: true }).click();
+  // Controls may scroll the canvas offscreen; visibility intentionally gates model time.
+  await page.locator('#cr-canvas').scrollIntoViewIfNeeded();
+  await expect(page.locator('#cr-canvas')).toBeInViewport();
   await expect.poll(async () => Number(await lab.getAttribute('data-time')), { timeout: 20000 }).toBeGreaterThan(10);
   await page.getByRole('button', { name: '暂停模拟', exact: true }).click();
   const stored = Number(await lab.getAttribute('data-water')); expect(stored).toBeGreaterThan(1);
@@ -23,6 +26,8 @@ test('rain budget, wet editing, rainfall stop and reset', async ({ page }, testI
   await page.locator('#cr-rain').evaluate((input: HTMLInputElement) => { input.value = '0'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   const afterEdit = Number(await lab.getAttribute('data-water'));
   await page.getByRole('button', { name: '继续模拟' }).click();
+  await page.locator('#cr-canvas').scrollIntoViewIfNeeded();
+  await expect(page.locator('#cr-canvas')).toBeInViewport();
   await expect(page.locator('#cr-status')).toContainText('雨已停');
   await expect.poll(async () => Number(await lab.getAttribute('data-water'))).toBeLessThan(afterEdit);
   await page.getByRole('button', { name: '清空雨水' }).click();

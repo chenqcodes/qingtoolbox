@@ -10,13 +10,18 @@ function harness(width: number, height: number) {
     putImageData(image: { data: Uint8ClampedArray }) { pixels = image.data.slice(); },
     setTransform() {}, drawImage() {}, save() {}, translate() {}, rotate() {}, beginPath() {}, arc() {}, stroke() {}, restore() {},
   };
-  const canvas = { width, height, getContext: () => ctx, getBoundingClientRect: () => ({ width, height }) };
+  let backingWidth = width, backingHeight = height, dimensionWrites = 0;
+  const canvas = {
+    get width() { return backingWidth; }, set width(value: number) { backingWidth = value; dimensionWrites++; pixels.fill(0); },
+    get height() { return backingHeight; }, set height(value: number) { backingHeight = value; dimensionWrites++; pixels.fill(0); },
+    getContext: () => ctx, getBoundingClientRect: () => ({ width, height }),
+  };
   const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   Object.defineProperty(globalThis, 'document', { value: { createElement: () => ({ ...canvas }) }, configurable: true });
   Object.defineProperty(globalThis, 'window', { value: { devicePixelRatio: 1 }, configurable: true });
   const renderer = new BlackHoleRenderer(canvas as unknown as HTMLCanvasElement);
-  return { renderer, render(settings: SceneSettings, time = 0) { renderer.render(settings, time); return pixels; },
+  return { renderer, pixels: () => pixels, dimensionWrites: () => dimensionWrites, setSize: (w: number, h: number) => { width = w; height = h; }, render(settings: SceneSettings, time = 0) { renderer.render(settings, time); return pixels; },
     restore() { renderer.dispose(); if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument); else Reflect.deleteProperty(globalThis, 'document'); if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow); else Reflect.deleteProperty(globalThis, 'window'); } };
 }
 const settings: SceneSettings = { distance: 48, inclination: 78, lensing: true, beaming: true };
@@ -43,6 +48,27 @@ test('face-on Doppler illustration is invariant to brightness toggle', () => {
     assert.deepEqual(h.render({ ...settings, inclination: 0, beaming: false }), faceOn);
     const inclined = h.render(settings);
     assert.notDeepEqual(h.render({ ...settings, beaming: false }), inclined);
+  } finally { h.restore(); }
+});
+
+test('resize is idempotent and synchronously restores a held frame without an animation callback', () => {
+  const h = harness(800, 600);
+  try {
+    const original = h.render(settings, 2.5);
+    const writes = h.dimensionWrites(), frames = h.renderer.frames;
+    assert.equal(h.renderer.resize(), false);
+    assert.equal(h.dimensionWrites(), writes, 'same dimensions must not clear the visible canvas');
+    assert.equal(h.renderer.frames, frames);
+    assert.deepEqual(h.pixels(), original);
+    h.setSize(390, 340);
+    assert.equal(h.renderer.resize(), true);
+    assert.equal(h.renderer.frames, frames + 1, 'a real resize paints the retained scene synchronously');
+    assert.ok(luminousPixels(h.pixels()) > 2000, 'paused/offscreen resize must not leave a cleared frame');
+    const mobile = h.pixels();
+    assert.deepEqual(h.render(settings, 2.5), mobile, 'the held animation phase is unchanged');
+    h.setSize(0, 0);
+    assert.equal(h.renderer.resize(), false);
+    assert.deepEqual(h.pixels(), mobile, 'transient hidden bounds preserve the last bitmap');
   } finally { h.restore(); }
 });
 

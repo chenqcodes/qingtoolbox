@@ -32,6 +32,7 @@ test('chaos lab playback, branching, presets and bounded ensemble', async ({ pag
   await page.getByRole('button', { name: '开始实验' }).click();
   await expect.poll(async () => Number(await lab.getAttribute('data-time')), { timeout: 20000 }).toBeGreaterThan(16);
   await page.getByRole('button', { name: '暂停实验' }).click();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('double-pendulum-desktop.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -45,6 +46,7 @@ test('mobile controls fit and angle sliders work with keyboard', async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.getByRole('button', { name: '重置', exact: true }).click();
   await expect(page.locator('#double-pendulum-lab')).toHaveAttribute('data-time', '0.000');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('double-pendulum-mobile.png'), fullPage: true });
 });
 

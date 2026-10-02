@@ -14,6 +14,7 @@ test('rain budget, wet editing, rainfall stop and reset', async ({ page }, testI
   await page.getByRole('button', { name: '暂停模拟', exact: true }).click();
   const stored = Number(await lab.getAttribute('data-water')); expect(stored).toBeGreaterThan(1);
   expect(Math.abs(Number(await lab.getAttribute('data-balance')))).toBeLessThan(1e-6);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('city-rain-desktop.png'), fullPage: true });
   await page.locator('[data-brush="2"]').click();
   await page.locator('#cr-canvas').focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Space');
@@ -44,6 +45,7 @@ test('mobile city keyboard controls and narrow layout', async ({ page }, testInf
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
   await expect(page.locator('#cr-edit-help')).toContainText('排水口');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('city-rain-mobile.png'), fullPage: true });
 });
 

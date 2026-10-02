@@ -44,6 +44,16 @@ export function bootBlackHole() {
   }
   function cancel() { if (raf) cancelAnimationFrame(raf); raf = 0; lastTime = 0; }
   function schedule() { if (!raf && !disposed && !suspended && !hidden && inView && renderer) raf = requestAnimationFrame(frame); }
+  function publishFrame() {
+    if (!renderer) return;
+    root.dataset.frame = String(renderer.frames);
+    root.dataset.renderedDistance = state.distance.toFixed(2);
+    root.dataset.renderedInclination = state.inclination.toFixed(2);
+  }
+  function paint(now = performance.now()) {
+    if (!renderer || disposed) return;
+    renderer.render(state, phase); lastPaint = now; dirty = false; publishFrame();
+  }
   function frame(now: number) {
     raf = 0;
     if (disposed || suspended || hidden || !inView || !renderer) return;
@@ -54,14 +64,16 @@ export function bootBlackHole() {
     if (paused || reduced.matches) state = { ...target };
     else state = { ...target, distance: approach(state.distance, target.distance, delta || .016), inclination: approach(state.inclination, target.inclination, delta || .016) };
     if (dirty || now - lastPaint >= 32 || transitioning) {
-      renderer.render(state, phase); lastPaint = now; dirty = false;
-      root.dataset.frame = String(renderer.frames);
-      root.dataset.renderedDistance = state.distance.toFixed(2);
-      root.dataset.renderedInclination = state.inclination.toFixed(2);
+      paint(now);
     }
     if (!paused || transitioning) schedule();
   }
-  function changed() { dirty = true; updateUI(); schedule(); }
+  function changed() {
+    dirty = true; updateUI();
+    // A paused scene is a calculator still, including when mobile controls scroll it offscreen.
+    if (paused) { state = { ...target }; paint(); }
+    else schedule();
+  }
   function clearPreset() { root!.querySelectorAll<HTMLButtonElement>('[data-bh-preset]').forEach(button => button.setAttribute('aria-pressed', 'false')); get('bh-preset-note').textContent = '自定义观测 · 质量改变物理尺度，视距与倾角改变画面'; }
   function setPreset(preset: Preset) {
     const next = PRESETS[preset]; massLog = next.massLog;
@@ -82,7 +94,12 @@ export function bootBlackHole() {
   get('bh-reset').addEventListener('click', () => { lensing.checked = true; beaming.checked = true; phase = 0; setPreset('sagittarius'); }, options);
   reduced.addEventListener('change', () => { if (reduced.matches) { paused = true; cancel(); changed(); } }, options);
   document.addEventListener('visibilitychange', () => { hidden = document.hidden; if (hidden) cancel(); else { dirty = true; schedule(); } }, options);
-  const resize = new ResizeObserver(() => { renderer?.resize(); dirty = true; schedule(); });
+  const resize = new ResizeObserver(() => {
+    if (disposed || !renderer?.resize()) return;
+    // resize() restores the held image in this callback; visibility only gates animation.
+    if (!renderer.frames) paint(); else publishFrame();
+    if (!paused) schedule();
+  });
   resize.observe(canvas);
   const visibility = new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; if (inView) { dirty = true; schedule(); } else cancel(); }, { rootMargin: '80px' });
   visibility.observe(canvas);

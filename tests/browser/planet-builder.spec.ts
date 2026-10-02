@@ -44,6 +44,7 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
       return colors.size;
     });
     expect(variation).toBeGreaterThan(1500);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: 'test-results/planet-builder-desktop.png', fullPage: true });
     const initial = await canvasSignature(page);
     await changeSlider(page, '#pb-sea', 90);
@@ -61,7 +62,7 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
 
   test('presets, keyboard and pointer rotation, regeneration and pause are repeatable', async ({ page }) => {
     await openBuilder(page);
-    await page.locator('[data-preset="frost"]').click();
+    await page.locator('button[data-preset="frost"]').click();
     await expect(page.locator('#pb-world-name')).toHaveText('极夜冰原');
     await expect(page.locator('#pb-aurora')).toBeChecked();
     await expect(page.locator('#pb-warmth')).toHaveValue('13');
@@ -90,11 +91,12 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
     await page.locator('#pb-regenerate').click();
     await expect(page.locator('#pb-seed-value')).not.toHaveText(seed!);
     await expect(page.locator('#pb-warmth')).toHaveValue('13');
-    await page.locator('[data-preset="ember"]').click();
+    await page.locator('button[data-preset="ember"]').click();
     await expect(page.locator('#pb-storm')).toBeChecked();
     await expect(page.locator('#pb-loading')).toBeHidden();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: 'test-results/planet-builder-ember.png', fullPage: true });
-    await page.locator('[data-preset="oasis"]').click();
+    await page.locator('button[data-preset="oasis"]').click();
     await expect(page.locator('#pb-seed-value')).toHaveText('2718');
     await expect(page.locator('#pb-aurora')).not.toBeChecked();
   });
@@ -112,16 +114,16 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
     expect(bytes.length).toBeGreaterThan(100_000);
     await expect(page.locator('#pb-export')).toBeEnabled();
     await expect(page.locator('#pb-status')).toContainText('PNG 已生成');
-    await page.locator('[data-preset="frost"]').click();
+    await page.locator('button[data-preset="frost"]').click();
     await expect(page.locator('#pb-world-name')).toHaveText('极夜冰原');
   });
 
   test('rapid world changes cancel stale generation and a pending export keeps its clicked world', async ({ page }) => {
     await openBuilder(page);
-    await page.locator('[data-preset="ember"]').click();
-    await page.locator('[data-preset="frost"]').click();
+    await page.locator('button[data-preset="ember"]').click();
+    await page.locator('button[data-preset="frost"]').click();
     await page.locator('#pb-regenerate').click();
-    await page.locator('[data-preset="oasis"]').click();
+    await page.locator('button[data-preset="oasis"]').click();
     await expect(page.locator('#planet-builder')).toHaveAttribute('data-ready', 'true');
     await expect(page.locator('#planet-builder')).toHaveAttribute('data-texture-seed', '2718');
     await expect(page.locator('#planet-builder')).toHaveAttribute('data-generating', 'false');
@@ -145,9 +147,10 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openBuilder(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: 'test-results/planet-builder-mobile.png', fullPage: true });
-    await page.locator('[data-preset="frost"]').click();
-    await expect(page.locator('[data-preset="frost"]')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('button[data-preset="frost"]').click();
+    await expect(page.locator('button[data-preset="frost"]')).toHaveAttribute('aria-pressed', 'true');
     await changeSlider(page, '#pb-phase', 135);
     await expect(page.locator('#pb-phase-value')).toHaveText('135°');
     await page.locator('#pb-storm').check();
@@ -157,6 +160,7 @@ test.describe('planet atelier: local Canvas 2D procedural worlds', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('#pb-canvas').scrollIntoViewIfNeeded();
     await expect(page.locator('#pb-loading')).toBeHidden();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: 'test-results/planet-builder-small-mobile.png', fullPage: true });
   });
 

@@ -28,6 +28,7 @@ export class BlackHoleRenderer {
   private rowOffsets = new Uint16Array(TEX_H);
   private palette = new Uint8ClampedArray(8192 * 3);
   private geometryKey = '';
+  private lastScene: { settings: SceneSettings; time: number } | null = null;
   frames = 0;
   constructor(private canvas: HTMLCanvasElement) {
     const context = canvas.getContext('2d', { alpha: false });
@@ -59,14 +60,23 @@ export class BlackHoleRenderer {
       }
     }
   }
-  resize() {
+  resize(): boolean {
     const bounds = this.canvas.getBoundingClientRect();
-    this.cssWidth = Math.max(1, bounds.width); this.cssHeight = Math.max(1, bounds.height);
+    // Zero-size/hidden elements keep their last bitmap until they have useful bounds again.
+    if (bounds.width <= 0 || bounds.height <= 0) return false;
+    const cssWidth = bounds.width, cssHeight = bounds.height;
     // CPU raster size is bounded independently of device pixel ratio.
-    const ratio = Math.min(1.15, 880 / this.cssWidth, 600 / this.cssHeight);
-    this.width = Math.round(this.cssWidth * ratio); this.height = Math.round(this.cssHeight * ratio);
-    this.canvas.width = Math.round(this.cssWidth * Math.min(window.devicePixelRatio || 1, 2));
-    this.canvas.height = Math.round(this.cssHeight * Math.min(window.devicePixelRatio || 1, 2));
+    const ratio = Math.min(1.15, 880 / cssWidth, 600 / cssHeight);
+    const width = Math.max(1, Math.round(cssWidth * ratio)), height = Math.max(1, Math.round(cssHeight * ratio));
+    const backingWidth = Math.max(1, Math.round(cssWidth * Math.min(window.devicePixelRatio || 1, 2)));
+    const backingHeight = Math.max(1, Math.round(cssHeight * Math.min(window.devicePixelRatio || 1, 2)));
+    if (this.width === width && this.height === height && this.cssWidth === cssWidth && this.cssHeight === cssHeight
+      && this.canvas.width === backingWidth && this.canvas.height === backingHeight) return false;
+    this.cssWidth = cssWidth; this.cssHeight = cssHeight;
+    this.width = width; this.height = height;
+    // Assigning either canvas dimension clears it, even when assigning the existing value.
+    if (this.canvas.width !== backingWidth) this.canvas.width = backingWidth;
+    if (this.canvas.height !== backingHeight) this.canvas.height = backingHeight;
     this.raster.width = this.width; this.raster.height = this.height;
     this.image = this.rasterCtx.createImageData(this.width, this.height);
     this.geometryKey = '';
@@ -81,6 +91,10 @@ export class BlackHoleRenderer {
       const k = (py * this.width + px) * 4;
       this.sky[k] += intensity * .78; this.sky[k + 1] += intensity * .85; this.sky[k + 2] += intensity;
     }
+    // ResizeObserver runs after animation callbacks. Repaint synchronously so paused or
+    // offscreen canvases never expose an empty bitmap while waiting for another RAF.
+    if (this.lastScene) this.render(this.lastScene.settings, this.lastScene.time);
+    return true;
   }
   private sample(radius: number, angle: number) {
     return Math.min(TEX_H - 1, Math.max(0, Math.floor((radius - 3) / 10 * (TEX_H - 1)))) * TEX_W + ((Math.floor(angle / TAU * TEX_W) % TEX_W + TEX_W) % TEX_W);
@@ -143,6 +157,8 @@ export class BlackHoleRenderer {
 
   render(settings: SceneSettings, time: number) {
     if (!this.width) this.resize();
+    if (!this.width) return;
+    this.lastScene = { settings: { ...settings }, time };
     // Quantization avoids repeatedly rebuilding a map for subpixel camera changes.
     const key = `${Math.round(settings.distance * 10)}:${Math.round(settings.inclination * 8)}:${settings.lensing}:${settings.beaming}`;
     if (key !== this.geometryKey) { this.buildGeometry(settings); this.geometryKey = key; }
@@ -179,5 +195,5 @@ export class BlackHoleRenderer {
     }
     this.frames++;
   }
-  dispose() { this.positions = new Uint32Array(0); this.backdrop = new Uint8ClampedArray(0); this.raster.width = 1; this.raster.height = 1; }
+  dispose() { this.lastScene = null; this.positions = new Uint32Array(0); this.backdrop = new Uint8ClampedArray(0); this.raster.width = 1; this.raster.height = 1; }
 }

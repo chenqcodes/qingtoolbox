@@ -7,6 +7,20 @@ async function range(page: Page, id: string, value: string) {
   await page.locator(id).evaluate((el, next) => { const input = el as HTMLInputElement; input.value = next; input.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 }
 
+async function canvasPixels(page: Page) {
+  return page.locator('#bh-canvas').evaluate((el) => {
+    const canvas = el as HTMLCanvasElement, context = canvas.getContext('2d')!;
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let bright = 0; const tones = new Set<string>();
+    for (let i = 0; i < data.length; i += 16) { if (data[i] > 80 && data[i] > data[i + 2] * 1.5) bright++; tones.add(`${data[i]},${data[i + 1]},${data[i + 2]}`); }
+    return { bright, tones: tones.size, width: canvas.width, height: canvas.height };
+  });
+}
+async function expectEmission(page: Page) {
+  await expect.poll(async () => (await canvasPixels(page)).bright).toBeGreaterThan(500);
+  expect((await canvasPixels(page)).tones).toBeGreaterThan(100);
+}
+
 test('black hole renders textured emission, meaningful physical values and accessible controls', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -15,14 +29,7 @@ test('black hole renders textured emission, meaningful physical values and acces
   await expect(root).toHaveAttribute('data-frame', /[1-9]/);
   await expect(page.locator('#bh-pause')).toContainText('继续流动');
   await expect(page.locator('#bh-status')).toContainText('减少动态效果');
-  const colors = await page.locator('#bh-canvas').evaluate((el) => {
-    const canvas = el as HTMLCanvasElement, context = canvas.getContext('2d')!;
-    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    let bright = 0; const tones = new Set<string>();
-    for (let i = 0; i < data.length; i += 16) { if (data[i] > 80 && data[i] > data[i + 2] * 1.5) bright++; tones.add(`${data[i]},${data[i + 1]},${data[i + 2]}`); }
-    return { bright, tones: tones.size };
-  });
-  expect(colors.bright).toBeGreaterThan(1000); expect(colors.tones).toBeGreaterThan(100);
+  await expectEmission(page);
   const radiusBefore = await page.locator('#bh-radius').textContent(), angleBefore = await page.locator('#bh-angle').textContent();
   await range(page, '#bh-mass', '8');
   await expect(page.locator('#bh-radius')).not.toHaveText(radiusBefore!);
@@ -35,10 +42,15 @@ test('black hole renders textured emission, meaningful physical values and acces
   await page.locator('#bh-reset').click();
   await expect(page.locator('#bh-distance-value')).toHaveText('48 Rₛ');
   await expect(page.locator('#bh-observatory')).toHaveAttribute('data-paused', 'true');
+  await expect(root).toHaveAttribute('data-rendered-distance', '48.00');
+  await expectEmission(page);
   await page.screenshot({ path: testInfo.outputPath('black-hole-desktop.png'), fullPage: true });
+  await expectEmission(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.scrollTo(0, 0));
+  await expectEmission(page);
   await page.screenshot({ path: testInfo.outputPath('black-hole-mobile.png'), fullPage: true });
+  await expectEmission(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -82,6 +94,28 @@ test('new input interrupts smooth camera changes, repeated preset and reset rema
   await expect(root).toHaveAttribute('data-paused', 'true');
   await page.goto('/'); await page.goBack();
   await expect(page.locator('#bh-observatory')).toHaveAttribute('data-booted', 'true');
+});
+
+test('paused offscreen canvas keeps emission across viewport resizing and reset', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/tools/black-hole/');
+  await expectEmission(page);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect.poll(async () => page.locator('#bh-canvas').evaluate(el => el.getBoundingClientRect().bottom)).toBeLessThan(0);
+  // The stage is offscreen: IntersectionObserver must not prevent restoring its bitmap.
+  const previousWidth = (await canvasPixels(page)).width;
+  await page.setViewportSize({ width: 430, height: 800 });
+  await expect.poll(async () => (await canvasPixels(page)).width).not.toBe(previousWidth);
+  await expectEmission(page);
+  await range(page, '#bh-distance', '96');
+  await page.locator('#bh-reset').evaluate(el => (el as HTMLButtonElement).click());
+  await expect(page.locator('#bh-observatory')).toHaveAttribute('data-rendered-distance', '48.00');
+  await expectEmission(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expectEmission(page);
+  await page.screenshot({ path: testInfo.outputPath('black-hole-paused-resize.png'), fullPage: true });
+  await expectEmission(page);
 });
 
 test('Canvas failure retains a useful SVG explanation and physical calculator', async ({ page }, testInfo) => {

@@ -17,7 +17,8 @@ test('cosmic scale has readable stops, real dimensions and desktop/mobile visual
   await expect(page.locator('#cosmic-field-size')).toHaveText('36 厘米');
   await expect(page.locator('#cosmic-play')).toBeDisabled();
   await expect(page.locator('#cosmic-status')).toContainText('已减少动态效果');
-  await page.locator('#cosmic-app').screenshot({ path: testInfo.outputPath('cosmic-cup-desktop.png') });
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ fullPage: true, path: testInfo.outputPath('cosmic-cup-desktop.png') });
   for (const id of ['dna', 'cell', 'earth', 'solar', 'galaxy']) {
     const stop = STOPS.find(s => s.id === id)!;
     await page.locator(`[data-stop="${id}"]`).click();
@@ -25,7 +26,8 @@ test('cosmic scale has readable stops, real dimensions and desktop/mobile visual
     expect(Math.abs(await exponent(page) - stopExponent(stop))).toBeLessThan(.001);
     await expect(page.locator('#cosmic-source')).toHaveAttribute('href', stop.source!.url);
     await expect(page.locator('#cosmic-dimension')).toHaveText(stop.dimension);
-    await page.locator('#cosmic-app').screenshot({ path: testInfo.outputPath(`cosmic-${id}-desktop.png`) });
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ fullPage: true, path: testInfo.outputPath(`cosmic-${id}-desktop.png`) });
   }
   await expect(page.locator('#cosmic-next')).toBeDisabled();
   await page.locator('#cosmic-home').click();
@@ -38,7 +40,8 @@ test('cosmic scale has readable stops, real dimensions and desktop/mobile visual
   await expect(page.locator('#cosmic-name')).toHaveText('一个人的身高');
   await page.setViewportSize({ width: 375, height: 812 });
   await page.locator('#cosmic-home').click();
-  await page.locator('#cosmic-app').screenshot({ path: testInfo.outputPath('cosmic-cup-mobile.png') });
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ fullPage: true, path: testInfo.outputPath('cosmic-cup-mobile.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   expect(await page.locator('#cosmic-fact').evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
   expect((await page.locator('#cosmic-play').boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -137,5 +140,6 @@ test('scale slider ticks correspond to actual logarithmic field widths', async (
     return elements.map(el => ({ actual: Number.parseFloat((el as HTMLElement).style.left), expected: (Math.log10(Number((el as HTMLElement).dataset.metres)) - Number(range.min)) / (Number(range.max) - Number(range.min)) * 100 }));
   });
   expect(ticks).toHaveLength(4);
-  for (const tick of ticks) expect(tick.actual).toBeCloseTo(tick.expected, 5);
+  // CSSOM serializes percentage values with finite decimal precision.
+  for (const tick of ticks) expect(tick.actual).toBeCloseTo(tick.expected, 3);
 });

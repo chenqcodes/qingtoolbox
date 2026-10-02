@@ -1,0 +1,87 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/black-hole.css';
+---
+<ToolLayout title="黑洞观测站 · 在光的边界观察引力" description="探索黑洞吸积盘、引力透镜与多普勒增亮的互动示意。调整黑洞质量、观测距离和倾角，理解史瓦西半径与黑洞阴影；本地 Canvas 渲染，无需 WebGL。" currentSlug="black-hole">
+  <div id="bh-observatory" class="bh-observatory">
+    <header class="bh-heading">
+      <div><p class="bh-eyebrow">THE EVENT HORIZON / 引力实验室</p><h1>黑洞观测站<span>在光的边界，看见不可见。</span></h1></div>
+      <div class="bh-heading-mark" aria-hidden="true">◎<span>OBSERVATORY<br/>01 / SCHWARZSCHILD</span></div>
+    </header>
+    <div class="bh-workspace">
+      <section class="bh-stage" aria-label="黑洞互动观测画面">
+        <div class="bh-stage-top"><span class="bh-live"><i></i><span id="bh-live-label">实时观测</span></span><span>非旋转黑洞 · 视觉近似</span></div>
+        <canvas id="bh-canvas" role="img" aria-label="黑洞吸积盘示意：黑暗阴影周围环绕有纹理的热气体，远侧盘的像向上弯曲，左侧因接近观察者而更亮。" aria-describedby="bh-reading bh-model-note"></canvas>
+        <div id="bh-fallback" class="bh-fallback" hidden>
+          <svg viewBox="0 0 600 370" role="img" aria-label="静态结构示意：黑洞阴影外有上方弯曲的远侧吸积盘像，前方是扁平的吸积盘。">
+            <defs><linearGradient id="bh-static-gradient"><stop stop-color="#ffe4a3"/><stop offset=".45" stop-color="#f99343"/><stop offset="1" stop-color="#a94524"/></linearGradient></defs>
+            <ellipse cx="300" cy="201" rx="243" ry="41" fill="none" stroke="url(#bh-static-gradient)" stroke-width="15"/>
+            <path d="M183 197a117 117 0 0 1 234 0" fill="none" stroke="url(#bh-static-gradient)" stroke-width="21"/>
+            <circle cx="300" cy="190" r="91" fill="#020309" stroke="#ffbe73" stroke-width="3"/>
+            <path d="M62 205Q300 270 538 205" fill="none" stroke="url(#bh-static-gradient)" stroke-width="18"/>
+            <text x="300" y="193" fill="#b9b3ac" text-anchor="middle" font-size="14">黑洞阴影</text>
+            <text x="300" y="43" fill="#f4c994" text-anchor="middle" font-size="14">远侧盘的弯曲像</text>
+            <text x="300" y="322" fill="#bbb6b0" text-anchor="middle" font-size="14">结构示意 · 非等比例</text>
+          </svg>
+          <p>画布不可用，已切换为静态结构图。下方物理量与全部参数仍可使用。</p>
+        </div>
+        <noscript><p class="bh-no-js">启用 JavaScript 可探索动态吸积盘。黑洞自身不发光；明亮的盘来自周围热气体，其远侧的光被引力弯曲。下方保留模型说明与科学资料。</p></noscript>
+        <div class="bh-canvas-caption" aria-hidden="true"><span class="bh-caption-line"></span>光不再走直线</div>
+        <div class="bh-stage-bottom"><span id="bh-scene-scale">视距 48 Rₛ</span><span>Canvas 2D / 本地生成</span></div>
+      </section>
+      <aside class="bh-console" aria-label="观测参数">
+        <div class="bh-console-title"><span>控制观测</span><span class="bh-console-number">01 — 03</span></div>
+        <div class="bh-presets" role="group" aria-label="黑洞尺度预设">
+          <button type="button" data-bh-preset="stellar" aria-pressed="false">恒星级</button>
+          <button type="button" data-bh-preset="sagittarius" aria-pressed="true">银河系中心</button>
+          <button type="button" data-bh-preset="m87" aria-pressed="false">M87 尺度</button>
+        </div>
+        <p id="bh-preset-note" class="bh-small">约 430 万太阳质量；仅作尺度参考，不还原真实观测。</p>
+        <div class="bh-control">
+          <label for="bh-mass"><span><b>01</b> 黑洞质量</span><output id="bh-mass-value" for="bh-mass">430 万 M☉</output></label>
+          <input id="bh-mass" type="range" min="1" max="10" step="0.001" value="6.633468" aria-describedby="bh-mass-help" />
+          <div class="bh-range-ends"><span>10 M☉</span><span>100 亿 M☉</span></div>
+          <p id="bh-mass-help" class="bh-small">对数刻度 · 改变真实半径，不单独放大画面</p>
+        </div>
+        <div class="bh-control">
+          <label for="bh-distance"><span><b>02</b> 观测距离</span><output id="bh-distance-value" for="bh-distance">48 Rₛ</output></label>
+          <input id="bh-distance" type="range" min="25" max="110" step="1" value="48" aria-describedby="bh-distance-help" />
+          <div class="bh-range-ends"><span>近处 · 25 Rₛ</span><span>远处 · 110 Rₛ</span></div>
+          <p id="bh-distance-help" class="bh-small">距离以史瓦西半径计；靠近时视角尺寸增大</p>
+        </div>
+        <div class="bh-control">
+          <label for="bh-inclination"><span><b>03</b> 观测倾角</span><output id="bh-inclination-value" for="bh-inclination">78°</output></label>
+          <input id="bh-inclination" type="range" min="0" max="87" step="1" value="78" />
+          <div class="bh-range-ends"><span>俯视 · 0°</span><span>侧视 · 87°</span></div>
+        </div>
+        <div class="bh-toggles"><label><input id="bh-lensing" type="checkbox" checked/> 引力透镜示意</label><label><input id="bh-beaming" type="checkbox" checked/> 多普勒亮度示意</label></div>
+        <div class="bh-actions"><button id="bh-pause" type="button" aria-pressed="false"><span aria-hidden="true">Ⅱ</span> 暂停流动</button><button id="bh-reset" type="button" aria-label="重置全部观测参数">重置</button></div>
+        <p id="bh-status" class="bh-small" role="status" aria-live="polite">准备观测画面</p>
+      </aside>
+    </div>
+    <section class="bh-readouts" aria-label="物理尺度读数">
+      <div><span>史瓦西半径 Rₛ</span><strong id="bh-radius">12,698,693 km</strong><small>非旋转、无电荷黑洞的事件视界半径</small></div>
+      <div><span>实际观测距离</span><strong id="bh-physical-distance">4.07 AU</strong><small id="bh-distance-km">距离 = 48 × Rₛ</small></div>
+      <div><span>阴影角直径 · 参考值</span><strong id="bh-angle">6.20°</strong><small>远处观察者的小角度近似</small></div>
+    </section>
+    <div class="bh-science">
+      <section aria-labelledby="bh-reading"><p class="bh-eyebrow">READ THE LIGHT</p><h2 id="bh-reading">你看到的，是光的旅程</h2>
+        <div class="bh-explanations">
+          <article><span>01 / 弯曲的远侧</span><h3>一张平盘，两个弧影</h3><p>远侧吸积盘的光被引力弯向观察者，看起来越过黑洞的上方；更细的下方弧影表现另一条光路。切换透镜示意，比较画面的变化。</p></article>
+          <article><span>02 / 明暗的不对称</span><h3>向你而来的光，更亮</h3><p>高速绕转的气体产生多普勒增亮：朝向观察者的一侧更亮，远离的一侧更暗。将倾角调到 0°，这类左右不对称会消失。</p></article>
+          <article><span>03 / 黑暗的边界</span><h3>阴影不等于事件视界</h3><p>对非旋转黑洞，Rₛ = 2GM/c²，约为每太阳质量 2.95 km。远处看到的阴影半径约为 2.60 Rₛ；明亮细环也不是黑洞的实体表面。</p></article>
+        </div>
+      </section>
+      <details class="bh-model" open><summary>模型边界与科学来源 <span>科学近似 / 非科研模拟</span></summary>
+        <p id="bh-model-note">这是程序生成的吸积盘教学插画：使用扁平盘投影、经验式弧影、多普勒启发的亮度与气体纹理，不求解广义相对论光线轨迹，也不计算流体动力学。色彩、曝光、流动速度和盘结构经过艺术处理；不代表真实颜色、实时轨道周期或真实天体的照片。</p>
+        <p>质量、Rₛ 和实际距离采用物理公式计算。距离控制以 Rₛ 为单位，因此质量增大时黑洞与观察距离同比增大，画面角尺寸保持不变；降低视距才会放大画面。阴影角直径使用 2 × 2.598 Rₛ / d 的远场小角度近似，近距离观察仅作趋势参考。画面投影与读数不作严格标定。</p>
+        <p>“关闭透镜”仅隐藏教学弧影，保留阴影作为对照，并非关闭引力后的完整物理模型。恒星级、银河系中心和 M87 按钮只设置质量量级与观测视角，不推断它们真实的自旋、吸积率或距离。</p>
+        <div class="bh-sources"><a href="https://science.nasa.gov/universe/black-holes/anatomy/" target="_blank" rel="noopener noreferrer">NASA · 黑洞结构 ↗</a><a href="https://svs.gsfc.nasa.gov/13326/" target="_blank" rel="noopener noreferrer">NASA SVS · 吸积盘与光的弯曲 ↗</a></div>
+      </details>
+    </div>
+  </div>
+</ToolLayout>
+<script>
+  import { bootBlackHole } from '../../scripts/black-hole/main';
+  bootBlackHole();
+</script>

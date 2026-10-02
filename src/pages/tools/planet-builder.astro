@@ -1,0 +1,59 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/planet-builder.css';
+---
+
+<ToolLayout title="行星工坊 · 创造你的异世界" description="亲手塑造一颗行星：调整海陆、云层与大气，观察昼夜交界、风暴和极光，旋转探索并导出行星肖像。完全在浏览器本地运行。" currentSlug="planet-builder">
+  <div slot="header" class="pb-heading">
+    <div><p class="pb-eyebrow">PLANET ATELIER / 行星工坊</p><h1>一个世界，由你开始<span>。</span></h1><p class="pb-intro">给海洋一种深度，给天空一点颜色。转动它，看看光落在哪里。</p></div>
+    <span class="pb-heading-tag"><span></span> 本地生成 · 无需上传</span>
+  </div>
+
+  <section id="planet-builder" class="pb-app" aria-label="行星创作工作台">
+    <div class="pb-topline"><span><i></i> WORLD DESIGN STUDIO</span><span>01 / PROCEDURAL WORLDS</span></div>
+    <div class="pb-workbench">
+      <div class="pb-viewport" id="pb-viewport">
+        <canvas id="pb-canvas" tabindex="0" role="img" aria-label="可旋转的三维行星。拖动旋转；方向键改变视角；空格暂停或继续自转。" aria-describedby="pb-canvas-help"></canvas>
+        <div class="pb-scene-heading"><span class="pb-label">你的世界</span><h2 id="pb-world-name">潮汐花园</h2><p id="pb-world-subtitle">山脉、群岛与一片蓝色的可能</p></div>
+        <div class="pb-seed">SEED <span id="pb-seed-value">2718</span><span class="pb-seed-cross" aria-hidden="true">＋</span></div>
+        <div class="pb-loading" id="pb-loading" role="status">正在铺展海岸线…</div>
+        <div class="pb-unavailable" id="pb-unavailable" hidden><h2>浏览器暂时无法绘制行星</h2><p>此页面需要 Canvas 2D。请更新浏览器或换一个支持 Canvas 的浏览器重试；不需要 WebGL。</p></div>
+        <div class="pb-stage-bottom">
+          <div class="pb-navigation-hint" id="pb-canvas-help"><span aria-hidden="true">↔</span> 拖动旋转 <span class="pb-hint-divider">/</span> 方向键也可以</div>
+          <div class="pb-stage-actions"><button type="button" id="pb-home" aria-label="重置行星视角" title="重置视角">↺</button><button type="button" id="pb-play" aria-pressed="true"><span id="pb-play-icon" aria-hidden="true">Ⅱ</span> <span id="pb-play-label">暂停自转</span></button></div>
+        </div>
+        <div class="pb-stats" aria-label="当前世界数据"><div><span>海域占比</span><strong id="pb-ocean-stat">—</strong><small>按生成地形估算</small></div><div><span>可见受光面</span><strong id="pb-light-stat">89<span>%</span></strong><small>理想球体几何</small></div><div><span>光源色调</span><strong id="pb-star-stat">柔和白光</strong><small>艺术化颜色映射</small></div></div>
+      </div>
+      <aside class="pb-panel" aria-label="行星参数">
+        <div class="pb-panel-title"><span>创造参数</span><span class="pb-small-mono">LIVE</span></div>
+        <fieldset class="pb-presets"><legend>从一个世界出发</legend><div class="pb-preset-grid">
+          <button type="button" class="pb-preset" data-preset="oasis" aria-pressed="true"><span class="pb-mini-world pb-mini-oasis" aria-hidden="true"></span><strong>潮汐花园</strong><small>温润 · 蔚蓝</small></button>
+          <button type="button" class="pb-preset" data-preset="ember" aria-pressed="false"><span class="pb-mini-world pb-mini-ember" aria-hidden="true"></span><strong>赤色荒原</strong><small>岩质 · 暖红</small></button>
+          <button type="button" class="pb-preset" data-preset="frost" aria-pressed="false"><span class="pb-mini-world pb-mini-frost" aria-hidden="true"></span><strong>极夜冰原</strong><small>冰封 · 青绿</small></button>
+        </div></fieldset>
+        <fieldset class="pb-controls"><legend><span>01</span> 塑造地表</legend>
+          <label for="pb-sea"><span>海平面 <output id="pb-sea-value" for="pb-sea">55</output></span><input id="pb-sea" data-setting="sea" type="range" min="0" max="100" value="55"/><small><span>更多陆地</span><span>更多海洋</span></small></label>
+          <label for="pb-relief"><span>地形起伏 <output id="pb-relief-value" for="pb-relief">58</output></span><input id="pb-relief" data-setting="relief" type="range" min="0" max="100" value="58"/></label>
+        </fieldset>
+        <fieldset class="pb-controls"><legend><span>02</span> 赋予天空</legend>
+          <label for="pb-clouds"><span>云层密度 <output id="pb-clouds-value" for="pb-clouds">47</output></span><input id="pb-clouds" data-setting="clouds" type="range" min="0" max="100" value="47"/></label>
+          <label for="pb-atmosphere"><span>大气光晕 <output id="pb-atmosphere-value" for="pb-atmosphere">65</output></span><input id="pb-atmosphere" data-setting="atmosphere" type="range" min="0" max="100" value="65"/></label>
+          <div class="pb-toggles"><label><input id="pb-aurora" type="checkbox" data-toggle="aurora"/><span class="pb-toggle-track"></span><span>极光</span></label><label><input id="pb-storm" type="checkbox" data-toggle="storm"/><span class="pb-toggle-track"></span><span>螺旋风暴</span></label></div>
+        </fieldset>
+        <fieldset class="pb-controls pb-light-controls"><legend><span>03</span> 等待一束光</legend>
+          <label for="pb-warmth"><span>恒星色调 <output id="pb-warmth-value" for="pb-warmth">42</output></span><input id="pb-warmth" class="pb-warmth" data-setting="warmth" type="range" min="0" max="100" value="42"/><small><span>冷蓝</span><span>暖橙</span></small></label>
+          <label for="pb-phase"><span>光照相位角 <output id="pb-phase-value" for="pb-phase">38°</output></span><input id="pb-phase" data-setting="phase" type="range" min="0" max="170" value="38"/><small><span>满照</span><span>新月</span></small></label>
+        </fieldset>
+        <div class="pb-panel-actions"><button type="button" id="pb-regenerate">↻ 换一片大陆</button><button type="button" id="pb-export">↓ 导出肖像</button></div>
+        <p id="pb-status" class="pb-status" role="status" aria-live="polite">PNG 图片 · 1600 × 1400 · 无水印</p>
+      </aside>
+    </div>
+    <div class="pb-notes"><span class="pb-note-symbol" aria-hidden="true">✳</span><div><h2>想象一颗行星，也理解一点光。</h2><p>海平面改变海陆分布，光照相位角改变可见昼夜比例。试着把相位角推向右侧，再点亮极光。</p><p class="pb-science-note">科学近似说明：这是程序化艺术模型，不是真实行星或气候模拟。地表由球面噪声生成；云、风暴、极光与大气辉光为视觉近似，不预测气候、生命或真实恒星温度。海平面、起伏及密度使用 0–100 的创作刻度。</p></div><span class="pb-note-end">MAKE A WORLD.<br/>KEEP WONDERING.</span></div>
+  </section>
+  <noscript><p class="pb-noscript">行星工坊需要 JavaScript 才能生成图像和响应参数。请在浏览器中启用 JavaScript 后重试。</p></noscript>
+</ToolLayout>
+
+<script>
+  import { bootPlanetBuilder } from '../../scripts/planet-builder/main';
+  bootPlanetBuilder();
+</script>

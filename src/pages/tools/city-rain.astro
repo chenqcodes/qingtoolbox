@@ -1,0 +1,39 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/city-rain.css';
+---
+<ToolLayout title="城市雨水沙盘 · 为一场雨，重画一座城" description="画出街道、建筑、绿地与排水口，在等距城市沙盘里观察雨水汇流、积水与排水。基于守恒网格的教育实验，不用于工程预测。" currentSlug="city-rain">
+  <div class="cr-intro" slot="header"><span>URBAN WATER / 02</span><h1>为一场雨，<em>重画一座城。</em></h1><p>一条街、一片绿地、一个排水口。看雨水如何回应你的设计。</p></div>
+  <section class="cr-lab" id="city-rain-lab" aria-label="城市雨水沙盘">
+    <div class="cr-viewport">
+      <div class="cr-scene-heading"><span>CITY IN THE RAIN</span><span id="cr-status" role="status">准备降雨</span></div>
+      <canvas id="cr-canvas" aria-describedby="cr-edit-help" tabindex="0" aria-label="等距城市雨水沙盘。点击或拖动绘制；键盘方向键移动选中格，空格或回车绘制。下方也有预设街区。"></canvas>
+      <div class="cr-map-note"><span>32 × 24 <i>·</i> 封闭边界 <i>·</i> 地形中央较低</span><span>水深 <i class="cr-water-ramp"></i> 浅 → 深</span></div>
+      <div class="cr-metrics"><div><small>模型经过时间</small><strong id="cr-time">0 <span>s</span></strong></div><div><small>地面积水比例</small><strong id="cr-coverage">0 <span>%</span></strong></div><div><small>最大水深 · 模型单位</small><strong id="cr-maximum">0.000</strong></div></div>
+    </div>
+    <aside class="cr-controls">
+      <div class="cr-chapter"><span>01 / 画一座城市</span><h2>给雨水一条出路</h2></div>
+      <div class="cr-brushes" aria-label="绘图工具">
+        <button type="button" data-brush="1" aria-pressed="true"><span aria-hidden="true">╱</span>街道</button>
+        <button type="button" data-brush="2" aria-pressed="false"><span aria-hidden="true">▥</span>建筑</button>
+        <button type="button" data-brush="3" aria-pressed="false"><span aria-hidden="true">♧</span>绿地</button>
+        <button type="button" data-brush="4" aria-pressed="false"><span aria-hidden="true">⊙</span>排水口</button>
+        <button type="button" data-brush="0" aria-pressed="false"><span aria-hidden="true">⌑</span>还原地面</button>
+      </div>
+      <label class="cr-field" for="cr-brush-size">笔刷大小<select id="cr-brush-size"><option value="0">1 × 1 格</option><option value="1" selected>3 × 3 格</option></select></label>
+      <p class="cr-help" id="cr-edit-help" role="status" aria-live="polite" aria-atomic="true">拖动画街道；编辑时会暂停，雨水重新分配，超容量部分计入溢出。方向键选格，空格绘制。</p>
+      <div class="cr-chapter cr-divider"><span>02 / 等一场雨</span></div>
+      <label class="cr-range" for="cr-rain">降雨强度 <output id="cr-rain-value">60 / 100</output><input id="cr-rain" type="range" min="0" max="100" step="1" value="60" /></label>
+      <label class="cr-range" for="cr-drain">单个排水口能力 <output id="cr-drain-value">35 / 100</output><input id="cr-drain" type="range" min="0" max="100" step="1" value="35" /></label>
+      <div class="cr-actions"><button type="button" class="cr-primary" id="cr-play" aria-pressed="false">开始降雨</button><button type="button" id="cr-clear">清空雨水</button></div>
+      <label class="cr-check"><input id="cr-flow" type="checkbox" checked /> 显示地表流向</label>
+      <div class="cr-chapter cr-divider"><span>03 / 换个街区</span></div>
+      <div class="cr-presets" aria-label="城市预设"><button type="button" data-city="neighborhood">低洼街区</button><button type="button" data-city="sponge">海绵改造</button><button type="button" data-city="empty">空白地形</button></div>
+      <p class="cr-help">切换预设会重建地图并清空雨水。两种街区使用相同地形与雨量，可比较绿地的影响。</p>
+    </aside>
+    <div class="cr-budget"><span>每滴水都有去处</span><div><small>累计地面降雨</small><output id="cr-budget-rain">0.0</output></div><div><small>当前蓄水</small><output id="cr-budget-stored">0.0</output></div><div><small>排水 + 入渗</small><output id="cr-budget-removed">0.0</output></div><div><small>容量溢出 / 编辑移出</small><output id="cr-budget-overflow">0.0</output></div></div>
+  </section>
+  <div class="cr-notes"><section><span>试一个小实验</span><h2>雨停了，积水去哪了？</h2><p>先在低洼街区降雨十几秒，然后把降雨强度调到零。添加排水口，或在街角留一片绿地，再继续运行。蓝色水面会逐渐退去；封闭低洼处的水需要时间才能找到出口。</p></section><section><span>模型边界</span><h2>看懂趋势，不预测灾害</h2><p>这是 32 × 24 的守恒网格教学模型。水按相邻格子的水面高差流动，建筑阻挡流动，绿地入渗，排水口移除水。只对非建筑地面施雨，不模拟屋顶径流、管网、惯性或真实地形；边界封闭。时间、水深与降雨均为模型量，不能用于防洪、施工或出行决策。</p><details><summary>数值与水量说明</summary><p>固定步长 0.05 模型秒。每格流出的水按总提议量同比缩放，避免负水深。每格上限 4 单位，超出部分计入溢出。湿地面阈值为水深 &gt; 0.03；建筑覆盖湿格时，雨水转移到最近非建筑格，无法接收部分计入移出。累计降雨 = 蓄水 + 排水 + 入渗 + 溢出/移出（浮点舍入误差除外）。</p></details></section></div>
+  <noscript><p>这个交互沙盘需要 JavaScript。启用后即可绘制城市并观察雨水。</p></noscript>
+</ToolLayout>
+<script>import '../../scripts/city-rain/main';</script>

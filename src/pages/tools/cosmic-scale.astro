@@ -1,0 +1,64 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import { STOPS, MIN_EXP, MAX_EXP, HOME_EXP, AU, LIGHT_YEAR } from '../../scripts/cosmic-scale/model';
+import '../../styles/cosmic-scale.css';
+const featured = ['dna', 'cell', 'cup', 'city', 'earth', 'solar', 'galaxy'];
+const scaleTicks = [{ label: '30 纳米', metres: 30e-9 }, { label: '1 米', metres: 1 }, { label: '1 AU', metres: AU }, { label: '30 万光年', metres: 300_000 * LIGHT_YEAR }];
+---
+<ToolLayout title="宇宙尺度电梯 · 从杯子到银河" description="拖动一把连续的对数尺，从手边的杯子走向细胞、DNA、城市、地球与银河。真实尺寸、清晰标尺与可暂停的尺度旅程。" currentSlug="cosmic-scale">
+  <div slot="header" class="cosmic-heading">
+    <div><p class="cosmic-eyebrow">A JOURNEY THROUGH SCALE</p><h1>宇宙尺度电梯</h1></div>
+    <p>小到藏在一滴血里<br />大到装下十万年的光</p>
+  </div>
+  <section id="cosmic-app" class="cosmic-app" aria-label="宇宙尺度交互体验">
+    <div class="cosmic-topline"><span><i aria-hidden="true"></i> 换一把尺，重新看世界</span><span>从纳米到光年 · 约 29 个数量级</span></div>
+    <div class="cosmic-experience">
+      <div id="cosmic-stage" class="cosmic-stage" tabindex="0" role="region" aria-label="尺度画布，可用左右方向键缩放，PageUp 和 PageDown 跳站" aria-describedby="cosmic-key-help">
+        <canvas id="cosmic-canvas" aria-label="按当前视野宽度缩放的尺度插画">此浏览器不支持画布。下方的尺寸、站点与来源仍可阅读。</canvas>
+        <div class="cosmic-field"><span>眼前这片视野的宽度</span><output id="cosmic-field-size">36 厘米</output></div>
+        <div class="cosmic-direction" aria-hidden="true"><span>− 微观</span><span>宇宙 +</span></div>
+        <div class="cosmic-gap" id="cosmic-gap" hidden><span>在两个尺度之间</span><p id="cosmic-gap-text"></p></div>
+        <span id="cosmic-measure" class="cosmic-measure" aria-hidden="true"></span>
+        <div class="cosmic-ruler"><span id="cosmic-ruler-label">5 厘米</span><small>实际比例尺</small></div>
+        <span class="cosmic-art-note">艺术示意 · 背景光点为装饰</span>
+        <div class="cosmic-zoom" aria-label="缩放控制">
+          <button type="button" id="cosmic-in" aria-label="向微观缩小视野十倍" title="向微观：视野 ÷ 10">−</button>
+          <button type="button" id="cosmic-out" aria-label="向宇宙扩大视野十倍" title="向宇宙：视野 × 10">+</button>
+        </div>
+      </div>
+      <aside class="cosmic-card" aria-label="当前尺度说明">
+        <p id="cosmic-chapter" class="cosmic-chapter">02 / 触手可及</p>
+        <div class="cosmic-orbit-icon" aria-hidden="true"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="29"/><ellipse cx="40" cy="40" rx="36" ry="14" transform="rotate(-35 40 40)"/><circle cx="40" cy="40" r="4" class="cosmic-icon-dot"/><circle cx="63" cy="21" r="3" class="cosmic-icon-dot"/></svg></div>
+        <h2 id="cosmic-name">你手边的杯子</h2>
+        <p id="cosmic-dimension" class="cosmic-dimension">示例总宽 12 厘米</p>
+        <span id="cosmic-kind" class="cosmic-kind">选定的生活参照</span>
+        <p id="cosmic-fact" class="cosmic-fact">旅程从一个熟悉的物件开始。每向外跨一格，视野就扩大 10 倍，杯子会缩小到原来的十分之一。</p>
+        <div class="cosmic-card-bottom"><p id="cosmic-caveat">示例杯子含把手总宽 12 厘米；不是所有杯子的标准尺寸，蒸汽不计入宽度。</p><a id="cosmic-source" href="#cosmic-method" target="_blank" rel="noopener noreferrer" hidden>科学来源 ↗</a></div>
+      </aside>
+    </div>
+    <div class="cosmic-console">
+      <div class="cosmic-console-top"><label for="cosmic-range">拖动，穿越尺度</label><span id="cosmic-exponent">对数尺 · 每一整格 = 10 倍</span></div>
+      <input id="cosmic-range" type="range" min={MIN_EXP} max={MAX_EXP} value={HOME_EXP} step="0.005" aria-label="视野尺度" />
+      <div class="cosmic-scale-labels" aria-hidden="true">{scaleTicks.map((tick, index) => <span data-metres={tick.metres} class={index === 0 ? "first" : index === scaleTicks.length - 1 ? "last" : undefined} style={`left:${(Math.log10(tick.metres) - MIN_EXP) / (MAX_EXP - MIN_EXP) * 100}%`}>{tick.label}</span>)}</div>
+      <nav class="cosmic-stops" aria-label="尺度快捷站点">{STOPS.filter(stop => featured.includes(stop.id)).map(stop => <button type="button" data-stop={stop.id} aria-pressed={stop.id === 'cup'}><span class="cosmic-stop-dot" style={`--stop-color:${stop.color}`}></span>{stop.id === 'cup' ? '杯子' : stop.id === 'cell' ? '细胞' : stop.id === 'dna' ? 'DNA' : stop.id === 'solar' ? '太阳系' : stop.name}</button>)}</nav>
+      <div class="cosmic-transport">
+        <div class="cosmic-actions"><button type="button" id="cosmic-play" aria-pressed="false">▷ 自动向外旅行</button><button type="button" id="cosmic-home">回到杯子</button><button type="button" id="cosmic-prev" aria-label="上一尺度站点">← 上一站</button><button type="button" id="cosmic-next" aria-label="下一尺度站点">下一站 →</button></div>
+        <label class="cosmic-wheel"><input id="cosmic-wheel" type="checkbox" /> 在画布上用滚轮缩放</label>
+      </div>
+      <div class="cosmic-statusrow"><p id="cosmic-status" role="status">已停在杯子旁。向左去微观，向右去宇宙。</p><label class="cosmic-jump">全部站点 <select id="cosmic-select" aria-label="选择尺度站点">{STOPS.map(stop => <option value={stop.id} selected={stop.id === 'cup'}>{stop.name}</option>)}</select></label></div>
+      <p id="cosmic-key-help" class="cosmic-help">画布键盘：← / → 缩放，PageUp / PageDown 跳站，Home 回杯子，空格播放或暂停。任何手动操作都会暂停旅行。</p>
+    </div>
+    <noscript><p class="cosmic-noscript">开启 JavaScript 后可拖动尺度。下方仍保留完整尺寸表与参考来源。</p></noscript>
+  </section>
+  <div class="cosmic-explainer" id="cosmic-method">
+    <section><span class="cosmic-number">01</span><h2>不是越来越大的数字<br />是越来越小的自己</h2><p>视野宽度每扩大 10 倍，物体在画面上就缩小到十分之一。标尺始终使用实际长度；纳米、微米、米、千米、天文单位与光年，只是同一把尺的不同写法。</p></section>
+    <section><span class="cosmic-number">02</span><h2>比例是真的<br />画面是一种解释</h2><p>不同参照物会依次对齐画面中心，不表示它们真实嵌套或位于同一位置。物体轮廓按标注尺寸缩放；太阳系行星点与比邻星定位点明确放大，颜色、细节和背景为示意。</p></section>
+    <section><span class="cosmic-number">03</span><h2>给尺度一个停顿<br />再继续出发</h2><p>默认静止。你可以随时打断自动旅行；切换到其他标签页会暂停，不会偷偷继续。系统开启“减少动态效果”时，跳站即时完成，自动旅行关闭。</p></section>
+  </div>
+  <nav class="cosmic-related" aria-label="继续探索"><span>继续探索</span><a href="/tools/planet-builder/">造一颗星球 ↗</a><a href="/tools/black-hole/">靠近黑洞 ↗</a><a href="/space/">去轻星图看看 ↗</a></nav>
+  <details class="cosmic-data"><summary>查看全部尺寸、建模约定与科学来源</summary><div class="cosmic-data-grid">{STOPS.map(stop => <article><h3>{stop.name}</h3><p>{stop.dimension}</p><small>{stop.caveat}</small>{stop.source && <a href={stop.source.url} target="_blank" rel="noopener noreferrer">{stop.source.name} ↗</a>}</article>)}</div><p>单位换算：1 AU = 149,597,870,700 米；1 光年取光速 299,792,458 米/秒乘以儒略年 365.25 天。银河及生物尺寸为约值，不表达超出资料的测量精度。<a href="https://iauarchive.eso.org/public/themes/measuring/" target="_blank" rel="noopener noreferrer">IAU · 天文长度单位 ↗</a></p></details>
+</ToolLayout>
+<script>
+  import { bootCosmicScale } from '../../scripts/cosmic-scale/main';
+  bootCosmicScale();
+</script>

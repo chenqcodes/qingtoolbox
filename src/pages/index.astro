@@ -36,12 +36,21 @@ const grouped = categories.map((cat) => ({
       </div>
     </section>
 
+    <form class="tool-search" role="search" onsubmit="return false">
+      <label for="tool-search-input">找一个工具</label>
+      <div class="tool-search-row">
+        <input id="tool-search-input" type="search" placeholder="搜索工具、用途或关键词，例如：黑洞、PDF、混沌" autocomplete="off" aria-describedby="tool-search-status" />
+        <button id="tool-search-clear" type="button" hidden>清空</button>
+      </div>
+      <p id="tool-search-status" role="status" aria-live="polite">共 {tools.length} 个工具，选一个开始探索</p>
+    </form>
+
     {grouped.map((group) => (
       <section class="tool-category">
         <h2 class="category-title">{group.name}</h2>
         <div class="tool-grid">
           {group.tools.map((tool) => (
-            <a href={toolHref(tool)} class="tool-card">
+            <a href={toolHref(tool)} class="tool-card" data-search={[tool.name, tool.desc, tool.slug, group.name, ...tool.tags].join(" ").toLowerCase()}>
               <div class="icon">{tool.icon}</div>
               <div class="tool-card-body">
                 <h3>{tool.name}</h3>
@@ -54,3 +63,35 @@ const grouped = categories.map((cat) => ({
     ))}
   </div>
 </BaseLayout>
+
+<script>
+  const search = document.querySelector<HTMLInputElement>('#tool-search-input')!;
+  const clear = document.querySelector<HTMLButtonElement>('#tool-search-clear')!;
+  const status = document.querySelector<HTMLElement>('#tool-search-status')!;
+  const cards = [...document.querySelectorAll<HTMLAnchorElement>('.tool-card')];
+  const groups = [...document.querySelectorAll<HTMLElement>('.tool-category')];
+  function filterTools() {
+    const words = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    let count = 0;
+    for (const card of cards) {
+      card.hidden = !words.every(word => card.dataset.search?.includes(word));
+      if (!card.hidden) count++;
+    }
+    for (const group of groups) group.hidden = !group.querySelector('.tool-card:not([hidden])');
+    clear.hidden = !search.value;
+    status.textContent = words.length ? (count ? `找到 ${count} 个工具` : '没有找到匹配的工具，试试其他关键词') : `共 ${cards.length} 个工具，选一个开始探索`;
+  }
+  search.addEventListener('input', filterTools);
+  clear.addEventListener('click', () => { search.value = ''; filterTools(); search.focus(); });
+  search.addEventListener('keydown', event => { if (event.key === 'Escape') { search.value = ''; filterTools(); } });
+</script>
+<style>
+  [hidden] { display: none !important; }
+  .tool-search { margin: 0 0 2rem; }
+  .tool-search label { display: block; font-weight: 650; margin-bottom: .6rem; }
+  .tool-search-row { display: flex; gap: .6rem; }
+  .tool-search input { flex: 1; min-width: 0; width: 100%; padding: .85rem 1rem; font: inherit; color: inherit; border: 1px solid #d5dce6; background: #fff; border-radius: 12px; }
+  .tool-search button { border: 1px solid #d5dce6; border-radius: 12px; background: #fff; color: #36435b; padding: .6rem 1rem; cursor: pointer; }
+  .tool-search p { font-size: .85rem; color: #667085; margin: .6rem 0 0; min-height: 1.5em; }
+  .tool-search :focus-visible { outline: 3px solid #76a7e9; outline-offset: 2px; }
+</style>

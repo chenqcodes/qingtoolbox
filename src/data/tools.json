@@ -1,5 +1,72 @@
 [
   {
+    "slug": "planet-builder",
+    "name": "造一颗星球",
+    "desc": "塑造海陆、云层与极光，收藏你的行星肖像",
+    "icon": "球",
+    "category": "astro",
+    "tags": [
+      "天文",
+      "创作",
+      "行星",
+      "地形",
+      "PNG"
+    ]
+  },
+  {
+    "slug": "black-hole",
+    "name": "黑洞观测站",
+    "desc": "探索吸积盘、引力透镜示意与黑洞的尺度",
+    "icon": "洞",
+    "category": "astro",
+    "tags": [
+      "天文",
+      "黑洞",
+      "引力",
+      "相对论"
+    ]
+  },
+  {
+    "slug": "cosmic-scale",
+    "name": "宇宙尺度电梯",
+    "desc": "从分子到银河，沿真实数量级连续穿行",
+    "icon": "尺",
+    "category": "astro",
+    "tags": [
+      "天文",
+      "尺度",
+      "科普",
+      "细胞",
+      "银河"
+    ]
+  },
+  {
+    "slug": "double-pendulum",
+    "name": "双摆混沌实验",
+    "desc": "微小初始差异、轨迹分离与可回放的双摆",
+    "icon": "摆",
+    "category": "visual",
+    "tags": [
+      "物理",
+      "混沌",
+      "轨迹",
+      "动力学"
+    ]
+  },
+  {
+    "slug": "city-rain",
+    "name": "城市雨水沙盒",
+    "desc": "画街道与建筑，观察雨水流动和积水变化",
+    "icon": "雨",
+    "category": "visual",
+    "tags": [
+      "水流",
+      "降雨",
+      "城市",
+      "模拟"
+    ]
+  },
+  {
     "slug": "hanzi-worksheet",
     "name": "汉字练习纸",
     "desc": "A4 田字格字帖与听写纸，自选描红比例和拼音",

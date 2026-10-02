@@ -1,0 +1,31 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/double-pendulum.css';
+---
+<ToolLayout title="双摆混沌实验室 · 一点不同，两条命运" description="拖动双摆，观察仅差 0.01° 的初始条件如何走向不同轨迹。支持实时能量误差、轨迹、回放与微扰集合。" currentSlug="double-pendulum">
+  <div class="dp-intro" slot="header"><span>CHAOS / 01</span><h1>一点不同，<em>两条命运。</em></h1><p>给两只双摆几乎相同的起点，看看「几乎」能走多远。</p></div>
+  <section class="dp-lab" id="double-pendulum-lab" aria-label="双摆混沌实验室">
+    <div class="dp-scene">
+      <div class="dp-scene-heading"><span>DOUBLE PENDULUM</span><span id="dp-status" role="status">准备就绪</span></div>
+      <canvas id="dp-canvas" aria-label="两只双摆与下摆球的历史轨迹，可拖动金色摆球设置初始角度。也可使用旁边的角度滑杆。" tabindex="0"></canvas>
+      <div class="dp-scene-caption"><span><i class="dp-dot"></i> A · 原始轨迹</span><span><i class="dp-dot dp-blue"></i> B · 微小偏差</span><span>拖动金色摆球，重新出发</span></div>
+      <div class="dp-metrics"><div><small>模型时间</small><strong id="dp-time">0.00 <span>s</span></strong></div><div><small>两端点距离</small><strong id="dp-distance">0.0002 <span>m</span></strong></div><div><small>归一化能量漂移 · A</small><strong id="dp-error">0.00000 <span>%</span></strong></div></div>
+    </div>
+    <aside class="dp-controls" aria-label="实验控制">
+      <div class="dp-chapter"><span>01 / 设定起点</span><h2>改变一个微小细节</h2></div>
+      <label class="dp-range" for="dp-angle1">上摆初始角度 <output id="dp-angle1-value">125°</output><input id="dp-angle1" type="range" min="-180" max="180" step="1" value="125" /></label>
+      <label class="dp-range" for="dp-angle2">下摆初始角度 <output id="dp-angle2-value">145°</output><input id="dp-angle2" type="range" min="-180" max="180" step="1" value="145" /></label>
+      <label class="dp-field" for="dp-offset">B 的下摆多偏一点<select id="dp-offset"><option value="0.01">+ 0.01° · 几乎相同</option><option value="0.1">+ 0.1°</option><option value="1">+ 1°</option></select></label>
+      <div class="dp-presets" aria-label="初始状态预设"><button type="button" data-preset="chaos">混沌起点</button><button type="button" data-preset="gentle">小幅摇摆</button><button type="button" data-preset="folded">折叠释放</button></div>
+      <div class="dp-chapter dp-second"><span>02 / 观察分岔</span></div>
+      <div class="dp-actions"><button type="button" id="dp-play" class="dp-primary" aria-pressed="false">开始实验</button><button type="button" id="dp-reset">重置</button></div>
+      <label class="dp-field" for="dp-speed">时间速度<select id="dp-speed"><option value="0.25">¼ × · 慢动作</option><option value="0.5">½ ×</option><option value="1" selected>1 ×</option><option value="2">2 ×</option></select></label>
+      <label class="dp-toggle"><input id="dp-trails" type="checkbox" checked /> 显示轨迹</label><label class="dp-toggle"><input id="dp-ensemble" type="checkbox" /> 16 条微扰轨迹 <span>会重启</span></label>
+      <p class="dp-help">角度从竖直向下测量。调整起点、偏差或集合会清空回放，并以零初速度重新释放。</p>
+    </aside>
+    <div class="dp-timeline"><div><label for="dp-rewind">时间切片</label><output id="dp-window">最近 0.0 秒</output></div><input id="dp-rewind" type="range" min="0" max="0" step="1" value="0" aria-label="回看最近三十秒" /><p>拖动即暂停，最多保留最近 30 秒；继续播放会从选中时刻分出新的未来。</p></div>
+  </section>
+  <div class="dp-notes"><section><span>为什么会分开？</span><h2>确定的规则，不确定的远方</h2><p>双摆遵守确定的运动方程。较高能量下，微小的初始误差可能快速放大；小幅摆动则更接近规则振荡。分离并不总是单调增长，也不是每个起点都会表现出强混沌。</p></section><section><span>这个实验怎么算？</span><h2>让误差也被看见</h2><p>两根无质量刚杆长 1 m，两个点质量各 1 kg，重力 9.81 m/s²，无摩擦。使用固定步长 1/240 s 的四阶 Runge–Kutta；显示 |E−E₀| / 29.43 J，避免初始能量接近零时比例失真。长期轨迹仍受数值误差影响。</p><a href="https://www.myphysicslab.com/pendulum/double-pendulum-en.html" target="_blank" rel="noopener noreferrer">运动方程与推导 ↗</a></section></div>
+  <noscript><p>这个交互实验需要 JavaScript。启用后即可拖动摆球与查看轨迹。</p></noscript>
+</ToolLayout>
+<script>import '../../scripts/double-pendulum/main';</script>

@@ -144,3 +144,30 @@ export function cameraForGap(logGap: number, initialLogGap: number): GapCamera {
     decades,
   };
 }
+
+
+/** One chase uses a fixed affine camera. Both animals move forward, and the rabbit
+ * arrives at the turtle's marked starting position. Reframing is a separate phase.
+ * Positions are calculated relative to this segment, never by subtracting rounded
+ * absolute world coordinates. Illustrations sit outside their position markers. */
+export function pursuitFrame(p: RaceParameters, index: number, progress: number) {
+  if (!Number.isFinite(progress)) throw new RangeError('Progress must be finite.');
+  const stage = stageAt(p, index), u = p.rabbit === 0 ? 0 : Math.min(1, Math.max(0, progress));
+  if (stage.logGap === -Infinity) return { rabbitX: 450, turtleX: 450, targetX: 450, screenGap: 0,
+    logGap: -Infinity, logPixelsPerMetre: 0, glyphScale: 1, decades: 0 };
+  const logQ = p.rabbit === 0 ? 0 : p.turtle === 0 ? -Infinity : ratioLog(p);
+  const decades = Math.max(0, (Math.log(p.lead) - stage.logGap) / Math.LN10);
+  const span = 340 + 240 / (1 + decades / 6);
+  // Logistic shares avoid overflowing the raw speed ratio or their sum.
+  const rabbitShare = logQ > 0 ? Math.exp(-logQ) / (1 + Math.exp(-logQ)) : 1 / (1 + Math.exp(logQ));
+  const turtleShare = logQ > 0 ? 1 / (1 + Math.exp(-logQ)) : Math.exp(logQ) / (1 + Math.exp(logQ));
+  const travel = span * rabbitShare, turtleTravel = span * turtleShare;
+  const a = Math.log1p(-u), b = logQ + Math.log(u), high = Math.max(a, b);
+  const logFactor = u === 0 ? 0 : high === -Infinity ? -Infinity : high + Math.log(Math.exp(a - high) + Math.exp(b - high));
+  const logGap = stage.logGap + logFactor;
+  const rabbitX = 140 + travel * u, turtleX = 140 + travel + turtleTravel * u;
+  return { rabbitX, turtleX, targetX: 140 + travel,
+    screenGap: travel * (1 - u) + turtleTravel * u, logGap,
+    logPixelsPerMetre: Math.log(span) - (logQ > 0 ? logQ + Math.log1p(Math.exp(-logQ)) : Math.log1p(Math.exp(logQ))) - stage.logGap,
+    glyphScale: .5 + .5 / (1 + decades / 4), decades };
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap } from './model';
 const close = (a: number, b: number, tolerance = 1e-12) => assert.ok(Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(b)), `${a} ≠ ${b}`);
 test('default stages are 1, 0.1, 0.01 seconds; the finite limit is 10/9', () => {
   close(meetingTime(DEFAULT_RACE)!, 10 / 9);
@@ -54,10 +54,54 @@ test('nearly equal speeds avoid catastrophic cancellation', () => {
   close(stageAt(p, 2).time, 10 / p.rabbit * (1 + p.turtle / p.rabbit), 1e-14);
   assert.ok(stageAt(p, 2).gap > 0); assert.ok(stageAt(p, 2).tail! > 0);
 });
-test('finite-precision guard never silently finishes infinitely many positive-gap stages', () => {
-  let s = stageAt(DEFAULT_RACE, 0), steps = 0;
-  while (true) { const next = nextStage(DEFAULT_RACE, s); if (next.stop) { assert.equal(next.stop, 'resolution'); break; } s = next.stage; steps++; assert.ok(steps < MAX_STAGES); }
-  assert.ok(s.gap > 0); assert.ok(s.tail! > 0); assert.ok(s.time < meetingTime(DEFAULT_RACE)!);
+test('rounded total time never prevents advancing to the honest finite-stage cap', () => {
+  let s = stageAt(DEFAULT_RACE, 0), roundedTimes = 0;
+  for (let index = 1; index <= MAX_STAGES; index++) {
+    const next = nextStage(DEFAULT_RACE, s);
+    assert.equal(next.stop, null); assert.equal(next.stage.index, index);
+    assert.ok(next.stage.logGap < s.logGap); assert.ok(next.stage.logTail! < s.logTail!);
+    if (next.stage.time === s.time) roundedTimes++;
+    s = next.stage;
+  }
+  assert.ok(roundedTimes > 100);
+  assert.equal(s.time, meetingTime(DEFAULT_RACE));
+  assert.ok(s.gap > 0); assert.ok(s.tail! > 0);
+  close(s.logGap, Math.log(10) - MAX_STAGES * Math.LN10);
+  assert.equal(nextStage(DEFAULT_RACE, s).stop, 'stage-cap');
+  // Only selecting the continuous meeting event yields the model's exact zero.
+  assert.equal(positionsAt(DEFAULT_RACE, s.time).gap, 0);
+});
+test('underflowing numeric gaps retain positive logarithmic distances, tails and durations', () => {
+  const p = { lead: 30, rabbit: 20, turtle: .1 };
+  let s = stageAt(p, 0), underflowed = false;
+  for (let index = 1; index <= MAX_STAGES; index++) {
+    const next = nextStage(p, s);
+    assert.equal(next.stop, null);
+    assert.ok(next.stage.logGap < s.logGap);
+    assert.ok([next.stage.logGap, next.stage.logTail, next.stage.logDuration].every(Number.isFinite));
+    if (next.stage.logGap >= Math.log(Number.MIN_VALUE)) assert.ok(next.stage.gap > 0);
+    if (next.stage.gap === 0) {
+      underflowed = true;
+      assert.notEqual(formatLogDistance(next.stage.logGap), '0 m');
+    }
+    s = next.stage;
+  }
+  assert.ok(underflowed); assert.equal(s.gap, 0); assert.equal(s.tail, 0); assert.equal(s.duration, 0);
+  assert.equal(nextStage(p, s).stop, 'stage-cap');
+  close(s.logTail!, s.logGap - Math.log(p.rabbit - p.turtle));
+  close(s.logDuration, Math.log(p.lead / p.rabbit) + 199 * Math.log(p.turtle / p.rabbit));
+});
+test('every positive supported catching speed pair has valid logarithms at stage 200', () => {
+  for (let rabbitTenths = 2; rabbitTenths <= 200; rabbitTenths++) {
+    for (let turtleTenths = 1; turtleTenths < rabbitTenths; turtleTenths++) {
+      const p = { lead: turtleTenths % 2 ? .1 : 30, rabbit: rabbitTenths / 10, turtle: turtleTenths / 10 };
+      const before = stageAt(p, MAX_STAGES - 1), next = nextStage(p, before);
+      assert.equal(next.stop, null); assert.equal(next.stage.index, MAX_STAGES);
+      assert.ok(next.stage.logGap < before.logGap);
+      assert.ok(next.stage.logTail! < before.logTail!);
+      assert.ok(Number.isFinite(next.stage.logDuration));
+    }
+  }
 });
 test('extreme supported inputs remain finite and larger mathematical values stop safely', () => {
   for (const p of [{ lead: 30, rabbit: 20, turtle: .1 }, { lead: 30, rabbit: .1, turtle: 20 }, { lead: 1e-100, rabbit: 1e100, turtle: 1 }, { lead: 1e100, rabbit: 1e-100, turtle: 0 }]) {
@@ -79,4 +123,46 @@ test('directly selected meeting is coincident without treating neighboring times
   const p = { lead: 17, rabbit: 3.7, turtle: 2.9 }, t = meetingTime(p)!;
   assert.equal(positionsAt(p, t).gap, 0); assert.equal(positionsAt(p, t).rabbit, positionsAt(p, t).turtle);
   assert.ok(positionsAt(p, t * (1 - 1e-10)).gap > 0); assert.ok(positionsAt(p, t * (1 + 1e-10)).gap < 0);
+});
+
+test('distance labels adapt units and stay nonzero hundreds of decades below underflow', () => {
+  for (const [metres, expected] of [
+    [10, '10 m'], [1, '1 m'], [.1, '10 cm'], [.01, '1 cm'], [.001, '1 mm'],
+    [.0001, '100 μm'], [1e-6, '1 μm'], [1e-7, '100 nm'], [1e-9, '1 nm'],
+    [1e-10, '100 pm'], [1e-12, '1 pm'], [1e-13, '1e-13 m'], [1e6, '1e6 m'],
+    [Number.MIN_VALUE, '4.94e-324 m'],
+  ] as const) assert.equal(formatLogDistance(Math.log(metres)), expected);
+  assert.equal(formatLogDistance(-460 * Math.LN10), '1e-460 m');
+  assert.equal(formatLogDistance(Math.log(3.25) - 460 * Math.LN10), '3.25e-460 m');
+  assert.equal(formatLogDistance(-Infinity), '0 m');
+  assert.equal(formatLogDistance(NaN), '超出显示范围');
+  assert.equal(formatLogDistance(Infinity), '超出显示范围');
+});
+
+test('zoom camera continuously shrinks the visible gap and both glyphs through all stages', () => {
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: .1 }, { lead: .1, rabbit: 20, turtle: 19.9 }]) {
+    const initialLogGap = Math.log(p.lead);
+    let previous = cameraForGap(initialLogGap, initialLogGap);
+    assert.equal(previous.screenGap, 560); assert.equal(previous.glyphScale, 1); assert.equal(previous.logZoom, 0);
+    for (let index = 1; index <= MAX_STAGES; index++) {
+      const s = stageAt(p, index), current = cameraForGap(s.logGap, initialLogGap);
+      assert.ok(Object.values(current).every(Number.isFinite));
+      assert.ok(current.screenGap < previous.screenGap); assert.ok(current.screenGap > 8);
+      assert.ok(current.glyphScale < previous.glyphScale); assert.ok(current.glyphScale > .11);
+      assert.ok(current.logZoom > previous.logZoom);
+      close(current.logZoom, initialLogGap - s.logGap + Math.log(current.screenGap / 560));
+      previous = current;
+    }
+  }
+  const deep = cameraForGap(-460 * Math.LN10, 0);
+  assert.ok(deep.screenGap < 11); assert.ok(deep.glyphScale < .12);
+});
+
+test('camera handles genuine zero, equal or growing gaps without invalid geometry', () => {
+  assert.deepEqual(cameraForGap(-Infinity, -Infinity), { screenGap: 0, logZoom: 0, glyphScale: 1, decades: 0 });
+  assert.deepEqual(cameraForGap(-Infinity, Math.log(10)), { screenGap: 0, logZoom: 0, glyphScale: 1, decades: 0 });
+  assert.deepEqual(cameraForGap(Math.log(20), Math.log(10)), cameraForGap(Math.log(10), Math.log(10)));
+  assert.ok(Object.values(cameraForGap(-Number.MAX_VALUE, Number.MAX_VALUE)).every(Number.isFinite));
+  assert.throws(() => cameraForGap(NaN, 0), RangeError);
+  assert.throws(() => cameraForGap(0, Infinity), RangeError);
 });

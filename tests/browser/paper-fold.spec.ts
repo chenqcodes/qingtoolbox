@@ -18,7 +18,7 @@ test('initial sheet, doubling, exact layer count and scientific units', async ({
   await expect(page.locator('#pf-step')).toBeDisabled();
   await page.getByRole('button',{name:'重置',exact:true}).click();
   await expect(lab).toHaveAttribute('data-folds','0');await expect(lab).toHaveAttribute('data-playing','false');
-  await page.screenshot({path:testInfo.outputPath('paper-fold-start-desktop.png'),fullPage:true});
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:testInfo.outputPath('paper-fold-start-desktop.png'),fullPage:true});
   expect(errors).toEqual([]);
 });
 
@@ -44,7 +44,7 @@ test('reference milestones are first crossings and solar-system extent is explic
     await page.locator(`[data-milestone="${id}"]`).click();
     await expect(lab).toHaveAttribute('data-folds',String(folds));
     await expect(page.locator(`[data-milestone="${id}"]`)).toHaveAttribute('aria-current','true');
-    if(id==='earth'||id==='solar')await page.locator('#paper-fold-lab').screenshot({path:testInfo.outputPath(`paper-fold-${id}-desktop.png`)});
+    if(id==='earth'||id==='solar'){await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:testInfo.outputPath(`paper-fold-${id}-desktop.png`),fullPage:true});}
   }
   await page.getByText('尺度口径与数据来源',{exact:true}).click();
   await expect(page.locator('.pf-sources')).toContainText('约 60 AU');await expect(page.locator('.pf-sources')).toContainText('不是太阳系的真实边界');
@@ -94,7 +94,7 @@ test('mobile layout and keyboard controls remain usable', async ({page},testInfo
   await page.keyboard.press('End');await expect(page.locator('#pf-count')).toHaveText('80');await page.keyboard.press('Home');await expect(page.locator('#pf-count')).toHaveText('0');
   await page.locator('[data-milestone="earth"]').click();await expect(page.locator('#pf-count')).toHaveText('37');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  await page.screenshot({path:testInfo.outputPath('paper-fold-earth-mobile.png'),fullPage:true});
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:testInfo.outputPath('paper-fold-earth-mobile.png'),fullPage:true});
   await page.setViewportSize({width:320,height:780});await setFolds(page,80);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   expect(errors).toEqual([]);
 });

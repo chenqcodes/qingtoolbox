@@ -33,24 +33,24 @@
 .tool-search-row > svg { width: 20px; height: 20px; flex: 0 0 auto; stroke: #819078; stroke-width: 1.5; }
 .tool-search input { font: inherit; color: #32432f; background: transparent; border: 0; border-radius: 0; box-shadow: none; width: 100%; min-width: 0; height: 58px; padding: 0; flex: 1; }
 .tool-search input:focus, .tool-search input:focus-visible { outline: none; box-shadow: none; }
-.tool-search input::placeholder { color: #8d9488; font-size: 13px; }
+.tool-search input::placeholder { color: #737e6a; font-size: 13px; }
 .tool-search button { font: inherit; font-size: 12px; color: #506744; background: #f0f3ea; border: 0; padding: 7px 12px; border-radius: 5px; cursor: pointer; flex: 0 0 auto; }
-.search-hint { color: #8f968a; font-size: 10px; white-space: nowrap; border: 1px solid #e9ece3; padding: 2px 6px; border-radius: 4px; }
+.search-hint { color: #727e66; font-size: 10px; white-space: nowrap; border: 1px solid #e9ece3; padding: 2px 6px; border-radius: 4px; }
 .has-query .search-hint { display: none; }
-.tool-search > p { color: #8a9185; font-size: 11px; margin-top: 9px; min-height: 1.65em; }
+.tool-search > p { color: #707c65; font-size: 11px; margin-top: 9px; min-height: 1.65em; }
 .home-catalog { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 42px; border-top: 1px solid #e1e4da; padding-top: 28px; }
 .catalog-sidebar { align-self: start; position: sticky; top: 102px; padding-top: 3px; }
 .catalog-sidebar > .home-eyebrow { margin-bottom: 19px; font-size: 9px; }
 .category-shortcuts { display: grid; gap: 5px; }
 .category-shortcuts a { display: flex; justify-content: space-between; align-items: center; color: #65705f; font-size: 12px; padding: 9px 10px 9px 0; border-bottom: 1px solid transparent; }
 .category-shortcuts a:hover { color: #304b2c; border-color: #bbc8ae; text-decoration: none; }
-.category-shortcuts small { color: #939c89; font: 10px var(--mono); }
-.catalog-note { font-size: 11px; color: #91998a; line-height: 1.9; margin-top: 32px; }
+.category-shortcuts small { color: #727e66; font: 10px var(--mono); }
+.catalog-note { font-size: 11px; color: #6f7a65; line-height: 1.9; margin-top: 32px; }
 .tool-category { margin-bottom: 38px; scroll-margin-top: 98px; }
 .category-heading { display: flex; justify-content: space-between; align-items: end; gap: 15px; margin-bottom: 15px; }
-.category-eyebrow { color: #9a9f91; font-size: 8px; margin-bottom: 5px; }
+.category-eyebrow { color: #75816b; font-size: 8px; margin-bottom: 5px; }
 .category-title { font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 21px; font-weight: 500; color: #34412e; padding: 0; border: 0; margin: 0; }
-.category-heading > p { font-size: 10px; color: #92988b; text-align: right; }
+.category-heading > p { font-size: 10px; color: #737c69; text-align: right; }
 .tool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .tool-card { display: flex; flex-direction: column; gap: 13px; padding: 17px 18px 19px; min-height: 163px; border-radius: 10px; border: 1px solid #e4e6dd; background: #fffefa; box-shadow: none; }
 .tool-card:hover { transform: translateY(-3px); background: #fffefa; border-color: #b5c2a9; box-shadow: 0 9px 23px #344b2c09; }
@@ -59,16 +59,16 @@
 .tool-card-arrow { color: #a3ad98; font-size: 15px; }
 .tool-new { font-size: 9px; letter-spacing: .03em; color: #78905f; background: #f0f4e9; padding: 2px 6px; border-radius: 3px; }
 .tool-card h3 { font-size: 14px; font-weight: 550; color: #34412e; line-height: 1.5; margin-bottom: 5px; }
-.tool-card p { font-size: 11px; line-height: 1.8; color: #8a9083; }
+.tool-card p { font-size: 12px; line-height: 1.8; color: #697261; }
 [data-category='office'] { --category-tint: #eff0e4; --category-ink: #84915b; }
 [data-category='image'] { --category-tint: #f7ece5; --category-ink: #b68a65; }
 [data-category='dev'] { --category-tint: #e9eff0; --category-ink: #708f93; }
 [data-category='visual'] { --category-tint: #f1eaf4; --category-ink: #9e82b0; }
 [data-category='astro'] { --category-tint: #e9eaf2; --category-ink: #7c84ae; }
 .home-closing { margin-top: 10px; padding: 25px 0 0; border-top: 1px solid #e1e4da; color: #839077; font-size: 12px; display: flex; justify-content: space-between; gap: 20px; }
-.home-closing span { font-size: 8px; letter-spacing: .13em; color: #a1a795; }
+.home-closing span { font-size: 8px; letter-spacing: .13em; color: #768169; }
 .home-content :focus-visible { outline: 2px solid #718a5f; outline-offset: 4px; }
 @media (max-width: 1000px) { .home-catalog { grid-template-columns: 145px minmax(0, 1fr); gap: 25px; } .tool-card { padding: 15px; } .category-heading > p { display: none; } }
 @media (max-width: 760px) { .home-intro { padding: 26px 0 27px; grid-template-columns: 1fr; gap: 0; } .home-still-life { display: none; } .home-intro h1 { font-size: 38px; } .home-intro .home-eyebrow { margin-bottom: 13px; font-size: 8px; } .home-description .home-break { display: none; } .home-catalog { display: block; padding-top: 20px; } .catalog-sidebar { position: static; margin-bottom: 26px; } .catalog-sidebar > .home-eyebrow, .catalog-note { display: none; } .category-shortcuts { display: flex; flex-wrap: wrap; gap: 7px; } .category-shortcuts a { font-size: 11px; padding: 7px 10px; border: 1px solid #dfe4d6; background: #f5f7ee; border-radius: 6px; gap: 7px; } .category-shortcuts small { font-size: 8px; } .tool-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; } .tool-card { min-height: 155px; } .tool-search { margin-bottom: 21px; } .tool-search-row { min-height: 54px; padding: 0 12px; } .tool-search input { height: 52px; } .search-hint { display: none; } .home-closing { flex-direction: column; gap: 8px; } }
-@media (max-width: 370px) { .home-intro h1 { font-size: 31px; } .home-intro .home-description { font-size: 12px; } .tool-card { padding: 12px; } .tool-card h3 { font-size: 13px; } .tool-card p { font-size: 10px; } .category-shortcuts a { padding: 6px 8px; } }
+@media (max-width: 370px) { .home-intro h1 { font-size: 31px; } .home-intro .home-description { font-size: 12px; } .tool-card { padding: 12px; } .tool-card h3 { font-size: 13px; } .tool-card p { font-size: 11px; } .category-shortcuts a { padding: 6px 8px; } }
 @media (prefers-reduced-motion: reduce) { .tool-card { transition: none; } .tool-card:hover { transform: none; } }

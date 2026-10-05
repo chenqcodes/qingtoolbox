@@ -13,6 +13,7 @@ test('chosen endpoints remain before meeting; continuous time passes it', async 
     await expect(page.locator('#zr-observation')).toContainText('相遇之前');
     expect(Number(await lab.getAttribute('data-time'))).toBeLessThan(10 / 9);
   }
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('zeno-snapshots-desktop.png'), fullPage: true });
   await page.locator('#zr-meet').click();
   await expect(lab).toHaveAttribute('data-mode', 'continuous'); await expect(page.locator('#zr-gap')).toHaveText('0 m');
@@ -20,6 +21,7 @@ test('chosen endpoints remain before meeting; continuous time passes it', async 
   await page.locator('#zr-compare').click();
   await expect(page.locator('#zr-time')).toHaveText('1.2 s'); await expect(page.locator('#zr-rabbit-position')).toHaveText('12 m'); await expect(page.locator('#zr-turtle-position')).toHaveText('11.2 m');
   await expect(page.locator('#zr-gap')).toHaveText('0.8 m'); await expect(page.locator('#zr-gap-label')).toHaveText('兔子已领先');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('zeno-passing-desktop.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -79,5 +81,5 @@ for (const width of [390, 320]) test(`mobile ${width}px keyboard and reduced-mot
   await page.locator('#zr-mode-continuous').focus(); await page.keyboard.press('Enter'); await expect(page.locator('#zr-mode-continuous')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#zr-scrub').focus(); await page.keyboard.press('End'); await expect(page.locator('#zr-gap-label')).toHaveText('兔子已领先');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
-  await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: testInfo.outputPath('zeno-mobile.png'), fullPage: true });
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await page.screenshot({ path: testInfo.outputPath('zeno-mobile.png'), fullPage: true });
 });

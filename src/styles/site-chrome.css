@@ -19,10 +19,12 @@ body { background: #f8f8f2; background-image: none; }
 .tool-switcher { font-family: var(--ui-font); margin-bottom: 23px; font-size: 12px; color: #7c8872; }
 .tool-switcher-popover { border-color: #dce3d3; background: #fffef9; border-radius: 12px; box-shadow: 0 15px 35px #34482d15; }
 .tool-page > h1 { display: block; color: #30422f; font-size: clamp(24px, 3vw, 32px); font-weight: 550; margin: 0 0 10px; line-height: 1.4; }
-.tool-page > .intro { display: block; color: #7c8573; font-family: var(--ui-font); font-size: 13px; line-height: 1.8; margin-bottom: 24px; }
+.tool-page > .intro { display: block; color: #69755f; font-family: var(--ui-font); font-size: 13px; line-height: 1.8; margin-bottom: 24px; }
 .tool-page > .json-split > .tool-panel, .tool-page > .tool-panel { background: #fffefb; border-color: #dfe4d7; border-radius: 12px; }
-.site-footer { border-color: #e0e5d7; background: #f5f6ee; color: #929b85; padding: 26px 0; font: 11px/1.9 var(--ui-font); }
+.site-footer { border-color: #e0e5d7; background: #f5f6ee; color: #727e65; padding: 26px 0; font: 11px/1.9 var(--ui-font); }
 .site-footer a { color: #728467; }
 .site-header :focus-visible, .site-footer :focus-visible { outline: 2px solid #7b926b; outline-offset: 5px; }
 @media (max-width: 640px) { .site-header .inner { padding: 0 18px; } .site-header .logo { font-size: 15px; gap: 8px; } .site-header .nav { gap: 17px; } .site-header .nav a { font-size: 11px; } .site-main.container-wide { padding: 18px 16px 40px; } .site-header .brand-mark { width: 24px; height: 24px; } .tool-switcher { font-size: 11px; margin-bottom: 19px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+.skip-link:not(:focus){clip-path:inset(50%);width:1px;height:1px;padding:0;overflow:hidden;white-space:nowrap}

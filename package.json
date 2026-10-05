@@ -24,7 +24,7 @@
     "test:seo": "node --import tsx --test scripts/seo/*.test.ts",
     "test:tools": "node --import tsx --test src/scripts/image-compress*.test.ts src/scripts/hanzi-worksheet/*.test.ts",
     "test:browser": "playwright test",
-    "test:science": "node --import tsx --test src/scripts/audio-viz/*.test.ts src/scripts/molecule/*.test.ts src/scripts/space/*.test.ts public/vendor/building-sunlight/tests/*.test.js src/scripts/astro-today/*.test.ts src/scripts/sat-pass/*.test.ts src/scripts/planet-builder/*.test.ts src/scripts/black-hole/*.test.ts src/scripts/cosmic-scale/*.test.ts src/scripts/double-pendulum/*.test.ts src/scripts/city-rain/*.test.ts"
+    "test:science": "node --import tsx --test src/scripts/audio-viz/*.test.ts src/scripts/molecule/*.test.ts src/scripts/space/*.test.ts public/vendor/building-sunlight/tests/*.test.js src/scripts/astro-today/*.test.ts src/scripts/sat-pass/*.test.ts src/scripts/planet-builder/*.test.ts src/scripts/black-hole/*.test.ts src/scripts/cosmic-scale/*.test.ts src/scripts/double-pendulum/*.test.ts src/scripts/city-rain/*.test.ts src/scripts/paper-fold/*.test.ts src/scripts/zeno-race/*.test.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.4.0",

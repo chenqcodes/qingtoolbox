@@ -2,68 +2,51 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import tools from '../data/tools.json';
 import categories from '../data/categories.json';
-
 import { toolHref } from '../lib/urls';
+import '../styles/home.css';
 
-const categoryIds = new Set(categories.map((category) => category.id));
-const uncategorized = tools.filter((tool) => !categoryIds.has(tool.category));
-if (uncategorized.length) {
-  throw new Error(`以下工具使用了未知分类：${uncategorized.map((tool) => tool.slug).join(', ')}`);
-}
-
-// 按分类分组工具
-const grouped = categories.map((cat) => ({
-  ...cat,
-  tools: tools.filter((t) => t.category == cat.id),
-})).filter((g) => g.tools.length > 0);
+const categoryIds = new Set(categories.map(category => category.id));
+const uncategorized = tools.filter(tool => !categoryIds.has(tool.category));
+if (uncategorized.length) throw new Error(`以下工具使用了未知分类：${uncategorized.map(tool => tool.slug).join(', ')}`);
+const details: Record<string, { english: string; note: string }> = {
+  language: { english: 'WORDS & LANGUAGE', note: '写好一个字，读懂一句话' },
+  office: { english: 'EVERYDAY WORK', note: '把琐碎的文档工作，交给小工具' },
+  image: { english: 'IMAGE & PIXELS', note: '让每张图片，都刚刚好' },
+  dev: { english: 'CODE & DATA', note: '编码、转换与校验，随手完成' },
+  visual: { english: 'PLAY & DISCOVER', note: '动手试一试，把好奇变成理解' },
+  astro: { english: 'A LITTLE UNIVERSE', note: '从今天的月亮，到遥远的星系' },
+};
+const grouped = categories.map(cat => ({ ...cat, ...details[cat.id], tools: tools.filter(t => t.category === cat.id) })).filter(g => g.tools.length);
 ---
-
-<BaseLayout
-  title="轻工具箱"
-  description="免费在线工具：图片文字识别、PDF 处理、图片压缩、JSON 查看器、时间戳转换等。浏览器本地处理，安全快速。"
-  wide={true}
->
+<BaseLayout title="轻工具箱" description="免费中文在线工具：图片压缩、PDF 处理、JSON 查看器、字数统计，以及折纸、追龟悖论与宇宙探索。无需账户，打开就能用。" wide={true}>
   <div class="home-content">
-    <section class="home-intro">
-      <div>
-        <h1>轻工具箱</h1>
-        <p>办公、图片、开发与学习小工具，本地运行，安全快速。</p>
+    <section class="home-intro" aria-labelledby="home-title">
+      <div class="home-intro-copy">
+        <p class="home-eyebrow"><span></span> LITTLE TOOLS. BIG POSSIBILITIES.</p>
+        <h1 id="home-title">让小事，<em>轻一点。</em></h1>
+        <p class="home-description">处理一份文件，整理一点思路，<br class="home-break" />或打开一个关于世界的小问题。</p>
+        <div class="home-badges"><span>免费使用</span><span>无需账户</span><span>打开即用</span></div>
       </div>
-      <div class="home-badges">
-        <span>本地处理</span>
-        <span>免费实用</span>
-        <span>轻量高效</span>
+      <div class="home-still-life" aria-hidden="true">
+        <div class="home-note home-note-code"><small>A LITTLE LESS WORK</small><span>{'{'} <b>idea</b> {'}'}</span><i>一点想法，一点可能。</i></div>
+        <div class="home-note home-note-orbit"><svg viewBox="0 0 160 120" fill="none"><ellipse cx="80" cy="60" rx="67" ry="27" transform="rotate(-28 80 60)" /><ellipse cx="80" cy="60" rx="47" ry="18" transform="rotate(28 80 60)" /><circle cx="80" cy="60" r="16" /><circle cx="123" cy="28" r="6" /><path d="M27 23v12M21 29h12M131 83v8M127 87h8" /></svg><span>A LITTLE MORE WONDER</span></div>
+        <span class="home-art-mark">✳</span>
       </div>
     </section>
 
     <form class="tool-search" role="search" onsubmit="return false">
-      <label for="tool-search-input">找一个工具</label>
-      <div class="tool-search-row">
-        <input id="tool-search-input" type="search" placeholder="搜索工具、用途或关键词，例如：黑洞、PDF、混沌" autocomplete="off" aria-describedby="tool-search-status" />
-        <button id="tool-search-clear" type="button" hidden>清空</button>
-      </div>
+      <label for="tool-search-input">今天，想做点什么？</label>
+      <div class="tool-search-row"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg><input id="tool-search-input" type="search" placeholder="搜工具或用途，比如 PDF、图片压缩、折纸" autocomplete="off" aria-describedby="tool-search-status" /><button id="tool-search-clear" type="button" hidden>清空</button><span class="search-hint" aria-hidden="true">ESC 清空</span></div>
       <p id="tool-search-status" role="status" aria-live="polite">共 {tools.length} 个工具，选一个开始探索</p>
     </form>
 
-    {grouped.map((group) => (
-      <section class="tool-category">
-        <h2 class="category-title">{group.name}</h2>
-        <div class="tool-grid">
-          {group.tools.map((tool) => (
-            <a href={toolHref(tool)} class="tool-card" data-search={[tool.name, tool.desc, tool.slug, group.name, ...tool.tags].join(" ").toLowerCase()}>
-              <div class="icon">{tool.icon}</div>
-              <div class="tool-card-body">
-                <h3>{tool.name}</h3>
-                <p>{tool.desc}</p>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-    ))}
+    <div class="home-catalog" id="tool-catalog">
+      <aside class="catalog-sidebar"><p class="home-eyebrow">THE COLLECTION</p><nav class="category-shortcuts" aria-label="按分类浏览">{grouped.map(group => <a href={`#category-${group.id}`}><span>{group.name}</span><small>{String(group.tools.length).padStart(2, '0')}</small></a>)}</nav><p class="catalog-note">为了省下一点时间，<br />也为了多一点好奇。</p></aside>
+      <div class="catalog-groups">{grouped.map((group, index) => <section class="tool-category" id={`category-${group.id}`} data-category={group.id} aria-labelledby={`heading-${group.id}`}><div class="category-heading"><div><p class="category-eyebrow">{String(index + 1).padStart(2, '0')} / {group.english}</p><h2 class="category-title" id={`heading-${group.id}`}>{group.name}</h2></div><p>{group.note}</p></div><div class="tool-grid">{group.tools.map(tool => <a href={toolHref(tool)} class="tool-card" data-search={[tool.name, tool.desc, tool.slug, group.name, ...tool.tags].join(' ').toLowerCase()}><div class="tool-card-top"><span class="icon" aria-hidden="true">{tool.icon}</span>{['paper-fold', 'zeno-race'].includes(tool.slug) ? <span class="tool-new">新探索</span> : <span class="tool-card-arrow" aria-hidden="true">↗</span>}</div><div class="tool-card-body"><h3>{tool.name}</h3><p>{tool.desc}</p></div></a>)}</div></section>)}</div>
+    </div>
+    <p class="home-closing">一个小工具，也能打开一点新可能。<span>MADE FOR YOUR EVERYDAY.</span></p>
   </div>
 </BaseLayout>
-
 <script>
   const search = document.querySelector<HTMLInputElement>('#tool-search-input')!;
   const clear = document.querySelector<HTMLButtonElement>('#tool-search-clear')!;
@@ -73,25 +56,14 @@ const grouped = categories.map((cat) => ({
   function filterTools() {
     const words = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
     let count = 0;
-    for (const card of cards) {
-      card.hidden = !words.every(word => card.dataset.search?.includes(word));
-      if (!card.hidden) count++;
-    }
+    for (const card of cards) { card.hidden = !words.every(word => card.dataset.search?.includes(word)); if (!card.hidden) count++; }
     for (const group of groups) group.hidden = !group.querySelector('.tool-card:not([hidden])');
     clear.hidden = !search.value;
+    document.querySelector('.tool-search')?.classList.toggle('has-query', Boolean(search.value));
     status.textContent = words.length ? (count ? `找到 ${count} 个工具` : '没有找到匹配的工具，试试其他关键词') : `共 ${cards.length} 个工具，选一个开始探索`;
   }
   search.addEventListener('input', filterTools);
   clear.addEventListener('click', () => { search.value = ''; filterTools(); search.focus(); });
   search.addEventListener('keydown', event => { if (event.key === 'Escape') { search.value = ''; filterTools(); } });
+  document.querySelectorAll<HTMLAnchorElement>('.category-shortcuts a').forEach(link => link.addEventListener('click', () => { search.value = ''; filterTools(); }));
 </script>
-<style>
-  [hidden] { display: none !important; }
-  .tool-search { margin: 0 0 2rem; }
-  .tool-search label { display: block; font-weight: 650; margin-bottom: .6rem; }
-  .tool-search-row { display: flex; gap: .6rem; }
-  .tool-search input { flex: 1; min-width: 0; width: 100%; padding: .85rem 1rem; font: inherit; color: inherit; border: 1px solid #d5dce6; background: #fff; border-radius: 12px; }
-  .tool-search button { border: 1px solid #d5dce6; border-radius: 12px; background: #fff; color: #36435b; padding: .6rem 1rem; cursor: pointer; }
-  .tool-search p { font-size: .85rem; color: #667085; margin: .6rem 0 0; min-height: 1.5em; }
-  .tool-search :focus-visible { outline: 3px solid #76a7e9; outline-offset: 2px; }
-</style>

@@ -1,0 +1,143 @@
+import { DEFAULT_THICKNESS_MM, MAX_FOLDS, MIN_THICKNESS_MM, MAX_THICKNESS_MM, REFERENCES, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
+import { drawScene, viewLog } from './draw';
+
+let dispose: (() => void) | undefined;
+export function bootPaperFold(): void {
+  dispose?.();
+  const root = document.querySelector<HTMLElement>('#paper-fold-lab');
+  if (!root) return;
+  const get = <T extends HTMLElement>(id: string) => document.querySelector<T>(`#${id}`)!;
+  const canvas = get<HTMLCanvasElement>('pf-canvas'), ctx = canvas.getContext('2d');
+  const range = get<HTMLInputElement>('pf-folds'), initial = get<HTMLInputElement>('pf-initial');
+  const play = get<HTMLButtonElement>('pf-play'), step = get<HTMLButtonElement>('pf-step');
+  const speed = get<HTMLSelectElement>('pf-speed');
+  const media = matchMedia('(prefers-reduced-motion: reduce)');
+  const abort = new AbortController(), { signal } = abort;
+  let folds = 0, thicknessMm = DEFAULT_THICKNESS_MM, playing = false;
+  let exponent = 0, logMm = Math.log2(thicknessMm), logView = viewLog(0, thicknessMm), foldPhase = 0;
+  let width = 800, height = 575, raf = 0, nextFoldAt = 0;
+  type Motion = { fromExponent: number; toExponent: number; fromLogMm: number; toLogMm: number; fromView: number; toView: number; start: number; duration: number; leaf: boolean };
+  let motion: Motion | undefined;
+  const status = (text: string) => { get('pf-status').textContent = text; };
+  const superscript = (text: string) => text.replace(/\^(-?\d+)/g, (_, digits: string) => [...digits].map(char => ({'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'}[char] ?? char)).join(''));
+  function paint() {
+    root!.dataset.motion = String(Boolean(motion));
+    root!.dataset.view = logView.toFixed(8);
+    root!.dataset.visualFold = exponent.toFixed(6);
+    if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView, foldPhase, reducedMotion: media.matches });
+  }
+  function renderValues() {
+    const metres = thicknessMetres(folds, thicknessMm), exactLayers = layers(folds).toLocaleString('zh-CN');
+    root!.dataset.folds = String(folds); root!.dataset.playing = String(playing); root!.dataset.thickness = String(metres);
+    get('pf-count').textContent = String(folds); get('pf-thickness').textContent = formatLength(metres);
+    get('pf-scientific').textContent = superscript(scientificMetres(metres));
+    get('pf-layers').textContent = exactLayers; get('pf-layer-power').textContent = superscript(`= 2^${folds}`);
+    get('pf-formula-initial').textContent = `${thicknessMm} mm`; get('pf-formula-power').textContent = String(folds); get('pf-formula-result').textContent = formatLength(metres);
+    get('pf-folds-output').textContent = `第 ${folds} 次`; range.value = String(folds);
+    range.setAttribute('aria-valuetext', `${folds} 次对折，厚度 ${formatLength(metres)}`);
+    play.innerHTML = `<span aria-hidden="true">${playing?'Ⅱ':'▶'}</span> ${playing?'暂停折叠':folds===MAX_FOLDS?'重新旅行':folds===0?'开始折叠':'继续折叠'}`;
+    play.setAttribute('aria-pressed', String(playing)); step.disabled = folds === MAX_FOLDS || !ctx; play.disabled = !ctx;
+    const reached = [...REFERENCES].reverse().find(ref => metres >= ref.metres);
+    for (const ref of REFERENCES) {
+      const first = milestoneFold(ref.metres, thicknessMm);
+      root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
+      root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
+    }
+    let chapter: string, title: string;
+    if (metres < .01) { chapter='01 / 指尖尺度'; title=folds===0?'微小，是这一切的起点。':'每一次，都多出一个自己。'; }
+    else if (metres < 1.7) { chapter='02 / 日常尺度'; title='一条纸边，慢慢长成一叠纸。'; }
+    else if (metres < 10) { chapter='02 / 日常尺度'; title='现在，它可以比你更高。'; }
+    else if (metres < 12_756_000) { chapter='03 / 越过地表'; title=metres<1000?'把一栋房屋，留在脚下。':'镜头向外，地球正在靠近。'; }
+    else if (metres < 1_391_400_000) { chapter='04 / 行星尺度'; title='一张纸，已经厚过一颗星球。'; }
+    else if (metres < REFERENCES[4].metres) { chapter='05 / 恒星尺度'; title='太阳，也成了尺上的一格。'; }
+    else { chapter='06 / 行星之外'; title='越过海王星，翻倍还在继续。'; }
+    get('pf-chapter').textContent=chapter;get('pf-journey-title').textContent=title;
+    const next = REFERENCES.find(ref => ref.metres > metres);
+    if (next) {
+      const remaining=(milestoneFold(next.metres,thicknessMm)??MAX_FOLDS)-folds;
+      const dimension=next.id==='person'?'人的 1.7 米身高':next.id==='house'?'房屋的 10 米高度':next.id==='earth'?'地球的赤道直径':next.id==='sun'?'太阳的直径':'海王星轨道的约 60 AU 直径';
+      get('pf-comparison').textContent=`再折 ${remaining} 次，理论厚度就会超过${dimension}。`;
+    } else {
+      const ratio = new Intl.NumberFormat('zh-CN',{ maximumSignificantDigits:4,notation:'compact' }).format(metres/REFERENCES[4].metres);
+      get('pf-comparison').textContent=`约等于 ${ratio} 个海王星轨道直径。60 AU 是本页的太阳系参照尺度，并非边界。`;
+    }
+    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。纸叠厚度与参照物高度或直径共用比例尺；宽度示意。`);
+  }
+  function cancelFrame() { if (raf) cancelAnimationFrame(raf); raf=0; }
+  function requestFrame() { if (!raf && !document.hidden && (motion || playing)) raf=requestAnimationFrame(frame); }
+  function finishMotion() { motion=undefined; exponent=folds;logMm=Math.log2(thicknessMm);logView=viewLog(folds,thicknessMm);foldPhase=0; }
+  function pause(message?: string, settle = true) {
+    playing=false;nextFoldAt=0;cancelFrame();
+    if(settle)finishMotion();else motion=undefined;
+    renderValues();paint();if(message)status(message);
+  }
+  function moveTo(target: number, duration=850) {
+    folds=clampFolds(target);
+    const toLogMm=Math.log2(thicknessMm), toView=viewLog(folds,thicknessMm);
+    if(media.matches || duration===0)finishMotion();
+    else motion={fromExponent:exponent,toExponent:folds,fromLogMm:logMm,toLogMm,fromView:logView,toView,start:performance.now(),duration,leaf:Math.abs(folds-exponent)<1.1&&folds>exponent};
+    renderValues();paint();requestFrame();
+  }
+  function jumpTo(target: number, message: string) {
+    // Start a new camera move exactly where the interrupted one is drawn.
+    pause(undefined,false);moveTo(target,Math.min(1800,550+Math.abs(target-exponent)*24));status(message);
+  }
+  function frame(now: number) {
+    raf=0;if(document.hidden)return;
+    if(motion){
+      const progress=Math.min(1,(now-motion.start)/motion.duration),ease=progress*progress*(3-2*progress);
+      exponent=motion.fromExponent+(motion.toExponent-motion.fromExponent)*ease;
+      logMm=motion.fromLogMm+(motion.toLogMm-motion.fromLogMm)*ease;
+      logView=motion.fromView+(motion.toView-motion.fromView)*ease;
+      foldPhase=motion.leaf?progress:0;
+      if(progress>=1)finishMotion();
+      paint();
+    }
+    if(playing&&!motion&&now>=nextFoldAt){
+      if(folds>=MAX_FOLDS){pause('已抵达 80 次 · 旅程完成');return;}
+      const interval=Number(speed.value);nextFoldAt=now+interval;
+      moveTo(folds+1,Math.min(850,interval*.78));status(`正在折叠 · 第 ${folds} 次`);
+    }
+    requestFrame();
+  }
+  play.addEventListener('click',()=>{
+    if(playing){pause('已暂停 · 可以细看这一刻');return;}
+    if(folds===MAX_FOLDS){folds=0;finishMotion();renderValues();paint();}
+    playing=true;nextFoldAt=0;renderValues();status(media.matches?'逐步播放 · 已减少动态效果':'镜头会随纸叠一起向外');requestFrame();
+  },{signal});
+  step.addEventListener('click',()=>jumpTo(folds+1,`再折一次 · 第 ${Math.min(MAX_FOLDS,folds+1)} 次`),{signal});
+  get('pf-reset').addEventListener('click',()=>{
+    pause(undefined,false);thicknessMm=DEFAULT_THICKNESS_MM;initial.value=String(thicknessMm);get('pf-input-help').textContent='初始厚度 0.01–1 mm · 修改会暂停';moveTo(0,media.matches?0:1100);status('回到最初的 0.1 mm 纸张');
+  },{signal});
+  range.addEventListener('input',()=>jumpTo(Number(range.value),`停在第 ${range.value} 次 · 可继续折叠`),{signal});
+  root.querySelectorAll<HTMLButtonElement>('[data-milestone]').forEach(button=>button.addEventListener('click',()=>{
+    const ref=REFERENCES.find(item=>item.id===button.dataset.milestone)!;
+    jumpTo(milestoneFold(ref.metres,thicknessMm)??MAX_FOLDS,`抵达${ref.name}尺度 · 理想模型`);
+  },{signal}));
+  initial.addEventListener('input',()=>{if(playing)pause('已暂停 · 正在更换纸张');},{signal});
+  initial.addEventListener('change',()=>{
+    const value=initial.valueAsNumber;
+    if(!Number.isFinite(value)){initial.value=String(thicknessMm);status('请输入 0.01–1 mm 的有效厚度');return;}
+    pause(undefined,false);thicknessMm=clampThickness(value);initial.value=String(thicknessMm);
+    const bounded=value<MIN_THICKNESS_MM||value>MAX_THICKNESS_MM;
+    get('pf-input-help').textContent=bounded?'已限制在 0.01–1 mm 的安全范围':'初始厚度 0.01–1 mm · 修改会暂停';
+    moveTo(folds,650);status(`新纸张 ${thicknessMm} mm · 里程碑已重算`);
+  },{signal});
+  initial.addEventListener('keydown',event=>{if(event.key==='Enter')initial.blur();},{signal});
+  speed.addEventListener('change',()=>{if(playing)nextFoldAt=performance.now()+Number(speed.value);},{signal});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause('离开页面 · 已为你暂停');},{signal});
+  media.addEventListener('change',()=>{get('pf-motion-note').hidden=!media.matches;pause(media.matches?'已减少动态效果':'已恢复平滑缩放');},{signal});
+  function resize() {
+    const rect=canvas.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);
+    const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx?.setTransform(dpr,0,0,dpr,0,0);paint();
+  }
+  const observer=new ResizeObserver(resize);observer.observe(canvas);
+  window.addEventListener('resize',resize,{signal});
+  get('pf-motion-note').hidden=!media.matches;
+  renderValues();resize();
+  if(!ctx)status('浏览器未提供画布 · 仍可用滑杆查看精确数值');
+  dispose=()=>{cancelFrame();abort.abort();observer.disconnect();};
+}
+bootPaperFold();
+document.addEventListener('astro:page-load',bootPaperFold);
+document.addEventListener('astro:before-swap',()=>dispose?.());

@@ -5,3 +5,5 @@
 
 .tool-page .zr-intro h1{display:block;margin-right:0}
 .zr-eyebrow{display:block}
+@media(max-width:720px){.zr-limit-card>strong{font-size:clamp(14px,4.3vw,20px);white-space:nowrap}.zr-metrics strong{font-size:clamp(15px,4.7vw,20px);white-space:nowrap}}
+@media(max-width:360px){.tool-page .zr-intro h1{font-size:30px}.zr-insight h2{font-size:25px}}

@@ -81,5 +81,8 @@ for (const width of [390, 320]) test(`mobile ${width}px keyboard and reduced-mot
   await page.locator('#zr-mode-continuous').focus(); await page.keyboard.press('Enter'); await expect(page.locator('#zr-mode-continuous')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#zr-scrub').focus(); await page.keyboard.press('End'); await expect(page.locator('#zr-gap-label')).toHaveText('兔子已领先');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  const headingFits = await page.locator('.zr-intro h1').evaluate(node => node.getBoundingClientRect().height <= parseFloat(getComputedStyle(node).lineHeight) * 2 + 2);
+  expect(headingFits).toBeTruthy();
+  for (const id of ['#zr-limit-time', '#zr-tail']) expect(await page.locator(id).evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBeTruthy();
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await page.screenshot({ path: testInfo.outputPath('zeno-mobile.png'), fullPage: true });
 });

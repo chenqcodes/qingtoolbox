@@ -3,6 +3,38 @@ import { test, expect } from '@playwright/test';
 // Record actual browser motion for visual review alongside the still images.
 test.use({ video: { mode: 'on', size: { width: 1000, height: 700 } } });
 
+// Transparent diagnostic: retain native observer timing and payloads without
+// changing the callback or weakening any assertion. Retain with failing traces.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeObserver = window.IntersectionObserver;
+    const diagnostics: unknown[] = [];
+    (window as unknown as { rainVisibilityDiagnostics: unknown[] }).rainVisibilityDiagnostics = diagnostics;
+    const rect = (r: DOMRectReadOnly | null) => r && ({ x: r.x, y: r.y, width: r.width, height: r.height });
+    const state = () => ({ now: performance.now(), scrollX, scrollY, innerWidth, innerHeight, hidden: document.hidden,
+      canvas: rect(document.querySelector('#cr-canvas')?.getBoundingClientRect() ?? null),
+      status: document.querySelector('#cr-status')?.textContent,
+      modelTime: (document.querySelector('#city-rain-lab') as HTMLElement | null)?.dataset.time });
+    window.IntersectionObserver = class extends NativeObserver {
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        super((entries, observer) => {
+          if (entries.some(entry => entry.target.id === 'cr-canvas')) diagnostics.push({ kind: 'observer', ...state(), entries: entries.map(entry => ({ target: entry.target.id, time: entry.time, isIntersecting: entry.isIntersecting, ratio: entry.intersectionRatio, rootBounds: rect(entry.rootBounds), bounds: rect(entry.boundingClientRect), intersection: rect(entry.intersectionRect) })) });
+          callback(entries, observer);
+        }, options);
+      }
+    };
+    document.addEventListener('click', event => {
+      const id = (event.target as Element)?.closest('button')?.id;
+      if (id === 'cr-play') diagnostics.push({ kind: 'play-click', ...state() });
+    }, true);
+  });
+});
+test.afterEach(async ({ page }, testInfo) => {
+  const events = await page.evaluate(() => (window as unknown as { rainVisibilityDiagnostics?: unknown[] }).rainVisibilityDiagnostics ?? []);
+  await testInfo.attach('rain-visibility-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' });
+  if (testInfo.status !== testInfo.expectedStatus) console.log('RAIN_VISIBILITY_DIAGNOSTICS', JSON.stringify(events));
+});
+
 test('rain budget, wet editing, rainfall stop and reset', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.emulateMedia({ reducedMotion: 'reduce' });

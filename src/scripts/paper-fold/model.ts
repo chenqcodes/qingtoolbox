@@ -1,6 +1,6 @@
 /** Ideal folding model: every fold doubles thickness, with no compression. */
 export const MIN_FOLDS = 0;
-export const MAX_FOLDS = 80;
+export const MAX_FOLDS = 107;
 export const DEFAULT_THICKNESS_MM = 0.1;
 export const MIN_THICKNESS_MM = 0.01;
 export const MAX_THICKNESS_MM = 1;
@@ -9,6 +9,10 @@ export const MAX_THICKNESS_MM = 1;
 export const AU = 149_597_870_700;
 /** Distance light travels in vacuum in one Julian year (365.25 days). */
 export const LIGHT_YEAR_METRES = 299_792_458 * 365.25 * 86_400;
+
+/** Present-day diameter, rounded NASA educational estimate (not the whole universe). */
+export const OBSERVABLE_UNIVERSE_DIAMETER_METRES = 92_000_000_000 * LIGHT_YEAR_METRES;
+export const SUN_DIAMETER_METRES = 1_391_400_000;
 
 export type ReferenceKind = 'person' | 'house' | 'earth' | 'sun' | 'solar';
 
@@ -39,7 +43,7 @@ export const REFERENCES: readonly ScaleReference[] = [
   },
   {
     id: 'sun', name: '太阳', dimension: '直径约 1,391,400 千米',
-    metres: 1_391_400_000, color: '#fb923c', kind: 'sun',
+    metres: SUN_DIAMETER_METRES, color: '#fb923c', kind: 'sun',
     source: { label: 'NASA JPL：太阳系尺寸', url: 'https://www.jpl.nasa.gov/edu/pdfs/scaless_reference.pdf' },
   },
   {
@@ -111,7 +115,7 @@ export function scientificMetres(metres: number): string {
 export function milestoneFold(referenceMetres: number, thicknessMm = DEFAULT_THICKNESS_MM): number | null {
   if (!Number.isFinite(referenceMetres) || referenceMetres < 0) return null;
   const initialMetres = clampThickness(thicknessMm) / 1_000;
-  // Only 81 candidates: a direct comparison avoids log2 boundary round-off.
+  // Only 108 candidates: a direct comparison avoids log2 boundary round-off.
   for (let folds = MIN_FOLDS; folds <= MAX_FOLDS; folds++) {
     if (initialMetres * 2 ** folds >= referenceMetres) return folds;
   }
@@ -130,4 +134,10 @@ export function niceScale(metres: number): number {
     }
   }
   return Number.MIN_VALUE;
+}
+
+/** End at the first fold reaching the observable universe for the selected paper.
+ * A per-paper endpoint avoids inventing reference objects beyond observation. */
+export function journeyFoldLimit(thicknessMm = DEFAULT_THICKNESS_MM): number {
+  return milestoneFold(OBSERVABLE_UNIVERSE_DIAMETER_METRES, thicknessMm)!;
 }

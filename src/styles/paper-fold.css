@@ -27,3 +27,9 @@
 @media(max-width:540px){.pf-scale-key{padding:4px 18px 14px}}
 .pf-count{flex:none}.pf-count>span{white-space:nowrap}.pf-thickness{min-width:0}.pf-thickness strong{white-space:nowrap}
 @media(max-width:540px){.pf-thickness strong{font-size:clamp(17px,5.6vw,23px)}}
+
+
+/* The endpoint depends on paper thickness; ticks follow their numeric positions. */
+.pf-ticks{position:relative;height:14px;display:block;margin:0 5px}.pf-ticks span{position:absolute;transform:translateX(-50%)}
+.pf-milestones{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:540px){.pf-count strong{font-size:48px}.pf-count{gap:7px}.pf-readout{gap:8px}.pf-thickness strong{font-size:clamp(15px,5.1vw,21px)}.pf-milestones button span{font-size:9px}.pf-milestones{row-gap:7px}}

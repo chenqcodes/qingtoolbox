@@ -1,5 +1,6 @@
 import { DEFAULT_THICKNESS_MM, MAX_FOLDS, MIN_THICKNESS_MM, MAX_THICKNESS_MM, REFERENCES, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
 import { drawScene, viewLog } from './draw';
+import { JOURNEY_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
 
 let dispose: (() => void) | undefined;
 export function bootPaperFold(): void {
@@ -24,7 +25,38 @@ export function bootPaperFold(): void {
     root!.dataset.motion = String(Boolean(motion));
     root!.dataset.view = logView.toFixed(8);
     root!.dataset.visualFold = exponent.toFixed(6);
+    renderReferenceContext();
     if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView, foldPhase, reducedMotion: media.matches });
+  }
+  function renderReferenceContext() {
+    // Follow the visible fractional state, not the selected endpoint of a jump.
+    const metres = 2 ** logMm / 1000 * 2 ** exponent;
+    const { previous, next } = adjacentReferences(metres);
+    const area = height - 60 - 155;
+    const visible = projectedReferences(logView, area);
+    const text = (id: string, value: string) => { const node = get(id); if (node.textContent !== value) node.textContent = value; };
+    root!.dataset.referencePrevious = previous?.id ?? 'start';
+    root!.dataset.referenceNext = next?.id ?? 'end';
+    root!.dataset.referenceVisible = visible.filter(item => item.opacity >= .5 && item.pixels >= 10 && item.pixels <= area).map(item => item.reference.id).join(',');
+    text('pf-reference-now', `画面此刻 · ${formatLength(metres)}`);
+    for (const [side, reference] of [['previous', previous], ['next', next]] as const) {
+      const button = get<HTMLButtonElement>(`pf-reference-${side}`);
+      const isPrevious = side === 'previous';
+      button.dataset.reference = reference?.id ?? '';
+      const unreachable = Boolean(reference && milestoneFold(reference.metres, thicknessMm) === null);
+      button.disabled = !reference || unreachable;
+      text(`pf-${side}-name`, reference?.name ?? (isPrevious ? '最初的纸张' : '继续翻倍'));
+      text(`pf-${side}-dimension`, reference?.dimension ?? `${formatLength(2 ** logMm / 1000)} 的起点`);
+      text(`pf-${side}-ratio`, reference ? (isPrevious ? `当前约为它的 ${formatRatio(metres / reference.metres)} 倍` : `目标是当前的 ${formatRatio(reference.metres / metres)} 倍`) : `已经放大 ${formatRatio(2 ** exponent)} 倍`);
+      const pixels = reference ? reference.metres * area / 2 ** logView : 0;
+      const placement = !reference ? '起点' : unreachable ? '超出 80 折' : pixels < 10 ? '↓ 已缩小' : pixels > area ? '↑ 画面之外' : '同尺可见';
+      text(`pf-${side}-placement`, placement);
+      button.setAttribute('aria-label', reference ? `${isPrevious ? '已越过' : '正靠近'}${reference.name}，${reference.dimension}。${milestoneFold(reference.metres, thicknessMm) === null ? '超过当前折叠上限' : '跳到这个尺度'}` : '最初的纸张');
+    }
+    const start = previous?.metres ?? Math.min(2 ** logMm / 1000, metres);
+    const end = next?.metres ?? metres * 2;
+    const progress = Math.min(1, Math.max(0, Math.log(metres / start) / Math.log(end / start)));
+    get('pf-reference-progress').style.setProperty('--progress', `${Number.isFinite(progress) ? progress * 100 : 0}%`);
   }
   function renderValues() {
     const metres = thicknessMetres(folds, thicknessMm), exactLayers = layers(folds).toLocaleString('zh-CN');
@@ -43,25 +75,7 @@ export function bootPaperFold(): void {
       root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
       root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
     }
-    let chapter: string, title: string;
-    if (metres < .01) { chapter='01 / 指尖尺度'; title=folds===0?'微小，是这一切的起点。':'每一次，都多出一个自己。'; }
-    else if (metres < 1.7) { chapter='02 / 日常尺度'; title='一条纸边，慢慢长成一叠纸。'; }
-    else if (metres < 10) { chapter='02 / 日常尺度'; title='现在，它可以比你更高。'; }
-    else if (metres < 12_756_000) { chapter='03 / 越过地表'; title=metres<1000?'把一栋房屋，留在脚下。':'镜头向外，地球正在靠近。'; }
-    else if (metres < 1_391_400_000) { chapter='04 / 行星尺度'; title='一张纸，已经厚过一颗星球。'; }
-    else if (metres < REFERENCES[4].metres) { chapter='05 / 恒星尺度'; title='太阳，也成了尺上的一格。'; }
-    else { chapter='06 / 行星之外'; title='越过海王星，翻倍还在继续。'; }
-    get('pf-chapter').textContent=chapter;get('pf-journey-title').textContent=title;
-    const next = REFERENCES.find(ref => ref.metres > metres);
-    if (next) {
-      const remaining=(milestoneFold(next.metres,thicknessMm)??MAX_FOLDS)-folds;
-      const dimension=next.id==='person'?'人的 1.7 米身高':next.id==='house'?'房屋的 10 米高度':next.id==='earth'?'地球的赤道直径':next.id==='sun'?'太阳的直径':'海王星轨道的约 60 AU 直径';
-      get('pf-comparison').textContent=`再折 ${remaining} 次，理论厚度就会超过${dimension}。`;
-    } else {
-      const ratio = new Intl.NumberFormat('zh-CN',{ maximumSignificantDigits:4,notation:'compact' }).format(metres/REFERENCES[4].metres);
-      get('pf-comparison').textContent=`约等于 ${ratio} 个海王星轨道直径。60 AU 是本页的太阳系参照尺度，并非边界。`;
-    }
-    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。纸叠厚度与参照物高度或直径共用比例尺；宽度示意。`);
+    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。纸叠厚度与参照物的高度、直径或距离共用长度比例尺；下方提供相邻参照与倍数，宽度示意。`);
   }
   function cancelFrame() { if (raf) cancelAnimationFrame(raf); raf=0; }
   function requestFrame() { if (!raf && !document.hidden && (motion || playing)) raf=requestAnimationFrame(frame); }
@@ -114,6 +128,12 @@ export function bootPaperFold(): void {
     const ref=REFERENCES.find(item=>item.id===button.dataset.milestone)!;
     jumpTo(milestoneFold(ref.metres,thicknessMm)??MAX_FOLDS,`抵达${ref.name}尺度 · 理想模型`);
   },{signal}));
+  root.querySelectorAll<HTMLButtonElement>('[data-nearby]').forEach(button => button.addEventListener('click', () => {
+    const reference = JOURNEY_REFERENCES.find(item => item.id === button.dataset.reference);
+    if (!reference) return;
+    const target = milestoneFold(reference.metres, thicknessMm);
+    if (target !== null) jumpTo(target, `抵达${reference.name}尺度 · 理想模型`);
+  }, { signal }));
   initial.addEventListener('input',()=>{if(playing)pause('已暂停 · 正在更换纸张');},{signal});
   initial.addEventListener('change',()=>{
     const value=initial.valueAsNumber;

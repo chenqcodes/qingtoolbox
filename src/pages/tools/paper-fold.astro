@@ -1,16 +1,27 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import '../../styles/paper-fold.css';
+import { JOURNEY_REFERENCES } from '../../scripts/paper-fold/references';
+const extraSources = [...new Map(JOURNEY_REFERENCES.filter(ref => ref.source).map(ref => [ref.source!.url, ref.source!])).values()];
 ---
 <ToolLayout title="纸张折叠宇宙 · 一张纸，能长到多远？" description="从 0.1 毫米纸张出发，连续对折并平滑缩放，看指数增长如何越过人的身高、房屋、地球、太阳与海王星轨道。可调整厚度，探索 0 到 80 次折叠的理想数学模型。" currentSlug="paper-fold">
   <header class="pf-intro" slot="header"><div><span class="pf-eyebrow">EXPONENTIAL JOURNEY / 指数之旅</span><h1>一张纸，<em>能长到多远？</em></h1></div><p>每折一次，厚度翻倍。<br />从指尖的一张薄纸，慢慢折进宇宙。</p></header>
   <section class="pf-lab" id="paper-fold-lab" aria-label="纸张折叠宇宙实验" data-folds="0" data-playing="false" data-motion="false">
-    <div class="pf-stage" id="pf-stage">
+    <div class="pf-stage" id="pf-stage"><div class="pf-scene">
       <div class="pf-stage-top"><span><i></i> 一次折叠 · 两倍厚度</span><span id="pf-status" role="status">从一张纸开始</span></div>
       <div class="pf-readout"><div class="pf-count"><strong id="pf-count">0</strong><span>次对折<br /><small>OF 80</small></span></div><div class="pf-thickness"><small>此刻的理论厚度</small><strong id="pf-thickness">0.1 mm</strong><span id="pf-scientific">1 × 10⁻⁴ m</span></div></div>
       <canvas id="pf-canvas" role="img" aria-label="一张纸的侧视图。下方控制可改变折叠次数，纸叠高度与参照物使用同一长度比例。">纸张厚度等于初始厚度乘以 2 的折叠次数次方。所有数值也在画布外提供。</canvas>
       <div class="pf-scale-key"><span class="pf-paper-dot"></span>纸叠厚度<span class="pf-reference-dot"></span>同尺参照<span class="pf-scale-annotation">宽度与纹理为示意</span></div>
-      <div class="pf-scene-caption"><span id="pf-chapter">01 / 指尖尺度</span><strong id="pf-journey-title">微小，是这一切的起点。</strong><p id="pf-comparison">再折 15 次，理论厚度就会超过 1.7 米的人的身高。</p></div>
+
+      </div><div class="pf-reference-context" aria-label="相邻尺度参照">
+        <div class="pf-reference-heading"><span>沿途参照</span><span id="pf-reference-now">画面此刻 · 0.1 毫米</span></div>
+        <div class="pf-reference-pair">
+          <button type="button" id="pf-reference-previous" data-nearby="previous" aria-describedby="pf-previous-ratio pf-previous-placement"><span class="pf-reference-kicker">已越过 <small id="pf-previous-placement">同尺可见</small></span><strong id="pf-previous-name">一根头发</strong><span class="pf-reference-dimension" id="pf-previous-dimension">直径 0.07 毫米（示意）</span><span class="pf-reference-ratio" id="pf-previous-ratio">当前约为它的 1.43 倍</span></button>
+          <button type="button" id="pf-reference-next" data-nearby="next" aria-describedby="pf-next-ratio pf-next-placement"><span class="pf-reference-kicker">正靠近 <small id="pf-next-placement">同尺可见</small></span><strong id="pf-next-name">一张卡片</strong><span class="pf-reference-dimension" id="pf-next-dimension">厚度 0.8 毫米（示意）</span><span class="pf-reference-ratio" id="pf-next-ratio">目标是当前的 8 倍</span></button>
+        </div>
+        <div class="pf-reference-progress" id="pf-reference-progress" aria-hidden="true"><i></i></div>
+        <p>进度按翻倍计 · 点击可达参照跳转，画外仍显示倍数</p>
+      </div>
     </div>
     <div class="pf-console">
       <div class="pf-actions"><button type="button" id="pf-play" class="pf-primary" aria-pressed="false"><span aria-hidden="true">▶</span> 开始折叠</button><button type="button" id="pf-step" aria-label="再折一次">+ 再折一次</button><button type="button" id="pf-reset" class="pf-reset">重置</button><label class="pf-speed" for="pf-speed">节奏<select id="pf-speed"><option value="1600">慢慢看</option><option value="1000" selected>标准</option><option value="500">快一点</option></select></label></div>
@@ -30,9 +41,9 @@ import '../../styles/paper-fold.css';
   </section>
   <div class="pf-explanation">
     <section class="pf-equation"><span class="pf-eyebrow">一个简单的规则</span><h2>增长，开始得很安静。</h2><div class="pf-formula" aria-label="厚度等于初始厚度乘以 2 的 n 次方"><span id="pf-formula-initial">0.1 mm</span><b>×</b><span>2<sup id="pf-formula-power">0</sup></span><b>=</b><span id="pf-formula-result">0.1 mm</span></div><p>这是指数增长：每增加一次对折，增加的是此前的全部厚度。时间轴的每一格都代表一次翻倍；画面用连续变化的对数相机缩放，让跨越几十个数量级的变化仍然看得见。</p></section>
-    <section><span class="pf-eyebrow">先把现实说清楚</span><h2>思想实验，不是折纸挑战。</h2><p>这里假设纸张能无限延展、每次完美对半折叠，而且不压缩、没有空隙。真实纸张会受尺寸、材料、折痕和所需力量限制；“最多只能折 7 次”并不是普适定律。80 次只是本实验的探索上限。</p><p>纸叠的竖直厚度与参照物的高度或直径共用比例尺，纸叠宽度和层纹只是示意。动画中的过渡厚度用于平滑表现，数值面板始终显示选中整数次折叠的计算结果。</p></section>
+    <section><span class="pf-eyebrow">先把现实说清楚</span><h2>思想实验，不是折纸挑战。</h2><p>这里假设纸张能无限延展、每次完美对半折叠，而且不压缩、没有空隙。真实纸张会受尺寸、材料、折痕和所需力量限制；“最多只能折 7 次”并不是普适定律。80 次只是本实验的探索上限。</p><p>纸叠的竖直厚度与参照物的高度、直径或距离共用长度比例尺，纸叠宽度和层纹只是示意。距离用竖直线段表示，端点、轨道点和横向排布为示意。珠峰从海平面量起；卡门线是约定的高度，不代表大气突然消失。动画中的过渡厚度用于平滑表现，数值面板始终显示选中整数次折叠的计算结果。</p></section>
   </div>
-  <details class="pf-sources"><summary>尺度口径与数据来源</summary><div><p>人高 1.7 m、房屋高 10 m 是选定的生活参照，并非统计平均值。地球采用赤道直径 12,756 km，太阳采用直径 1,391,400 km，都是近似参考值。</p><p>本页的“太阳系尺度”特指海王星轨道的近似直径：约 60 AU。它不是太阳系的真实边界，也不是海王星本身的直径。太阳系还包括更远的天体。轨道图为俯视示意，行星点大小做了可见性放大。</p><ul><li><a href="https://science.nasa.gov/earth/facts/" target="_blank" rel="noopener noreferrer">NASA · 地球数据</a></li><li><a href="https://www.jpl.nasa.gov/edu/pdfs/scaless_reference.pdf" target="_blank" rel="noopener noreferrer">NASA/JPL · 太阳系尺寸与距离参考表</a></li><li><a href="https://science.nasa.gov/neptune/neptune-facts/" target="_blank" rel="noopener noreferrer">NASA · 海王星距离太阳约 30 AU</a></li><li><a href="https://science.nasa.gov/solar-system/solar-system-facts/" target="_blank" rel="noopener noreferrer">NASA · 太阳系范围说明</a></li><li><a href="https://ssd.jpl.nasa.gov/astro_par.html" target="_blank" rel="noopener noreferrer">NASA/JPL · 天文单位、光速与儒略年定义</a></li></ul><p>1 AU = 149,597,870,700 m；1 光年约为 9.4607 × 10¹⁵ m。大数长度保留适合阅读的有效数字；层数使用整数精确计算，避免大整数精度丢失。</p></div></details>
+  <details class="pf-sources"><summary>尺度口径与数据来源</summary><div><p>人高 1.7 m、房屋高 10 m 是选定的生活参照，并非统计平均值。地球采用赤道直径 12,756 km，太阳采用直径 1,391,400 km，都是近似参考值。</p><p>本页的“太阳系尺度”特指海王星轨道的近似直径：约 60 AU。它不是太阳系的真实边界，也不是海王星本身的直径。太阳系还包括更远的天体。轨道图为俯视示意，行星点大小做了可见性放大。</p><p>新增的头发、卡片、米粒、网球、书和百米高楼也采用选定尺寸，并非统计平均值。空间站高度约 400 km，会随轨道调整；地月距离取中心间平均距离。木星轨道参照采用长轴约 10.4 AU。更远处穿插光行进指定时间的距离；光年是长度单位，不是时间。</p><p>银河系参照为恒星盘直径约 10 万光年，不包括更大的晕结构。所有轮廓均为本站绘制的示意图，未使用第三方图片。</p><ul>{extraSources.map(source => <li><a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>)}</ul><p>1 AU = 149,597,870,700 m；1 光年约为 9.4607 × 10¹⁵ m。大数长度保留适合阅读的有效数字；层数使用整数精确计算，避免大整数精度丢失。</p></div></details>
   <nav class="pf-related" aria-label="相关科学实验"><span>继续探索</span><a href="/tools/cosmic-scale/">宇宙尺度漫游 <span aria-hidden="true">↗</span></a><a href="/tools/zeno-race/">芝诺悖论追逐实验 <span aria-hidden="true">↗</span></a></nav>
   <noscript><p>交互折叠需要 JavaScript。默认 0.1 mm 纸张经过 n 次理想对折，厚度为 0.1 × 2ⁿ mm。</p></noscript>
 </ToolLayout>

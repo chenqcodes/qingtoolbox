@@ -84,6 +84,8 @@ test('keyboard editing announces existing terrain and model water depth', async 
 });
 
 test('native visibility transitions suspend and resume without overriding manual pause', async ({ page }, testInfo) => {
+  // A shorter real viewport makes the canvas fully scrollable offscreen.
+  await page.setViewportSize({ width: 1440, height: 600 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/tools/city-rain/');
   const canvas = page.locator('#cr-canvas'), lab = page.locator('#city-rain-lab'), status = page.locator('#cr-status');

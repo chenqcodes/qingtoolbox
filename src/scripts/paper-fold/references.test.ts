@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_FOLDS, AU, LIGHT_YEAR_METRES, REFERENCES } from './model';
+import { journeyFoldLimit, SUN_DIAMETER_METRES, OBSERVABLE_UNIVERSE_DIAMETER_METRES, AU, LIGHT_YEAR_METRES, REFERENCES } from './model';
 import { viewLog } from './draw';
 import { JOURNEY_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
 
 test('dense reference ladder is ordered, explicit and spans every allowed thickness', () => {
-  assert.equal(JOURNEY_REFERENCES.length, 33);
+  assert.equal(JOURNEY_REFERENCES.length, 46);
   assert.equal(new Set(JOURNEY_REFERENCES.map(ref => ref.id)).size, JOURNEY_REFERENCES.length);
   for (const [index, ref] of JOURNEY_REFERENCES.entries()) {
     assert.ok(ref.dimension.length > 5, ref.id);
@@ -18,7 +18,7 @@ test('dense reference ladder is ordered, explicit and spans every allowed thickn
     else assert.equal(new URL(ref.source.url).protocol, 'https:');
   }
   for (const existing of REFERENCES) assert.equal(JOURNEY_REFERENCES.find(ref => ref.id === existing.id), existing);
-  assert.ok(JOURNEY_REFERENCES.at(-1)!.metres > .001 * 2 ** MAX_FOLDS);
+  assert.equal(JOURNEY_REFERENCES.at(-1)!.metres, OBSERVABLE_UNIVERSE_DIAMETER_METRES);
   const ref = (id: string) => JOURNEY_REFERENCES.find(item => item.id === id)!;
   assert.equal(ref('moon').metres, 3_475_000); assert.match(ref('moon').dimension, /平均直径/);
   assert.equal(ref('jupiter').metres, 142_984_000); assert.match(ref('jupiter').dimension, /赤道直径/);
@@ -31,10 +31,10 @@ test('dense reference ladder is ordered, explicit and spans every allowed thickn
 });
 
 test('every fractional frame keeps a fully opaque 10px-or-larger reference on screen', () => {
-  // 100 supported paper settings × 641 animation samples × both scene heights.
+  // 100 supported paper settings × the complete per-paper fractional journey × both scene heights.
   // This tests real projected size/opacity, not merely the presence of labels.
   for (let initial = 1; initial <= 100; initial++) {
-    for (let eighth = 0; eighth <= MAX_FOLDS * 8; eighth++) {
+    for (let eighth = 0; eighth <= journeyFoldLimit(initial / 100) * 8; eighth++) {
       const exponent = eighth / 8, mm = initial / 100;
       for (const area of [199, 260]) {
         const refs = projectedReferences(viewLog(exponent, mm), area);
@@ -46,11 +46,11 @@ test('every fractional frame keeps a fully opaque 10px-or-larger reference on sc
 
 test('neighbour pairs bracket displayed thickness through boundaries and transitions', () => {
   for (let initial = 1; initial <= 100; initial++) {
-    for (let eighth = 0; eighth <= MAX_FOLDS * 8; eighth++) {
+    for (let eighth = 0; eighth <= journeyFoldLimit(initial / 100) * 8; eighth++) {
       const metres = initial / 100_000 * 2 ** (eighth / 8);
       const { previous, next } = adjacentReferences(metres);
-      assert.ok(next, 'catalog extends beyond the selectable maximum');
-      assert.ok(next!.metres > metres);
+      if (!next) { assert.equal(previous?.id, 'observable-universe'); continue; }
+      assert.ok(next.metres > metres);
       if (previous) {
         assert.ok(previous.metres <= metres);
         assert.equal(JOURNEY_REFERENCES.indexOf(next!), JOURNEY_REFERENCES.indexOf(previous) + 1);
@@ -73,4 +73,30 @@ test('the original five landmarks leave gaps that the dense ladder closes', () =
   }));
   assert.ok(oldBlankFolds.length > 40);
   for (const n of oldBlankFolds) assert.ok(projectedReferences(viewLog(n, .1), area).some(item => item.pixels >= 10 && item.pixels <= area && item.opacity === 1));
+});
+
+
+test('stellar radius ratios become matching diameter ratios, with scoped uncertainty', () => {
+  const get=(id:string)=>JOURNEY_REFERENCES.find(ref=>ref.id===id)!;
+  for(const [id,ratio] of [['sirius',1.713],['arcturus',25.4],['aldebaran',44.2],['antares',700],['betelgeuse',764],['vy-cma',1420]] as const) {
+    assert.equal(get(id).metres, ratio*SUN_DIAMETER_METRES);
+    assert.equal(get(id).kind,'star');
+    assert.match(get(id).dimension,/直径/);
+    assert.doesNotMatch(get(id).dimension,/最大|纪录/);
+  }
+  assert.match(get('betelgeuse').dimension,/模型估计/);
+  assert.match(get('vy-cma').dimension,/光球.*估计/);
+  assert.ok(get('betelgeuse').metres < get('jupiter-orbit').metres);
+  assert.ok(get('vy-cma').metres > get('jupiter-orbit').metres);
+});
+
+test('cosmic dimensions keep object extents distinct from intergalactic distances', () => {
+  const get=(id:string)=>JOURNEY_REFERENCES.find(ref=>ref.id===id)!;
+  for(const [id,ly,kind] of [['orion-nebula',24,'nebula'],['omega-centauri',150,'cluster'],['n44',1000,'nebula'],['small-magellanic',7000,'galaxy'],['andromeda',2.5e6,'distance'],['m87-distance',54e6,'distance'],['laniakea',520e6,'supercluster'],['observable-universe',92e9,'universe']] as const) {
+    assert.equal(get(id).metres,ly*LIGHT_YEAR_METRES);assert.equal(get(id).kind,kind);assert.ok(get(id).source);
+  }
+  assert.match(get('andromeda').dimension,/距地球.*距离/);
+  assert.match(get('m87-distance').dimension,/距地球/);
+  assert.match(get('laniakea').dimension,/速度流域.*定义/);
+  assert.match(get('observable-universe').dimension,/当前直径.*模型/);
 });

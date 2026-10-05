@@ -57,10 +57,10 @@ function drawEarth(ctx: CanvasRenderingContext2D, x: number, bottom: number, dia
   const shade=ctx.createLinearGradient(-1,0,1,0);shade.addColorStop(0,'#00152100');shade.addColorStop(.5,'#00152100');shade.addColorStop(1,'#001521b0');ctx.fillStyle=shade;ctx.fillRect(-1,-1,2,2);
   ctx.restore();
 }
-function drawSun(ctx: CanvasRenderingContext2D, x: number, bottom: number, diameter: number) {
+function drawSun(ctx: CanvasRenderingContext2D, x: number, bottom: number, diameter: number, color = '#f3cd72') {
   const r=diameter/2,y=bottom-r;
-  ctx.save();const glow=ctx.createRadialGradient(x,y,r*.65,x,y,r*1.55);glow.addColorStop(0,'#e5a74545');glow.addColorStop(.6,'#f3b76020');glow.addColorStop(1,'#ffaf5100');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r*1.55,0,Math.PI*2);ctx.fill();
-  const body=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);body.addColorStop(0,'#fff1b2');body.addColorStop(.6,'#f3cd72');body.addColorStop(1,'#c88943');ctx.fillStyle=body;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  ctx.save();const glow=ctx.createRadialGradient(x,y,r*.65,x,y,r*1.55);glow.addColorStop(0,`${color}45`);glow.addColorStop(.6,`${color}20`);glow.addColorStop(1,`${color}00`);ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r*1.55,0,Math.PI*2);ctx.fill();
+  const body=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);body.addColorStop(0,'#fff1b2');body.addColorStop(.6,color);body.addColorStop(1,`${color}a0`);ctx.fillStyle=body;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
   ctx.save();ctx.beginPath();ctx.arc(x,y,r*.99,0,Math.PI*2);ctx.clip();for(let i=0;i<44;i++){const angle=i*2.399963,rad=r*Math.sqrt((i+.5)/44);ctx.fillStyle=i%3?'#a6683220':'#fff4c033';ctx.beginPath();ctx.ellipse(x+Math.cos(angle)*rad,y+Math.sin(angle)*rad,r*.04,r*.014,angle,0,Math.PI*2);ctx.fill();}ctx.restore();ctx.restore();
 }
 function drawSolar(ctx: CanvasRenderingContext2D, x: number, bottom: number, diameter: number, jupiter = false) {
@@ -76,7 +76,7 @@ function drawReference(ctx: CanvasRenderingContext2D, ref: JourneyReference, x: 
   if (ref.kind === 'person') return drawPerson(ctx, x, baseline, height);
   if (ref.kind === 'house') return drawHouse(ctx, x, baseline, height);
   if (ref.kind === 'earth') return drawEarth(ctx, x, baseline, height);
-  if (ref.kind === 'sun') return drawSun(ctx, x, baseline, height);
+  if (ref.kind === 'sun' || ref.kind === 'star') return drawSun(ctx, x, baseline, height, ref.kind === 'star' ? ref.color : undefined);
   if (ref.kind === 'solar') return drawSolar(ctx, x, baseline, height, ref.id === 'jupiter-orbit');
   ctx.save(); ctx.translate(x, baseline); ctx.scale(height / 100, height / 100);
   ctx.fillStyle = ref.color; ctx.strokeStyle = ref.color; ctx.lineWidth = 1;
@@ -118,9 +118,28 @@ function drawReference(ctx: CanvasRenderingContext2D, ref: JourneyReference, x: 
       for (let i=0;i<9;i++) {ctx.fillStyle=i%2?'#f1dec560':'#8d615244';ctx.fillRect(-50,-94+i*11,100,5+i%3);}
       ctx.fillStyle='#b97860';ctx.beginPath();ctx.ellipse(18,-35,13,6,-.12,0,Math.PI*2);ctx.fill();
     }
+  } else if (ref.kind === 'nebula') {
+    // Diffuse extent, not a hard solid sphere; all cloud marks stay in this span.
+    for (let i=0;i<9;i++) {
+      const a=i*2.4, r=20+8*(i%3), cx=Math.cos(a)*16, cy=-50+Math.sin(a)*22;
+      const cloud=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+      cloud.addColorStop(0,`${ref.color}85`);cloud.addColorStop(1,`${ref.color}00`);
+      ctx.fillStyle=cloud;ctx.fillRect(cx-r,cy-r,r*2,r*2);
+    }
+  } else if (ref.kind === 'cluster') {
+    for(let i=0;i<90;i++) {const a=i*2.399963,r=49*Math.sqrt((i+.5)/90);ctx.fillStyle=i%3?ref.color:'#fff0d9';ctx.beginPath();ctx.arc(Math.cos(a)*r,-50+Math.sin(a)*r,i%7===0?1.3:.7,0,Math.PI*2);ctx.fill();}
+  } else if (ref.kind === 'supercluster' || ref.kind === 'universe') {
+    // A cosmic web schematic. Dashed observable extent is not a physical wall.
+    const nodes=Array.from({length:35},(_,i)=>{const a=i*2.399963,r=47*Math.sqrt((i+.5)/35);return [Math.cos(a)*r,-50+Math.sin(a)*r];});
+    ctx.lineWidth=.65;ctx.strokeStyle=`${ref.color}55`;
+    for(let i=1;i<nodes.length;i++) {const [x1,y1]=nodes[i], [x2,y2]=nodes[Math.max(0,i-5)];if(Math.hypot(x1-x2,y1-y2)<40)line(ctx,x1,y1,x2,y2);}
+    for(const [nx,ny] of nodes) {ctx.fillStyle=ref.color;ctx.beginPath();ctx.ellipse(nx,ny,1.8,.9,-.4,0,Math.PI*2);ctx.fill();}
+    if(ref.kind==='universe'){ctx.setLineDash([2,3]);ctx.strokeStyle=`${ref.color}bb`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(0,-50,50,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
   } else if (ref.kind === 'galaxy') {
     const glow=ctx.createRadialGradient(0,-50,0,0,-50,50);glow.addColorStop(0,'#f6dfb6');glow.addColorStop(.22,'#e2cdd480');glow.addColorStop(1,'#a5ace500');ctx.fillStyle=glow;ctx.fillRect(-50,-100,100,100);
-    for(let arm=0;arm<3;arm++){ctx.beginPath();for(let t=0;t<100;t++){const r=t*.5,a=t*.047+arm*Math.PI*2/3;const px=Math.cos(a)*r,py=-50+Math.sin(a)*r;t?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.strokeStyle='#cac2df80';ctx.lineWidth=2;ctx.stroke();}
+    if(ref.id === 'small-magellanic') {
+      for(let i=0;i<65;i++){const a=i*2.399963,r=49*Math.sqrt((i+.5)/65);ctx.fillStyle=i%3?'#a8bddb80':'#ead8c8';ctx.beginPath();ctx.arc(Math.cos(a)*r*(.55+.3*Math.sin(a*3)),-50+Math.sin(a)*r,.9,0,Math.PI*2);ctx.fill();}
+    } else for(let arm=0;arm<3;arm++){ctx.beginPath();for(let t=0;t<100;t++){const r=t*.5,a=t*.047+arm*Math.PI*2/3;const px=Math.cos(a)*r,py=-50+Math.sin(a)*r;t?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.strokeStyle='#cac2df80';ctx.lineWidth=2;ctx.stroke();}
   } else {
     // Distances use a vertical measured segment. Endpoint glyph sizes are schematic.
     ctx.lineWidth = Math.min(3, 180 / height); ctx.setLineDash([4,4]); line(ctx,0,-100,0,0); ctx.setLineDash([]);
@@ -171,8 +190,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
     drawReference(ctx,ref,x,baseline,ph); ctx.restore();
     if (item === primary) {
       // One readable label at all sizes; full measurement details stay in the rail.
-      label(ctx,ref.name,x,baseline+21,ref.color,'center',mobile?10:12);
-      label(ctx,formatLength(ref.metres),x,baseline+36,'#a7bbc5','center',10);
+      const labelX = width * .71;
+      label(ctx,ref.name,labelX,baseline+21,ref.color,'center',mobile?9:12);
+      label(ctx,formatLength(ref.metres),labelX,baseline+36,'#a7bbc5','center',10);
     }
   }
   // The side's height is physical; width/depth are schematic, never volume claims.
@@ -198,3 +218,4 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
   const rx=width-(mobile?20:34),ry=top+9;
   ctx.save();ctx.strokeStyle='#8096a577';ctx.lineWidth=1;line(ctx,rx,ry,rx,ry+rulerPixels);line(ctx,rx-5,ry,rx+1,ry);line(ctx,rx-5,ry+rulerPixels,rx+1,ry+rulerPixels);ctx.translate(rx-9,ry+rulerPixels/2);ctx.rotate(-Math.PI/2);label(ctx,formatLength(rulerMetres),0,0,'#8da3ae','center',9);ctx.restore();
 }
+

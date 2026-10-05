@@ -15,7 +15,8 @@ test('initial sheet, doubling, exact layer count and scientific units', async ({
   await expect(lab).toHaveAttribute('data-folds','1');await expect(lab).toHaveAttribute('data-thickness','0.0002');await expect(page.locator('#pf-layers')).toHaveText('2');
   await setFolds(page,80);await expect(page.locator('#pf-layers')).toHaveText('1,208,925,819,614,629,174,706,176');
   await expect(page.locator('#pf-thickness')).toContainText('光年');await expect(page.locator('#pf-scientific')).toContainText('10²⁰');
-  await expect(page.locator('#pf-step')).toBeDisabled();
+  await expect(page.locator('#pf-step')).toBeEnabled();
+  await setFolds(page,103);await expect(page.locator('#pf-step')).toBeDisabled();
   await page.getByRole('button',{name:'重置',exact:true}).click();
   await expect(lab).toHaveAttribute('data-folds','0');await expect(lab).toHaveAttribute('data-playing','false');
   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:testInfo.outputPath('paper-fold-start-desktop.png'),fullPage:true});
@@ -79,10 +80,10 @@ test('smooth logarithmic zoom survives interrupted jumps and reset', async ({pag
 test('reduced-motion mode is immediate, retains manual play, and stops at the bound', async ({page})=>{
   await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
   const lab=page.locator('#paper-fold-lab');await expect(page.locator('#pf-motion-note')).toBeVisible();
-  await setFolds(page,79);await expect(lab).toHaveAttribute('data-motion','false');
+  await setFolds(page,102);await expect(lab).toHaveAttribute('data-motion','false');
   await page.locator('#pf-speed').selectOption('500');await page.locator('#pf-play').click();
-  await expect(lab).toHaveAttribute('data-folds','80');await expect(lab).toHaveAttribute('data-playing','false');
-  await expect(page.locator('#pf-status')).toContainText('旅程完成');await page.waitForTimeout(600);await expect(lab).toHaveAttribute('data-folds','80');
+  await expect(lab).toHaveAttribute('data-folds','103');await expect(lab).toHaveAttribute('data-playing','false');
+  await expect(page.locator('#pf-status')).toContainText('旅程完成');await page.waitForTimeout(600);await expect(lab).toHaveAttribute('data-folds','103');
   await page.getByRole('button',{name:'重新旅行'}).click();await expect.poll(async()=>Number(await lab.getAttribute('data-folds'))).toBeLessThan(5);
   await page.locator('#pf-play').click();
 });
@@ -91,7 +92,7 @@ test('mobile layout and keyboard controls remain usable', async ({page},testInfo
   const errors: string[]=[];page.on('pageerror',error=>errors.push(error.message));
   await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
   await page.locator('#pf-folds').focus();await page.keyboard.press('ArrowRight');await expect(page.locator('#pf-count')).toHaveText('1');
-  await page.keyboard.press('End');await expect(page.locator('#pf-count')).toHaveText('80');await page.keyboard.press('Home');await expect(page.locator('#pf-count')).toHaveText('0');
+  await page.keyboard.press('End');await expect(page.locator('#pf-count')).toHaveText('103');await page.keyboard.press('Home');await expect(page.locator('#pf-count')).toHaveText('0');
   await page.locator('[data-milestone="earth"]').click();await expect(page.locator('#pf-count')).toHaveText('37');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:testInfo.outputPath('paper-fold-earth-mobile.png'),fullPage:true});
@@ -108,7 +109,7 @@ test('all folds and paper extremes keep visible shapes plus nearest comparison c
     const failures: string[] = [];
     for (const mm of [.01,.1,1]) {
       input.value = String(mm); input.dispatchEvent(new Event('change', {bubbles:true}));
-      for (let fold=0;fold<=80;fold++) {
+      for (let fold=0;fold<=Number(range.max);fold++) {
         range.value=String(fold);range.dispatchEvent(new Event('input',{bubbles:true}));
         if (!lab.dataset.referenceVisible) failures.push(`No physical reference: ${mm} mm / ${fold}`);
         for (const side of ['previous','next']) {
@@ -123,9 +124,10 @@ test('all folds and paper extremes keep visible shapes plus nearest comparison c
   });
   expect(failures).toEqual([]);
   await expect(page.locator('#pf-reference-next')).toBeDisabled();
-  await expect(page.locator('#pf-next-name')).toHaveText('一百万光年');
-  await expect(page.locator('#pf-next-placement')).toHaveText('超出 80 折');
-  await expect(page.locator('#pf-reference-next')).toHaveAccessibleDescription(/目标是当前的.+倍 超出 80 折/);
+  await expect(page.locator('#pf-previous-name')).toHaveText('可观测宇宙');
+  await expect(page.locator('#pf-next-name')).toHaveText('更远的宇宙');
+  await expect(page.locator('#pf-next-placement')).toHaveText('大小未知');
+  await expect(page.locator('#pf-reference-next')).toHaveAccessibleDescription(/可观测范围之外，没有已知的总直径 大小未知/);
 });
 
 test('smooth playback through former long gap never loses a reference', async ({page}) => {
@@ -165,7 +167,7 @@ test('reference navigation and interrupted thickness changes use current visible
     const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
     let observing=true;
     const sample=()=>{if(!lab.dataset.referenceVisible)failures.push(lab.dataset.visualFold??'');if(observing)requestAnimationFrame(sample);};requestAnimationFrame(sample);
-    for(const [n,mm] of [[65,.01],[12,1],[80,.1],[31,.25]]) {
+    for(const [n,mm] of [[65,.01],[12,1],[103,.1],[31,.25]]) {
       range.value=String(n);range.dispatchEvent(new Event('input',{bubbles:true}));await delay(70);
       initial.value=String(mm);initial.dispatchEvent(new Event('change',{bubbles:true}));await delay(70);
     }
@@ -178,7 +180,7 @@ test('reference navigation and interrupted thickness changes use current visible
 
 for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${width}px`, async ({page},testInfo)=>{
   await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
-  for(const fold of [3,10,24,29,34,41,51,68,80]) {
+  for(const fold of [3,10,24,29,34,41,45,49,54,55,57,68,80,83,88,96,103]) {
     await setFolds(page,fold);
     await expect(page.locator('#paper-fold-lab')).not.toHaveAttribute('data-reference-visible','');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
@@ -192,6 +194,46 @@ for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${widt
     const legend=await page.locator('.pf-scale-key').boundingBox();
     expect(legend!.y).toBeGreaterThanOrEqual(diagram!.y+diagram!.height);
     expect((await page.locator('#pf-stage').boundingBox())!.height).toBeLessThan(730);
-    if([10,24,29,41,68,80].includes(fold)) await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)});
+    if([10,41,45,49,54,55,57,68,83,88,96,103].includes(fold)) await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)});
   }
+});
+
+
+for(const width of [1440,390,320]) test(`cosmic endpoint recalculates safely at ${width}px`, async ({page},testInfo) => {
+  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  const lab=page.locator('#paper-fold-lab');
+  for(const [mm,limit] of [[.01,107],[.1,103],[1,100]]) {
+    await page.locator('#pf-initial').fill(String(mm));await page.locator('#pf-initial').press('Enter');
+    await expect(page.locator('#pf-folds')).toHaveAttribute('max',String(limit));
+    await page.locator('[data-milestone="observable-universe"]').click();
+    await expect(lab).toHaveAttribute('data-folds',String(limit));
+    await expect(lab).toHaveAttribute('data-reference-previous','observable-universe');
+    await expect(lab).toHaveAttribute('data-reference-next','end');
+    await expect(page.locator('#pf-step')).toBeDisabled();
+    await expect(page.locator('#pf-reference-next')).toBeDisabled();
+    await expect(page.locator('#pf-next-dimension')).toContainText('整个宇宙有多大，目前还不知道');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    const boxes=await page.locator('.pf-count,.pf-thickness').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right};}));
+    expect(boxes[0].right).toBeLessThanOrEqual(boxes[1].left);
+    await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`cosmic-end-${width}-${mm}.png`)});
+  }
+  await page.locator('#pf-initial').fill('.01');await page.locator('#pf-initial').press('Enter');await setFolds(page,107);
+  await page.locator('#pf-initial').fill('1');await page.locator('#pf-initial').press('Enter');await expect(lab).toHaveAttribute('data-folds','100');
+  await page.locator('#pf-reset').click();await expect(page.locator('#pf-folds')).toHaveAttribute('max','103');
+  await expect(lab).toHaveAttribute('data-folds','0');
+});
+
+test('stellar and cosmic jumps preserve a fully visible reference throughout animation', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
+  const result=await page.evaluate(async()=>{
+    const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
+    const failures:string[]=[];const seen=new Set<string>();
+    for(const id of ['sun','betelgeuse','solar','milky-way','andromeda','laniakea','observable-universe']) {
+      (document.querySelector(`[data-milestone="${id}"]`) as HTMLButtonElement).click();
+      await new Promise<void>(resolve=>{function sample(){const visible=lab.dataset.referenceVisible??'';if(!visible)failures.push(lab.dataset.visualFold??'');visible.split(',').forEach(x=>seen.add(x));if(lab.dataset.motion==='false')resolve();else requestAnimationFrame(sample);}requestAnimationFrame(sample);});
+    }
+    return {failures,seen:[...seen]};
+  });
+  expect(result.failures).toEqual([]);expect(result.seen).toEqual(expect.arrayContaining(['sirius','arcturus','aldebaran','antares','betelgeuse','vy-cma','solar','orion-nebula','omega-centauri','n44','small-magellanic','milky-way','andromeda','m87-distance','laniakea','observable-universe']));
+  await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-folds','103');
 });

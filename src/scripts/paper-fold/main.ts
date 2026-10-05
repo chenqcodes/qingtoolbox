@@ -1,6 +1,6 @@
-import { DEFAULT_THICKNESS_MM, MAX_FOLDS, MIN_THICKNESS_MM, MAX_THICKNESS_MM, REFERENCES, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
+import { DEFAULT_THICKNESS_MM, MAX_FOLDS, journeyFoldLimit, MIN_THICKNESS_MM, MAX_THICKNESS_MM, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
 import { drawScene, viewLog } from './draw';
-import { JOURNEY_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
+import { JOURNEY_REFERENCES, MILESTONE_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
 
 let dispose: (() => void) | undefined;
 export function bootPaperFold(): void {
@@ -15,6 +15,7 @@ export function bootPaperFold(): void {
   const media = matchMedia('(prefers-reduced-motion: reduce)');
   const abort = new AbortController(), { signal } = abort;
   let folds = 0, thicknessMm = DEFAULT_THICKNESS_MM, playing = false;
+  const foldLimit = () => journeyFoldLimit(thicknessMm);
   let exponent = 0, logMm = Math.log2(thicknessMm), logView = viewLog(0, thicknessMm), foldPhase = 0;
   let width = 800, height = 575, raf = 0, nextFoldAt = 0;
   type Motion = { fromExponent: number; toExponent: number; fromLogMm: number; toLogMm: number; fromView: number; toView: number; start: number; duration: number; leaf: boolean };
@@ -45,17 +46,17 @@ export function bootPaperFold(): void {
       button.dataset.reference = reference?.id ?? '';
       const unreachable = Boolean(reference && milestoneFold(reference.metres, thicknessMm) === null);
       button.disabled = !reference || unreachable;
-      text(`pf-${side}-name`, reference?.name ?? (isPrevious ? '最初的纸张' : '继续翻倍'));
-      text(`pf-${side}-dimension`, reference?.dimension ?? `${formatLength(2 ** logMm / 1000)} 的起点`);
-      text(`pf-${side}-ratio`, reference ? (isPrevious ? `当前约为它的 ${formatRatio(metres / reference.metres)} 倍` : `目标是当前的 ${formatRatio(reference.metres / metres)} 倍`) : `已经放大 ${formatRatio(2 ** exponent)} 倍`);
+      text(`pf-${side}-name`, reference?.name ?? (isPrevious ? '最初的纸张' : '更远的宇宙'));
+      text(`pf-${side}-dimension`, reference?.dimension ?? (isPrevious ? `${formatLength(2 ** logMm / 1000)} 的起点` : '整个宇宙有多大，目前还不知道'));
+      text(`pf-${side}-ratio`, reference ? (isPrevious ? `当前约为它的 ${formatRatio(metres / reference.metres)} 倍` : `目标是当前的 ${formatRatio(reference.metres / metres)} 倍`) : (isPrevious ? `已经放大 ${formatRatio(2 ** exponent)} 倍` : '可观测范围之外，没有已知的总直径'));
       const pixels = reference ? reference.metres * area / 2 ** logView : 0;
-      const placement = !reference ? '起点' : unreachable ? '超出 80 折' : pixels < 10 ? '↓ 已缩小' : pixels > area ? '↑ 画面之外' : '同尺可见';
+      const placement = !reference ? (isPrevious ? '起点' : '大小未知') : unreachable ? `超出 ${MAX_FOLDS} 折` : pixels < 10 ? '↓ 已缩小' : pixels > area ? '↑ 画面之外' : '同尺可见';
       text(`pf-${side}-placement`, placement);
-      button.setAttribute('aria-label', reference ? `${isPrevious ? '已越过' : '正靠近'}${reference.name}，${reference.dimension}。${milestoneFold(reference.metres, thicknessMm) === null ? '超过当前折叠上限' : '跳到这个尺度'}` : '最初的纸张');
+      button.setAttribute('aria-label', reference ? `${isPrevious ? '已越过' : '正靠近'}${reference.name}，${reference.dimension}。${milestoneFold(reference.metres, thicknessMm) === null ? '超过当前折叠上限' : '跳到这个尺度'}` : isPrevious ? '最初的纸张' : '整个宇宙大小未知，没有可跳转的总直径');
     }
     const start = previous?.metres ?? Math.min(2 ** logMm / 1000, metres);
-    const end = next?.metres ?? metres * 2;
-    const progress = Math.min(1, Math.max(0, Math.log(metres / start) / Math.log(end / start)));
+    const end = next?.metres ?? metres;
+    const progress = next ? Math.min(1, Math.max(0, Math.log(metres / start) / Math.log(end / start))) : 1;
     get('pf-reference-progress').style.setProperty('--progress', `${Number.isFinite(progress) ? progress * 100 : 0}%`);
   }
   function renderValues() {
@@ -65,12 +66,16 @@ export function bootPaperFold(): void {
     get('pf-scientific').textContent = superscript(scientificMetres(metres));
     get('pf-layers').textContent = exactLayers; get('pf-layer-power').textContent = superscript(`= 2^${folds}`);
     get('pf-formula-initial').textContent = `${thicknessMm} mm`; get('pf-formula-power').textContent = String(folds); get('pf-formula-result').textContent = formatLength(metres);
-    get('pf-folds-output').textContent = `第 ${folds} 次`; range.value = String(folds);
+    get('pf-folds-output').textContent = `第 ${folds} 次`; range.max = String(foldLimit()); range.value = String(folds);
+    get('pf-limit').textContent = `OF ${foldLimit()}`;
+    get('pf-timeline-label').textContent = `拖动，穿过 ${foldLimit()} 次翻倍`;
+    root!.dataset.foldLimit = String(foldLimit());
+    get('pf-ticks').innerHTML = [0,20,40,60,80,foldLimit()].map(n => `<span style="left:${n / foldLimit() * 100}%">${n}</span>`).join('');
     range.setAttribute('aria-valuetext', `${folds} 次对折，厚度 ${formatLength(metres)}`);
-    play.innerHTML = `<span aria-hidden="true">${playing?'Ⅱ':'▶'}</span> ${playing?'暂停折叠':folds===MAX_FOLDS?'重新旅行':folds===0?'开始折叠':'继续折叠'}`;
-    play.setAttribute('aria-pressed', String(playing)); step.disabled = folds === MAX_FOLDS || !ctx; play.disabled = !ctx;
-    const reached = [...REFERENCES].reverse().find(ref => metres >= ref.metres);
-    for (const ref of REFERENCES) {
+    play.innerHTML = `<span aria-hidden="true">${playing?'Ⅱ':'▶'}</span> ${playing?'暂停折叠':folds===foldLimit()?'重新旅行':folds===0?'开始折叠':'继续折叠'}`;
+    play.setAttribute('aria-pressed', String(playing)); step.disabled = folds === foldLimit() || !ctx; play.disabled = !ctx;
+    const reached = [...MILESTONE_REFERENCES].reverse().find(ref => metres >= ref.metres);
+    for (const ref of MILESTONE_REFERENCES) {
       const first = milestoneFold(ref.metres, thicknessMm);
       root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
       root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
@@ -86,7 +91,7 @@ export function bootPaperFold(): void {
     renderValues();paint();if(message)status(message);
   }
   function moveTo(target: number, duration=850) {
-    folds=clampFolds(target);
+    folds=Math.min(foldLimit(),clampFolds(target));
     const toLogMm=Math.log2(thicknessMm), toView=viewLog(folds,thicknessMm);
     if(media.matches || duration===0)finishMotion();
     else motion={fromExponent:exponent,toExponent:folds,fromLogMm:logMm,toLogMm,fromView:logView,toView,start:performance.now(),duration,leaf:Math.abs(folds-exponent)<1.1&&folds>exponent};
@@ -108,7 +113,7 @@ export function bootPaperFold(): void {
       paint();
     }
     if(playing&&!motion&&now>=nextFoldAt){
-      if(folds>=MAX_FOLDS){pause('已抵达 80 次 · 旅程完成');return;}
+      if(folds>=foldLimit()){pause(`已抵达可观测宇宙尺度 · ${foldLimit()} 次旅程完成`);return;}
       const interval=Number(speed.value);nextFoldAt=now+interval;
       moveTo(folds+1,Math.min(850,interval*.78));status(`正在折叠 · 第 ${folds} 次`);
     }
@@ -116,17 +121,17 @@ export function bootPaperFold(): void {
   }
   play.addEventListener('click',()=>{
     if(playing){pause('已暂停 · 可以细看这一刻');return;}
-    if(folds===MAX_FOLDS){folds=0;finishMotion();renderValues();paint();}
+    if(folds===foldLimit()){folds=0;finishMotion();renderValues();paint();}
     playing=true;nextFoldAt=0;renderValues();status(media.matches?'逐步播放 · 已减少动态效果':'镜头会随纸叠一起向外');requestFrame();
   },{signal});
-  step.addEventListener('click',()=>jumpTo(folds+1,`再折一次 · 第 ${Math.min(MAX_FOLDS,folds+1)} 次`),{signal});
+  step.addEventListener('click',()=>jumpTo(folds+1,`再折一次 · 第 ${Math.min(foldLimit(),folds+1)} 次`),{signal});
   get('pf-reset').addEventListener('click',()=>{
     pause(undefined,false);thicknessMm=DEFAULT_THICKNESS_MM;initial.value=String(thicknessMm);get('pf-input-help').textContent='初始厚度 0.01–1 mm · 修改会暂停';moveTo(0,media.matches?0:1100);status('回到最初的 0.1 mm 纸张');
   },{signal});
   range.addEventListener('input',()=>jumpTo(Number(range.value),`停在第 ${range.value} 次 · 可继续折叠`),{signal});
   root.querySelectorAll<HTMLButtonElement>('[data-milestone]').forEach(button=>button.addEventListener('click',()=>{
-    const ref=REFERENCES.find(item=>item.id===button.dataset.milestone)!;
-    jumpTo(milestoneFold(ref.metres,thicknessMm)??MAX_FOLDS,`抵达${ref.name}尺度 · 理想模型`);
+    const ref=MILESTONE_REFERENCES.find(item=>item.id===button.dataset.milestone)!;
+    jumpTo(milestoneFold(ref.metres,thicknessMm)??foldLimit(),`抵达${ref.name}尺度 · 理想模型`);
   },{signal}));
   root.querySelectorAll<HTMLButtonElement>('[data-nearby]').forEach(button => button.addEventListener('click', () => {
     const reference = JOURNEY_REFERENCES.find(item => item.id === button.dataset.reference);
@@ -141,7 +146,7 @@ export function bootPaperFold(): void {
     pause(undefined,false);thicknessMm=clampThickness(value);initial.value=String(thicknessMm);
     const bounded=value<MIN_THICKNESS_MM||value>MAX_THICKNESS_MM;
     get('pf-input-help').textContent=bounded?'已限制在 0.01–1 mm 的安全范围':'初始厚度 0.01–1 mm · 修改会暂停';
-    moveTo(folds,650);status(`新纸张 ${thicknessMm} mm · 里程碑已重算`);
+    moveTo(Math.min(folds,foldLimit()),650);status(`新纸张 ${thicknessMm} mm · 里程碑已重算`);
   },{signal});
   initial.addEventListener('keydown',event=>{if(event.key==='Enter')initial.blur();},{signal});
   speed.addEventListener('change',()=>{if(playing)nextFoldAt=performance.now()+Number(speed.value);},{signal});
@@ -161,3 +166,4 @@ export function bootPaperFold(): void {
 bootPaperFold();
 document.addEventListener('astro:page-load',bootPaperFold);
 document.addEventListener('astro:before-swap',()=>dispose?.());
+

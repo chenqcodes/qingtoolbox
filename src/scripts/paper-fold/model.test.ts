@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  AU, LIGHT_YEAR_METRES, MIN_FOLDS, MAX_FOLDS,
+  AU, LIGHT_YEAR_METRES, OBSERVABLE_UNIVERSE_DIAMETER_METRES, journeyFoldLimit, MIN_FOLDS, MAX_FOLDS,
   DEFAULT_THICKNESS_MM, MIN_THICKNESS_MM, MAX_THICKNESS_MM,
   REFERENCES, clampFolds, clampThickness, thicknessMetres,
   layers, formatLength, scientificMetres, milestoneFold, niceScale,
@@ -9,8 +9,8 @@ import {
 
 test('folds are rounded, bounded, and reset on invalid numbers', () => {
   assert.equal(MIN_FOLDS, 0);
-  assert.equal(MAX_FOLDS, 80);
-  for (const [input, expected] of [[-100, 0], [-0.4, 0], [0, 0], [0.49, 0], [0.5, 1], [7.49, 7], [7.5, 8], [79.9, 80], [80, 80], [1e99, 80]]) {
+  assert.equal(MAX_FOLDS, 107);
+  for (const [input, expected] of [[-100, 0], [-0.4, 0], [0, 0], [0.49, 0], [0.5, 1], [7.49, 7], [7.5, 8], [79.9, 80], [80, 80], [107, 107], [107.9, 107], [1e99, 107]]) {
     assert.equal(clampFolds(input), expected);
   }
   for (const invalid of [NaN, Infinity, -Infinity]) assert.equal(clampFolds(invalid), 0);
@@ -34,17 +34,17 @@ test('thickness converts millimetres to metres and doubles on every fold', () =>
   assert.equal(thicknessMetres(0, 1), 0.001);
   assert.equal(thicknessMetres(1.6, 0.2), thicknessMetres(2, 0.2));
   assert.equal(thicknessMetres(NaN, Infinity), 0.0001);
-  assert.equal(thicknessMetres(900, 8), thicknessMetres(80, 1));
+  assert.equal(thicknessMetres(900, 8), thicknessMetres(MAX_FOLDS, 1));
 });
 
-test('layer counts stay exact across all 81 folds, including 80', () => {
+test('layer counts stay exact across all allowed folds, including beyond safe integer precision', () => {
   assert.equal(layers(0), 1n);
   assert.equal(layers(1), 2n);
   assert.equal(layers(53), 9_007_199_254_740_992n);
   assert.equal(layers(80), 1_208_925_819_614_629_174_706_176n);
   assert.equal(layers(Infinity), 1n);
   assert.equal(layers(-5), 1n);
-  assert.equal(layers(200), layers(80));
+  assert.equal(layers(200), layers(MAX_FOLDS));
   for (let fold = 1; fold <= MAX_FOLDS; fold++) assert.equal(layers(fold), layers(fold - 1) * 2n);
 });
 
@@ -110,7 +110,7 @@ test('milestones cover zero, an unfolded sheet, unreachable lengths, and invalid
   assert.equal(milestoneFold(0), 0);
   assert.equal(milestoneFold(0.00001), 0);
   assert.equal(milestoneFold(thicknessMetres(80)), 80);
-  assert.equal(milestoneFold(thicknessMetres(80) * 2), null);
+  assert.equal(milestoneFold(thicknessMetres(MAX_FOLDS) * 2), null);
   for (const invalid of [-1, NaN, Infinity, -Infinity]) assert.equal(milestoneFold(invalid), null);
 });
 
@@ -149,5 +149,19 @@ test('ruler picks the greatest 1/2/5 scale no larger than the available distance
     const scale = niceScale(target);
     assert.ok(scale > 0 && scale <= target);
     assert.ok(target / scale < 2.5);
+  }
+});
+
+test('every paper ends on its first observable-universe fold, with no unreachable target', () => {
+  assert.equal(OBSERVABLE_UNIVERSE_DIAMETER_METRES, 92e9 * LIGHT_YEAR_METRES);
+  assert.equal(journeyFoldLimit(.01), 107);
+  assert.equal(journeyFoldLimit(.1), 103);
+  assert.equal(journeyFoldLimit(1), 100);
+  for(let step=1;step<=100;step++) {
+    const mm=step/100, limit=journeyFoldLimit(mm);
+    assert.ok(limit <= MAX_FOLDS);
+    assert.ok(thicknessMetres(limit,mm)>=OBSERVABLE_UNIVERSE_DIAMETER_METRES);
+    assert.ok(thicknessMetres(limit-1,mm)<OBSERVABLE_UNIVERSE_DIAMETER_METRES);
+    assert.ok(thicknessMetres(limit,mm)<OBSERVABLE_UNIVERSE_DIAMETER_METRES*2);
   }
 });

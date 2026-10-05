@@ -16,11 +16,11 @@ const extraSources = [...new Map(JOURNEY_REFERENCES.filter(ref => ref.source).ma
       </div><div class="pf-reference-context" aria-label="相邻尺度参照">
         <div class="pf-reference-heading"><span>沿途参照</span><span id="pf-reference-now">画面此刻 · 0.1 毫米</span></div>
         <div class="pf-reference-pair">
-          <button type="button" id="pf-reference-previous" data-nearby="previous"><span class="pf-reference-kicker">已越过 <small id="pf-previous-placement">同尺可见</small></span><strong id="pf-previous-name">一根头发</strong><span class="pf-reference-dimension" id="pf-previous-dimension">直径 0.07 毫米（示意）</span><span class="pf-reference-ratio" id="pf-previous-ratio">当前约为它的 1.43 倍</span></button>
-          <button type="button" id="pf-reference-next" data-nearby="next"><span class="pf-reference-kicker">正靠近 <small id="pf-next-placement">同尺可见</small></span><strong id="pf-next-name">一张卡片</strong><span class="pf-reference-dimension" id="pf-next-dimension">厚度 0.8 毫米（示意）</span><span class="pf-reference-ratio" id="pf-next-ratio">目标是当前的 8 倍</span></button>
+          <button type="button" id="pf-reference-previous" data-nearby="previous" aria-describedby="pf-previous-ratio pf-previous-placement"><span class="pf-reference-kicker">已越过 <small id="pf-previous-placement">同尺可见</small></span><strong id="pf-previous-name">一根头发</strong><span class="pf-reference-dimension" id="pf-previous-dimension">直径 0.07 毫米（示意）</span><span class="pf-reference-ratio" id="pf-previous-ratio">当前约为它的 1.43 倍</span></button>
+          <button type="button" id="pf-reference-next" data-nearby="next" aria-describedby="pf-next-ratio pf-next-placement"><span class="pf-reference-kicker">正靠近 <small id="pf-next-placement">同尺可见</small></span><strong id="pf-next-name">一张卡片</strong><span class="pf-reference-dimension" id="pf-next-dimension">厚度 0.8 毫米（示意）</span><span class="pf-reference-ratio" id="pf-next-ratio">目标是当前的 8 倍</span></button>
         </div>
         <div class="pf-reference-progress" id="pf-reference-progress" aria-hidden="true"><i></i></div>
-        <p>进度按翻倍计 · 点击参照可跳转，画外参照仍显示倍数</p>
+        <p>进度按翻倍计 · 点击可达参照跳转，画外仍显示倍数</p>
       </div>
     </div>
     <div class="pf-console">

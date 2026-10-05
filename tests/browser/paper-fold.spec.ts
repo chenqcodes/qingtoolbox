@@ -124,6 +124,8 @@ test('all folds and paper extremes keep visible shapes plus nearest comparison c
   expect(failures).toEqual([]);
   await expect(page.locator('#pf-reference-next')).toBeDisabled();
   await expect(page.locator('#pf-next-name')).toHaveText('一百万光年');
+  await expect(page.locator('#pf-next-placement')).toHaveText('超出 80 折');
+  await expect(page.locator('#pf-reference-next')).toHaveAccessibleDescription(/目标是当前的.+倍 超出 80 折/);
 });
 
 test('smooth playback through former long gap never loses a reference', async ({page}) => {
@@ -153,6 +155,7 @@ test('reference navigation and interrupted thickness changes use current visible
   await page.locator('#pf-reference-next').focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#pf-count')).toHaveText('3');
   await expect(page.locator('#pf-previous-name')).toHaveText('一张卡片');
+  await expect(page.locator('#pf-reference-previous')).toHaveAccessibleDescription(/当前约为它的 1 倍 同尺可见/);
   await page.emulateMedia({reducedMotion:'no-preference'});
   const failures=await page.evaluate(async()=>{
     const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;

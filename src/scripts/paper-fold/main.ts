@@ -43,12 +43,13 @@ export function bootPaperFold(): void {
       const button = get<HTMLButtonElement>(`pf-reference-${side}`);
       const isPrevious = side === 'previous';
       button.dataset.reference = reference?.id ?? '';
-      button.disabled = !reference || milestoneFold(reference.metres, thicknessMm) === null;
+      const unreachable = Boolean(reference && milestoneFold(reference.metres, thicknessMm) === null);
+      button.disabled = !reference || unreachable;
       text(`pf-${side}-name`, reference?.name ?? (isPrevious ? '最初的纸张' : '继续翻倍'));
       text(`pf-${side}-dimension`, reference?.dimension ?? `${formatLength(2 ** logMm / 1000)} 的起点`);
       text(`pf-${side}-ratio`, reference ? (isPrevious ? `当前约为它的 ${formatRatio(metres / reference.metres)} 倍` : `目标是当前的 ${formatRatio(reference.metres / metres)} 倍`) : `已经放大 ${formatRatio(2 ** exponent)} 倍`);
       const pixels = reference ? reference.metres * area / 2 ** logView : 0;
-      const placement = !reference ? '起点' : pixels < 10 ? '↓ 已缩小' : pixels > area ? '↑ 画面之外' : '同尺可见';
+      const placement = !reference ? '起点' : unreachable ? '超出 80 折' : pixels < 10 ? '↓ 已缩小' : pixels > area ? '↑ 画面之外' : '同尺可见';
       text(`pf-${side}-placement`, placement);
       button.setAttribute('aria-label', reference ? `${isPrevious ? '已越过' : '正靠近'}${reference.name}，${reference.dimension}。${milestoneFold(reference.metres, thicknessMm) === null ? '超过当前折叠上限' : '跳到这个尺度'}` : '最初的纸张');
     }

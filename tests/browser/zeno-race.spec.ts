@@ -14,6 +14,8 @@ test('the primary experience shrinks through metre, centimetre and microscopic g
   for (const [stage, gap] of [[1, '1 m'], [2, '10 cm'], [3, '1 cm'], [4, '1 mm'], [7, '1 μm'], [10, '1 nm'], [17, '1e-16 m']] as const) {
     const current = Number(await lab.getAttribute('data-stage')); await steps(page, stage - current);
     await expect(lab).toHaveAttribute('data-stage', String(stage)); await expect(page.locator('#zr-gap')).toHaveText(gap);
+    const scaleNames: Record<number, string> = { 1: '米的尺度', 2: '厘米的尺度', 3: '厘米的尺度', 4: '毫米的尺度', 7: '微米的尺度', 10: '纳米的尺度', 17: '继续细分 · 数学尺度' };
+    await expect(page.locator('#zr-scale-label')).toHaveText(scaleNames[stage]);
     const screenGap = Number(await lab.getAttribute('data-screen-gap')), glyph = Number(await lab.getAttribute('data-glyph-scale'));
     expect(screenGap).toBeLessThan(previousGap); expect(screenGap).toBeGreaterThan(8); expect(glyph).toBeLessThan(previousGlyph);
     previousGap = screenGap; previousGlyph = glyph;
@@ -40,6 +42,7 @@ test('one step moves continuously; pause, resume and rapid interruptions do not 
   await page.locator('#zr-next').evaluate((node: HTMLButtonElement) => { node.click(); node.click(); node.click(); });
   await page.locator('#zr-reset').click(); await page.waitForTimeout(1800);
   await expect(lab).toHaveAttribute('data-stage', '0'); await expect(lab).toHaveAttribute('data-running', 'false');
+  await setRange(page, '#zr-turtle-speed', 0); await page.locator('#zr-next').click(); await expect(page.locator('#zr-observation')).toContainText('乌龟留在原地'); await page.locator('#zr-reset').click();
 });
 
 test('complete time stays secondary and preserves a separate finite meeting demonstration', async ({ page }, testInfo) => {
@@ -51,6 +54,7 @@ test('complete time stays secondary and preserves a separate finite meeting demo
   await page.locator('#zr-compare').click(); await expect(page.locator('#zr-time')).toHaveText('1.2 s');
   await expect(page.locator('#zr-rabbit-position')).toHaveText('12 m'); await expect(page.locator('#zr-turtle-position')).toHaveText('11.2 m');
   await expect(page.locator('#zr-full-gap')).toContainText('兔子已领先 0.8 m');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath('zeno-explanation-desktop.png'), fullPage: true });
   await page.locator('#zr-continuous-play').click(); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'true');
   await page.locator('#zr-explanation>summary').click(); await page.waitForTimeout(250);
@@ -61,7 +65,7 @@ test('complete time stays secondary and preserves a separate finite meeting demo
 test('zero lead, stationary animals, equal and slower speeds remain truthful', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
   await setRange(page, '#zr-turtle-speed', 0); await steps(page, 1);
-  await expect(page.locator('#zr-gap')).toHaveText('0 m'); await expect(page.locator('#zr-next')).toBeDisabled(); await expect(page.locator('#zr-observation')).toContainText('第一段');
+  await expect(page.locator('#zr-gap')).toHaveText('0 m'); await expect(page.locator('#zr-next')).toBeDisabled(); await expect(page.locator('#zr-observation')).toContainText('第一段'); await expect(page.locator('#zr-stage-label')).toContainText('已追上');
   await setRange(page, '#zr-rabbit-speed', 0); await expect(page.locator('#zr-next')).toBeDisabled();
   await setRange(page, '#zr-turtle-speed', 1); await expect(page.locator('#zr-observation')).toContainText('兔子不动');
   await setRange(page, '#zr-rabbit-speed', 1); await steps(page, 1); await expect(page.locator('#zr-gap')).toHaveText('10 m');
@@ -82,7 +86,7 @@ test('200-stage cap retains logarithmic positive separation beyond floating-poin
   await expect(page.locator('#zr-resolution')).toContainText('没有完成'); await expect(page.locator('#zr-gap')).not.toHaveText('0 m');
   expect(Number(await lab.getAttribute('data-log-gap'))).toBeLessThan(-1000); expect(Number(await lab.getAttribute('data-screen-gap'))).toBeGreaterThan(8);
   await openExplanation(page); await expect(page.locator('#zr-tail')).not.toHaveText('0 s');
-  await page.locator('#zr-explanation>summary').click(); await page.screenshot({ path: testInfo.outputPath('zeno-gap-stage-200-desktop.png'), fullPage: true });
+  await page.locator('#zr-explanation>summary').click(); await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await page.screenshot({ path: testInfo.outputPath('zeno-gap-stage-200-desktop.png'), fullPage: true });
 });
 
 for (const width of [390, 320]) test(`mobile ${width}px keyboard, reduced motion and deep gap stay usable`, async ({ page }, testInfo) => {

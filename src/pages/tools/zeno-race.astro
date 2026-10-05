@@ -70,7 +70,7 @@ import '../../styles/zeno-race.css';
       <p class="zr-control-note">匀速、同向、不停步。调整参数会暂停，并回到起点。</p>
       <div class="zr-shrink-history"><span id="zr-history-heading">距离，一次次缩小</span><div id="zr-gap-history" aria-label="最近几段的剩余距离"></div><p id="zr-ratio-note">每到一个旧位置，间距缩成原来的 1/10。</p></div>
       <div class="zr-legend"><span><i class="zr-dot rabbit"></i>兔子</span><span><i class="zr-dot turtle"></i>乌龟</span></div>
-      <p class="zr-control-note">角色会缩成头像、龟壳和小点。大小是视觉提示；数字和标尺才是实际间距。</p>
+      <p class="zr-control-note">镜头跟随间距中点。角色会缩成头像、龟壳和小点；数字和标尺才是实际间距。</p>
       <p class="zr-model-note">这里一直观察“追到旧位置”的有限步骤。每步还差一点，是这个观察方法的特点。</p>
     </aside>
     <details id="zr-explanation" class="zr-explanation">
@@ -100,7 +100,7 @@ import '../../styles/zeno-race.css';
         <circle id="zr-time-cursor" cx="150" cy="117" r="7" fill="#746080" stroke="#fff" stroke-width="2"/>
         <text id="zr-axis-zero" x="150" y="164" class="zr-axis-zero">0 s</text><text x="1060" y="164" text-anchor="end" id="zr-axis-end">1.5 s →</text>
       </svg>
-      <div id="zr-continuous-controls" hidden><label for="zr-scrub">把时钟拖过相遇线 <output id="zr-scrub-value">0 s</output></label><input id="zr-scrub" type="range" min="0" max="1000" step="1" value="0" /><p>拖动会暂停。模型时间连续变化；相遇线之后，兔子还会接着跑。</p></div>
+      <div id="zr-continuous-controls" hidden><label for="zr-scrub">拖动完整时钟 <output id="zr-scrub-value">0 s</output></label><input id="zr-scrub" type="range" min="0" max="1000" step="1" value="0" /><p>拖动会暂停。模型时间连续变化；相遇线之后，兔子还会接着跑。</p></div>
 
         <div class="zr-sequence" id="zr-sequence" aria-label="已选择的截图时刻"></div></section>
         <div class="zr-notes"><section><h3>把相遇直接算出来</h3><p>领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，相遇时刻 t* = L / (a − b)。</p><p>当 0 &lt; b &lt; a，令 q = b/a，第 n 段后的间距为 Lqⁿ，距相遇还需 t*qⁿ。每个有限 n 的余量都大于零，但它们的极限是零。</p></section><section><h3>这个画面有哪些约定？</h3><p>镜头放大与角色缩小都是为了观察间距。越微小的阶段放得越慢，不能用动画播放时长推算真实用时。很小的距离是理想连续模型的数学延伸，不是动物能缩成这样的现实实验。</p><p>页面最多展示 200 个有限步骤。微小余量用对数独立计算；累计时间即使四舍五入到相遇时刻，也不表示这一步真的追上。</p><p>L = 0 时起点已相遇；乌龟静止且兔子向前时第一段追上；兔子不比乌龟快时，正的领先距离不会收敛到零。</p></section></div>

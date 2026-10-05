@@ -183,6 +183,12 @@ for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${widt
       const card=page.locator(`#pf-reference-${side}`);
       expect(await card.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBeTruthy();
     }
+    expect(await page.locator('#pf-thickness').evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBeTruthy();
+    expect(await page.locator('.pf-count>span').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*2+2)).toBeTruthy();
+    const diagram=await page.locator('#pf-canvas').boundingBox();
+    const legend=await page.locator('.pf-scale-key').boundingBox();
+    expect(legend!.y).toBeGreaterThanOrEqual(diagram!.y+diagram!.height);
+    expect((await page.locator('#pf-stage').boundingBox())!.height).toBeLessThan(730);
     if([10,24,29,41,68,80].includes(fold)) await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)});
   }
 });

@@ -131,7 +131,7 @@ function drawReference(ctx: CanvasRenderingContext2D, ref: JourneyReference, x: 
   ctx.restore();
 }
 export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: number, state: SceneState): void {
-  const mobile=width<540, baseline=height-(mobile?196:160), top=155, area=baseline-top;
+  const mobile=width<540, baseline=height-60, top=155, area=baseline-top;
   const pixelsPerMetre=area/2**state.logView;
   const thickness=state.thicknessMm/1000*2**state.exponent;
   const stackHeight=Math.max(.6,thickness*pixelsPerMetre);
@@ -171,8 +171,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
     drawReference(ctx,ref,x,baseline,ph); ctx.restore();
     if (item === primary) {
       // One readable label at all sizes; full measurement details stay in the rail.
-      label(ctx,ref.name,width*.715,baseline+21,ref.color,'center',mobile?10:12);
-      label(ctx,formatLength(ref.metres),width*.715,baseline+36,'#a7bbc5','center',10);
+      label(ctx,ref.name,x,baseline+21,ref.color,'center',mobile?10:12);
+      label(ctx,formatLength(ref.metres),x,baseline+36,'#a7bbc5','center',10);
     }
   }
   // The side's height is physical; width/depth are schematic, never volume claims.

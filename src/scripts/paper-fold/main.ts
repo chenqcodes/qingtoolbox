@@ -32,7 +32,7 @@ export function bootPaperFold(): void {
     // Follow the visible fractional state, not the selected endpoint of a jump.
     const metres = 2 ** logMm / 1000 * 2 ** exponent;
     const { previous, next } = adjacentReferences(metres);
-    const area = height - (width < 540 ? 196 : 160) - 155;
+    const area = height - 60 - 155;
     const visible = projectedReferences(logView, area);
     const text = (id: string, value: string) => { const node = get(id); if (node.textContent !== value) node.textContent = value; };
     root!.dataset.referencePrevious = previous?.id ?? 'start';
@@ -73,25 +73,6 @@ export function bootPaperFold(): void {
       const first = milestoneFold(ref.metres, thicknessMm);
       root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
       root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
-    }
-    let chapter: string, title: string;
-    if (metres < .01) { chapter='01 / 指尖尺度'; title=folds===0?'微小，是这一切的起点。':'每一次，都多出一个自己。'; }
-    else if (metres < 1.7) { chapter='02 / 日常尺度'; title='一条纸边，慢慢长成一叠纸。'; }
-    else if (metres < 10) { chapter='02 / 日常尺度'; title='现在，它可以比你更高。'; }
-    else if (metres < 12_756_000) { chapter='03 / 越过地表'; title=metres<1000?'把一栋房屋，留在脚下。':'镜头向外，地球正在靠近。'; }
-    else if (metres < 1_391_400_000) { chapter='04 / 行星尺度'; title='一张纸，已经厚过一颗星球。'; }
-    else if (metres < REFERENCES[4].metres) { chapter='05 / 恒星尺度'; title='太阳，也成了尺上的一格。'; }
-    else { chapter='06 / 行星之外'; title='越过海王星，翻倍还在继续。'; }
-    get('pf-chapter').textContent=chapter;get('pf-journey-title').textContent=title;
-    const next = JOURNEY_REFERENCES.find(ref => ref.metres > metres);
-    if (next) {
-      const remaining=(milestoneFold(next.metres,thicknessMm)??Infinity)-folds;
-      get('pf-comparison').textContent=remaining > MAX_FOLDS - folds
-        ? `下一处参照是${next.name}，已超出本次 80 折范围。`
-        : `再折 ${remaining} 次，就能越过${next.name}的参照长度。`;
-    } else {
-      const ratio = new Intl.NumberFormat('zh-CN',{ maximumSignificantDigits:4,notation:'compact' }).format(metres/REFERENCES[4].metres);
-      get('pf-comparison').textContent=`约等于 ${ratio} 个海王星轨道直径。60 AU 是本页的太阳系参照尺度，并非边界。`;
     }
     canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。纸叠厚度与参照物的高度、直径或距离共用长度比例尺；下方提供相邻参照与倍数，宽度示意。`);
   }

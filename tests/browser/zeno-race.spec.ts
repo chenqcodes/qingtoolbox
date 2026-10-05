@@ -100,3 +100,28 @@ for (const width of [390, 320]) test(`mobile ${width}px keyboard, reduced motion
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   for (const id of ['#zr-gap', '#zr-limit-time', '#zr-tail']) expect(await page.locator(id).evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBeTruthy();
 });
+
+test('rounded microscopic stage never becomes an exact meeting merely by opening continuous time', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
+  await steps(page, 30); await openExplanation(page); await page.locator('#zr-mode-continuous').click();
+  await expect(page.locator('#zr-time')).toHaveText('0 s'); await expect(page.locator('#zr-full-gap')).toHaveText('仍差 10 m');
+  await expect(page.locator('#zr-gap')).toHaveText('1e-29 m');
+  await page.locator('#zr-meet').click(); await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇');
+});
+
+test('changing motion preference completes the current step without reversing the gap', async ({ page }) => {
+  await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab'); await page.locator('#zr-next').click();
+  await expect.poll(async () => Number(await lab.getAttribute('data-progress'))).toBeGreaterThan(.1);
+  const gap = Number(await lab.getAttribute('data-screen-gap')); await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(lab).toHaveAttribute('data-stage', '1'); expect(Number(await lab.getAttribute('data-screen-gap'))).toBeLessThan(gap);
+  await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-next')).toBeEnabled();
+});
+
+test('large growing gaps keep the secondary horizon and SVG coordinates finite', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
+  await setRange(page, '#zr-lead', 30); await setRange(page, '#zr-rabbit-speed', .1); await setRange(page, '#zr-turtle-speed', 13.5); await steps(page, 144);
+  await openExplanation(page); await page.locator('#zr-mode-continuous').click(); await setRange(page, '#zr-scrub', 1000);
+  for (const id of ['#zr-full-rabbit', '#zr-full-turtle']) expect(await page.locator(id).getAttribute('transform')).not.toMatch(/NaN|Infinity/);
+  await expect(page.locator('#zeno-race-lab')).not.toContainText('NaN'); await expect(page.locator('#zeno-race-lab')).not.toContainText('Infinity'); expect(errors).toEqual([]);
+});

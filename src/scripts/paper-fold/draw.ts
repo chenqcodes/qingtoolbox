@@ -184,8 +184,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
   const primary = references.filter(item => item.pixels <= area * 1.15)
     .sort((a,b) => b.pixels - a.pixels)[0] ?? references[0];
   for (const item of [...references].sort((a,b) => b.pixels - a.pixels)) {
-    const { reference: ref, pixels: ph, opacity: alpha } = item;
-    const preferredX = width * (references.length === 1 ? .71 : ref.metres > thickness ? .78 : .60);
+    const { reference: ref, pixels: ph, opacity: alpha, index } = item;
+    // Keep each object's lane fixed when it changes from next to previous.
+    const preferredX = width * (index % 2 ? .78 : .60);
     // Keep a fitting disc inside the comparison bay rather than cutting off its
     // left edge merely because it inherited the smaller object's lane.
     const x = ph <= width * .48 ? clamp(preferredX, width * .47 + ph / 2, width * .95 - ph / 2) : width * .71;

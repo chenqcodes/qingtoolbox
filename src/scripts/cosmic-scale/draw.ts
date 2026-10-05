@@ -1,4 +1,6 @@
-import { projectedSize, scaleBar, STOPS, type ScaleStop } from './model';
+import { formatLength, scaleBar, type ScaleStop } from './model';
+import { sceneAt, measureAxis, sceneLabels, measurementLabel, type SceneObject } from './scene';
+import { paintIntermediate } from './illustrations';
 type C = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const noise = (n: number): number => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -61,7 +63,7 @@ function city(c: C, block: boolean) {
   c.restore(); c.strokeStyle = '#8cc3c177'; c.lineWidth = .004; c.stroke();
 }
 function galaxy(c: C) {
-  c.save(); c.scale(1, .66); c.rotate(-.25);
+  c.save(); c.rotate(-.25);
   disc(c, 0, 0, .57, gradient(c, 0, 0, .57, [[0, '#f8d7b788'], [.14, '#cdb5ed44'], [.55, '#9185d41a'], [1, '#b48beb00']]));
   for (let arm = 0; arm < 4; arm++) {
     for (let ribbon = 0; ribbon < 8; ribbon++) {
@@ -71,20 +73,23 @@ function galaxy(c: C) {
         const x = Math.cos(a) * r, y = Math.sin(a) * r;
         j ? c.lineTo(x, y) : c.moveTo(x, y);
       }
-      c.strokeStyle = ribbon % 2 ? '#a79ddd09' : '#c2bdf30d'; c.lineWidth = .015; c.stroke();
+      c.strokeStyle = ribbon % 2 ? '#a79ddd1c' : '#c2bdf328'; c.lineWidth = .026; c.stroke();
     }
   }
   for (let arm = 0; arm < 4; arm++) {
     for (let j = 0; j < 430; j++) {
       const r = .025 + .475 * Math.sqrt(j / 430); const a = arm * Math.PI / 2 + r * 9 + (noise(j * 7 + arm * 99) - .5) * .53;
-      const rr = r * (.9 + noise(j * 13 + arm) * .13);
-      disc(c, Math.cos(a) * rr, Math.sin(a) * rr, .0008 + noise(j + arm * 22) * .003, ['#dbc8fa', '#adb7e9', '#f8dbb6', '#fcf0d8'][j % 4]);
+      const rr = Math.min(.498, r * (.9 + noise(j * 13 + arm) * .13));
+      disc(c, Math.cos(a) * rr, Math.sin(a) * rr, .0008 + noise(j + arm * 22) * .003, ['#dbc8fac7', '#adb7e9bb', '#f8dbb6a6', '#fcf0d8de'][j % 4]);
     }
   }
+  for (let i = 0; i < 700; i++) { const a = noise(i + 638) * TAU, r = .49 * Math.sqrt(noise(i + 777)); disc(c, Math.cos(a) * r, Math.sin(a) * r, .0007 + noise(i + 124) * .0016, '#c8c6e566'); }
+  c.beginPath(); c.ellipse(0, 0, .16, .046, .35, 0, TAU); c.fillStyle = '#e5c8c622'; c.fill();
   disc(c, 0, 0, .14, gradient(c, 0, 0, .14, [[0, '#fff4dc'], [.18, '#ffe9cddd'], [.5, '#e8c7d377'], [1, '#e2bbe000']])); c.restore();
 }
 function paintObject(c: C, stop: ScaleStop) {
   switch (stop.kind) {
+    default: paintIntermediate(c, stop); break;
     case 'cup': cup(c); break;
     case 'earth': earth(c); break;
     case 'block': city(c, true); break;
@@ -115,13 +120,13 @@ function paintObject(c: C, stop: ScaleStop) {
     case 'moon-distance': {
       line(c, [-.5, 0, .5, 0], '#c6d7ec66', .0015);
       c.save(); c.translate(-.5, 0); c.scale(12_756_000 / stop.size, 12_756_000 / stop.size); earth(c); c.restore();
-      disc(c, .5, 0, 1_740_000 / stop.size, '#e8ddd0'); break;
+      disc(c, .5, 0, 1_737_400 / stop.size, '#e8ddd0'); break;
     }
     case 'sun': {
       disc(c, 0, 0, .63, gradient(c, 0, 0, .63, [[0, '#e7b65e44'], [.74, '#efa34822'], [1, '#ffca5700']]));
       disc(c, 0, 0, .5, gradient(c, -.16, -.16, .72, [[0, '#fff4bd'], [.45, '#ffdc84'], [.73, '#ec9d43'], [1, '#c96327']]));
       for (let i = 0; i < 260; i++) { const r = Math.sqrt(noise(i + 28)) * .49, a = noise(i) * TAU; disc(c, Math.cos(a) * r, Math.sin(a) * r, .002 + noise(i + 71) * .004, '#b65a2024'); }
-      c.save(); c.translate(.66, 0); c.scale(12_756_000 / stop.size, 12_756_000 / stop.size); earth(c); c.restore(); break;
+      break;
     }
     case 'solar': {
       const radii = [.387, .723, 1, 1.524, 5.203, 9.537, 19.191, 30.06];
@@ -136,44 +141,75 @@ function paintObject(c: C, stop: ScaleStop) {
     }
   }
 }
-export function drawScale(c: C, width: number, height: number, exponent: number, focused: ScaleStop) {
+// A bounded LRU caches static vector paintings, not animation frames. Eight 768²
+// surfaces cost at most ~18 MiB; the mobile bucket is 512² (~8 MiB).
+const artwork = new Map<string, HTMLCanvasElement>();
+function drawObject(c: C, object: SceneObject, width: number, dpr: number) {
+  const resolution = width < 600 ? 512 : 768;
+  // Never upscale a cached body beyond its available device pixels. Incoming
+  // foregrounds use the original vector paths, preserving edges and texture.
+  if (object.pixels * dpr > resolution / 1.7) {
+    c.save(); c.globalAlpha = object.alpha; c.translate(object.x, object.y); c.scale(object.pixels, object.pixels); paintObject(c, object.stop); c.restore(); return;
+  }
+  const key = `${object.stop.id}:${resolution}`;
+  let sprite = artwork.get(key);
+  if (typeof document !== 'undefined' && !sprite) {
+    sprite = document.createElement('canvas'); sprite.width = sprite.height = resolution;
+    const paint = sprite.getContext('2d');
+    if (paint) {
+      paint.translate(resolution / 2, resolution / 2); paint.scale(resolution / 1.7, resolution / 1.7); paintObject(paint, object.stop);
+      artwork.set(key, sprite);
+      if (artwork.size > 8) artwork.delete(artwork.keys().next().value!);
+    } else sprite = undefined;
+  }
+  c.save(); c.globalAlpha = object.alpha;
+  if (sprite) {
+    artwork.delete(key); artwork.set(key, sprite);
+    const side = object.pixels * 1.7;
+    c.drawImage(sprite, object.x - side / 2, object.y - side / 2, side, side);
+  } else { c.translate(object.x, object.y); c.scale(object.pixels, object.pixels); paintObject(c, object.stop); }
+  c.restore();
+}
+export function drawScale(c: C, width: number, height: number, exponent: number, focused: ScaleStop, dpr = 1) {
   c.clearRect(0, 0, width, height);
-  const bg = c.createRadialGradient(width * .5, height * .47, 0, width * .5, height * .47, width * .78);
-  bg.addColorStop(0, exponent < 5 ? '#162c33' : '#202b43'); bg.addColorStop(1, '#0c171f'); c.fillStyle = bg; c.fillRect(0, 0, width, height);
-  for (let i = 0; i < 110; i++) { const x = noise(i + 390) * width, y = noise(i + 928) * height; disc(c, x, y, noise(i + 48) * .8 + .25, exponent > 6 ? '#e1e6f855' : '#cee9dd27'); }
-  const cy = height * .48;
-  // A decade grid changes spacing continuously, then its finer level hands over.
-  const fraction = exponent - Math.floor(exponent);
-  const spacing = width * 10 ** -fraction;
+  const bg = c.createRadialGradient(width * .48, height * .5, 0, width * .48, height * .5, Math.max(width, height) * .85);
+  bg.addColorStop(0, exponent < 6 ? '#162e35' : '#1d2842'); bg.addColorStop(1, '#08121d'); c.fillStyle = bg; c.fillRect(0, 0, width, height);
+  for (let i = 0; i < 80; i++) { const x = noise(i + 390) * width, y = noise(i + 928) * height; disc(c, x, y, noise(i + 48) * .6 + .2, exponent > 6 ? '#e1e6f83d' : '#cee9dd16'); }
+  const fraction = exponent - Math.floor(exponent), spacing = width * 10 ** -fraction;
   c.lineWidth = 1;
   for (let level = 0; level < 2; level++) {
     const s = spacing / 10 ** level;
-    c.strokeStyle = level ? '#b5d4d909' : '#b5d4d916'; c.beginPath();
+    c.strokeStyle = level ? '#b5d4d906' : '#b5d4d912'; c.beginPath();
     for (let x = width / 2 % s; x < width; x += s) { c.moveTo(x, 0); c.lineTo(x, height); }
-    for (let y = cy % s; y < height; y += s) { c.moveTo(0, y); c.lineTo(width, y); } c.stroke();
+    for (let y = height * .52 % s; y < height; y += s) { c.moveTo(0, y); c.lineTo(width, y); } c.stroke();
   }
-  // Each reference is centred in turn. Positions are not a map or a physical nesting.
-  for (const stop of [...STOPS].reverse()) {
-    const pixels = projectedSize(stop.size, exponent, width);
-    if (pixels < .65 || pixels > width * 4) continue;
-    const oversized = Math.min(1, Math.max(0, (width * 3 - pixels) / (width * 1.8)));
-    const alpha = oversized * Math.min(1, pixels / 14);
-    if (alpha <= 0) continue;
-    c.save(); c.globalAlpha = alpha; c.translate(width / 2, cy); c.scale(pixels, pixels);
-    paintObject(c, stop); c.restore();
-  }
-  // Physical dimension bracket only when the selected object fits.
-  const size = projectedSize(focused.size, exponent, width);
-  if (size > 35 && size < width * .72) {
-    c.save(); c.strokeStyle = `${focused.color}99`; c.lineWidth = 1;
-    if (focused.kind === 'person') {
-      const x = width / 2 + size * .27; const y = cy - size / 2;
-      line(c, [x - 4, y, x + 4, y, x, y, x, y + size, x - 4, y + size, x + 4, y + size], `${focused.color}99`, 1);
-    } else {
-      const y = Math.min(height - 83, cy + size * (focused.kind === 'dna' || focused.kind === 'stellar' || focused.kind === 'moon-distance' ? .22 : .59));
-      const x = width / 2 - size / 2;
-      line(c, [x, y - 4, x, y + 4, x, y, x + size, y, x + size, y - 4, x + size, y + 4], `${focused.color}99`, 1);
-    } c.restore();
+  const scene = sceneAt(exponent, width, height);
+  // Every object uses the same metres-to-pixels conversion. Incoming large
+  // shapes are clipped by the viewport, never shrunk to fit an arbitrary card.
+  c.save(); c.beginPath(); c.rect(0, 0, width, height); c.clip();
+  for (const object of [...scene.objects].reverse()) drawObject(c, object, width, dpr);
+  c.restore();
+  // Show up to three unambiguous labels. Tiny bodies fade at their actual size;
+  // we do not enlarge them to keep them visible or cover the picture with prose.
+  for (const anchor of sceneLabels(scene, width, height, focused)) {
+    const object = anchor.object;
+    const labelWidth = anchor.width;
+    c.save(); c.globalAlpha = Math.min(1, object.visibleSpan / (width * .15));
+    if (anchor.y < object.y || Math.abs(anchor.x - object.x) > 12) {
+      const endpoint = Math.max(7, Math.min(width - 7, object.x));
+      const startY = anchor.y < object.y ? anchor.y + 25 : anchor.y - 20;
+      line(c, [anchor.x, startY, endpoint, object.y], object.stop.color + '44', 1);
+    }
+    c.fillStyle = '#081521df'; c.fillRect(anchor.x - labelWidth / 2 - 4, anchor.y - 16, labelWidth + 8, 42);
+    const name = object.stop.name.replace('你手边的', '').replace('一个人的身高', '身高').replace('一枚', '').replace('一粒', '');
+    c.textAlign = 'center'; c.font = `${width < 500 ? 12 : 14}px system-ui, sans-serif`;
+    c.fillStyle = '#ebf1ee'; c.fillText(name, anchor.x, anchor.y, labelWidth);
+    c.font = `${width < 500 ? 11 : 12}px system-ui, sans-serif`; c.fillStyle = object.stop.color; c.fillText(`${measurementLabel(object.stop)} ${formatLength(object.stop.size)}`, anchor.x, anchor.y + 19, labelWidth);
+    if (object.stop.id === focused.id && object.pixels < width * .55 && object.pixels > 40) {
+      if (measureAxis(object.stop) === 'vertical') { const x = object.x + object.pixels * .36; const top = object.y - object.pixels / 2; line(c, [x - 4, top, x + 4, top, x, top, x, top + object.pixels, x - 4, top + object.pixels, x + 4, top + object.pixels], object.stop.color + '99', 1); }
+      else { const y = anchor.y - 15; line(c, [object.left, y - 4, object.left, y, object.right, y, object.right, y - 4], object.stop.color + '77', 1); }
+    }
+    c.restore();
   }
   const bar = scaleBar(exponent, width);
   line(c, [25, height - 27, 25 + bar.pixels, height - 27], '#e2e9e4', 2);

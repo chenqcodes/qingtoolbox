@@ -143,3 +143,78 @@ test('scale slider ticks correspond to actual logarithmic field widths', async (
   // CSSOM serializes percentage values with finite decimal precision.
   for (const tick of ticks) expect(tick.actual).toBeCloseTo(tick.expected, 3);
 });
+
+// These are the former blank ranges, plus astronomical dimension comparisons.
+test('all intermediate decades keep real objects and compact reading at 320, 390 and desktop', async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/tools/cosmic-scale/');
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+    for (const pair of [['dna','virus'], ['bacterium','cell'], ['sand','seed'], ['cup','person'], ['park','city'], ['earth','jupiter'], ['sun','giant'], ['solar','heliosphere'], ['oort-inner','oort-outer'], ['stellar','nebula'], ['cluster','bubble'], ['arm','galaxy']]) {
+      const a = STOPS.find(s => s.id === pair[0])!, b = STOPS.find(s => s.id === pair[1])!;
+      await setScale(page, (stopExponent(a) + stopExponent(b)) / 2);
+      await expect(page.locator('#cosmic-app')).toHaveAttribute('data-motion', 'false');
+      expect(Number(await page.locator('#cosmic-app').getAttribute('data-scene-coverage'))).toBeGreaterThan(.23);
+      await expect(page.locator('#cosmic-app')).toHaveAttribute('data-visible-objects', new RegExp(pair[0]));
+      await expect(page.locator('#cosmic-app')).toHaveAttribute('data-visible-objects', new RegExp(pair[1]));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      expect(await page.locator('.cosmic-reading').getAttribute('open')).toBeNull();
+      const painted = await page.locator('#cosmic-canvas').evaluate((canvas: HTMLCanvasElement) => {
+        const c = canvas.getContext('2d')!;
+        const box = canvas.getBoundingClientRect();
+        const scale = canvas.width / box.width;
+        const pixels = c.getImageData(0, Math.round(130 * scale), canvas.width, Math.round((box.height * .66 - 130) * scale)).data;
+        let visible = 0;
+        for (let i = 0; i < pixels.length; i += 4) if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 92) visible++;
+        return visible / (pixels.length / 4);
+      });
+      expect(painted, `painted reference coverage ${pair.join('→')} at ${width}px`).toBeGreaterThan(.001);
+      await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-transition-${pair.join('-')}-${width}.png`) });
+    }
+    for (const id of ['virus', 'moon-body', 'jupiter', 'nebula', 'cluster', 'galaxy']) {
+      await page.locator('#cosmic-select').selectOption(id);
+      await expect(page.locator('#cosmic-name')).toHaveText(STOPS.find(s => s.id === id)!.name);
+      await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-detail-${id}-${width}.png`) });
+    }
+  }
+  await page.locator('.cosmic-reading summary').click();
+  await expect(page.locator('#cosmic-caveat')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('each stop and fractional slider position has finite same-scale geometry', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/tools/cosmic-scale/');
+  for (let e = MIN_EXP; e < MAX_EXP; e += .31) {
+    await setScale(page, e);
+    expect(Number(await page.locator('#cosmic-app').getAttribute('data-scene-coverage'))).toBeGreaterThan(.23);
+  }
+  for (const stop of STOPS) {
+    await page.locator('#cosmic-select').selectOption(stop.id);
+    await expect(page.locator('#cosmic-name')).toHaveText(stop.name);
+  }
+  for (let i = 0; i < 3; i++) {
+    await page.goto('/tools/'); await page.goBack();
+    await page.locator('#cosmic-home').click();
+    await expect(page.locator('#cosmic-name')).toHaveText('你手边的杯子');
+  }
+});
+
+test('record continuous interstellar journeys through incoming galaxy layers', async ({ page }, testInfo) => {
+  await page.goto('/tools/cosmic-scale/');
+  const start = STOPS.find(s => s.id === 'stellar')!, end = STOPS.find(s => s.id === 'arm')!;
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+    await setScale(page, stopExponent(start));
+    await page.locator('#cosmic-play').click();
+    await page.locator('#cosmic-stage').scrollIntoViewIfNeeded();
+    await expect.poll(() => exponent(page), { timeout: 20_000, intervals: [100] }).toBeGreaterThan(stopExponent(end) + .3);
+    await page.locator('#cosmic-stage').focus();
+    await page.keyboard.press(' ');
+    await expect(page.locator('#cosmic-play')).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-continuous-journey-${width}.png`) });
+    const paused = await exponent(page); await page.waitForTimeout(250);
+    expect(await exponent(page)).toBe(paused);
+  }
+});

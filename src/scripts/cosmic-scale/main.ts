@@ -1,5 +1,6 @@
 import { drawScale } from './draw';
-import { clamp, formatLength, HOME_EXP, MAX_EXP, MIN_EXP, nearestStop, nextStop, projectedSize, scaleBar, STOPS, stopExponent } from './model';
+import { sceneAt } from './scene';
+import { clamp, formatLength, HOME_EXP, MAX_EXP, MIN_EXP, nearestStop, nextStop, scaleBar, STOPS, stopExponent } from './model';
 let dispose: (() => void) | undefined;
 export function bootCosmicScale(): void {
   dispose?.();
@@ -39,23 +40,11 @@ export function bootCosmicScale(): void {
     get<HTMLButtonElement>('cosmic-out').disabled = exponent >= MAX_EXP - .001;
     get<HTMLButtonElement>('cosmic-prev').disabled = exponent <= MIN_EXP + .001;
     get<HTMLButtonElement>('cosmic-next').disabled = exponent >= MAX_EXP - .001;
-    const pixels = projectedSize(stop.size, exponent, width);
-    const measure = get('cosmic-measure');
-    measure.hidden = !(pixels > 35 && pixels < width * .72);
-    if (!measure.hidden) {
-      const isPerson = stop.kind === 'person';
-      measure.textContent = `${stop.kind === 'dna' ? '片段长 ' : stop.kind === 'moon-distance' || stop.kind === 'stellar' ? '中心距离 ' : ''}${formatLength(stop.size)}`;
-      measure.style.left = `${isPerson ? width / 2 + pixels * .27 + 10 : width / 2}px`;
-      measure.style.top = `${isPerson ? height * .48 - 7 : Math.min(height - 83, height * .48 + pixels * (stop.kind === 'dna' || stop.kind === 'stellar' || stop.kind === 'moon-distance' ? .22 : .59)) + 10}px`;
-      measure.style.transform = isPerson ? 'none' : 'translateX(-50%)';
-    }
-    const gap = get('cosmic-gap');
-    gap.hidden = pixels >= 24 && pixels <= Math.min(width * 1.4, height * 1.6);
-    if (!gap.hidden) {
-      const lower = [...STOPS].reverse().find(item => stopExponent(item) <= exponent) ?? STOPS[0];
-      const upper = STOPS.find(item => stopExponent(item) > exponent) ?? STOPS[STOPS.length - 1];
-      get('cosmic-gap-text').textContent = `从${lower.name}（${formatLength(lower.size)}）到${upper.name}（${formatLength(upper.size)}）。标尺仍在连续变化，下一层参照会逐渐显现。`;
-    }
+    const scene = sceneAt(exponent, width, height);
+    root!.dataset.visibleObjects = scene.objects.map(object => object.stop.id).join(',');
+    root!.dataset.sceneCoverage = String(Math.max(...scene.objects.map(object => object.visibleExtent / Math.min(width, height)), 0));
+    get('cosmic-lane-caption').textContent = `${scene.lower.name} → ${scene.upper.name}`;
+    get('cosmic-progress').style.setProperty('--journey-progress', `${(exponent - MIN_EXP) / (MAX_EXP - MIN_EXP) * 100}%`);
     if (stop.id !== lastStop) {
       lastStop = stop.id;
       get('cosmic-chapter').textContent = stop.chapter;
@@ -63,14 +52,14 @@ export function bootCosmicScale(): void {
       get('cosmic-dimension').textContent = stop.dimension;
       get('cosmic-fact').textContent = stop.fact;
       get('cosmic-caveat').textContent = stop.caveat;
-      get('cosmic-kind').textContent = stop.source ? '科学尺寸 · 近似值' : '选定的生活参照';
+      get('cosmic-kind').textContent = stop.dimension.includes('示例') ? '选定尺度 · 示意' : '科学尺寸 · 近似值';
       const source = get<HTMLAnchorElement>('cosmic-source');
       source.hidden = !stop.source;
       if (stop.source) { source.href = stop.source.url; source.textContent = `${stop.source.name} ↗`; }
       select.value = stop.id;
       root!.querySelectorAll<HTMLButtonElement>('[data-stop]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.stop === stop.id)));
     }
-    canvas.setAttribute('aria-label', `${stop.name}，${stop.dimension}。画布视野宽 ${formatLength(10 ** exponent)}。${stop.caveat}`);
+    canvas.setAttribute('aria-label', `${stop.name}，${stop.dimension}。画布视野宽 ${formatLength(10 ** exponent)}。${stop.caveat} 同比例可见参照：${scene.objects.filter(object => object.pixels >= 6).map(object => object.stop.name).join('、')}。`);
     if (context) drawScale(context, width, height, exponent, stop);
   }
   function buttonState() {

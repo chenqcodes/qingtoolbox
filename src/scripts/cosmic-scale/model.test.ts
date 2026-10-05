@@ -29,7 +29,7 @@ test('stops ordered by metres and reachable without special coordinate changes',
   assert.equal(nextStop(MIN_EXP, -1), STOPS[0]);
   assert.equal(nextStop(MAX_EXP, 1), STOPS.at(-1));
   assert.equal(nextStop(HOME_EXP, 1).id, 'person');
-  assert.equal(nextStop(HOME_EXP, -1).id, 'sand');
+  assert.equal(nextStop(HOME_EXP, -1).id, 'coin');
 });
 
 test('invalid input and both endpoints are bounded', () => {

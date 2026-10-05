@@ -98,3 +98,91 @@ test('mobile layout and keyboard controls remain usable', async ({page},testInfo
   await page.setViewportSize({width:320,height:780});await setFolds(page,80);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   expect(errors).toEqual([]);
 });
+
+test('all folds and paper extremes keep visible shapes plus nearest comparison cards', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'}); await page.goto(route);
+  const failures = await page.evaluate(() => {
+    const lab = document.querySelector<HTMLElement>('#paper-fold-lab')!;
+    const input = document.querySelector<HTMLInputElement>('#pf-initial')!;
+    const range = document.querySelector<HTMLInputElement>('#pf-folds')!;
+    const failures: string[] = [];
+    for (const mm of [.01,.1,1]) {
+      input.value = String(mm); input.dispatchEvent(new Event('change', {bubbles:true}));
+      for (let fold=0;fold<=80;fold++) {
+        range.value=String(fold);range.dispatchEvent(new Event('input',{bubbles:true}));
+        if (!lab.dataset.referenceVisible) failures.push(`No physical reference: ${mm} mm / ${fold}`);
+        for (const side of ['previous','next']) {
+          for (const part of ['name','dimension','ratio','placement']) {
+            const text = document.querySelector(`#pf-${side}-${part}`)?.textContent?.trim();
+            if (!text || /NaN|Infinity|undefined/.test(text)) failures.push(`${side}/${part}: ${mm}/${fold}`);
+          }
+        }
+      }
+    }
+    return failures;
+  });
+  expect(failures).toEqual([]);
+  await expect(page.locator('#pf-reference-next')).toBeDisabled();
+  await expect(page.locator('#pf-next-name')).toHaveText('一百万光年');
+});
+
+test('smooth playback through former long gap never loses a reference', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'no-preference'}); await page.goto(route);
+  await setFolds(page, 18); await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-motion','false');
+  await page.locator('#pf-speed').selectOption('500'); await page.locator('#pf-play').click();
+  const sampled = await page.evaluate(async () => {
+    const lab = document.querySelector<HTMLElement>('#paper-fold-lab')!;
+    const failures: string[]=[];const seen=new Set<string>();let frames=0;
+    await new Promise<void>(resolve => {
+      function sample() {
+        frames++;const current=lab.dataset.referenceVisible??'';
+        if (!current) failures.push(`blank at ${lab.dataset.visualFold}`);
+        current.split(',').forEach(id=>seen.add(id));
+        if (Number(lab.dataset.visualFold)>=36 || frames>1800) resolve(); else requestAnimationFrame(sample);
+      }
+      requestAnimationFrame(sample);
+    });
+    return {failures,seen:[...seen],frames,fold:Number(lab.dataset.visualFold)};
+  });
+  await page.locator('#pf-play').click();
+  expect(sampled.failures).toEqual([]);expect(sampled.fold).toBeGreaterThanOrEqual(36);expect(sampled.seen).toEqual(expect.arrayContaining(['building','tower','everest','karman','iss','moon']));
+});
+
+test('reference navigation and interrupted thickness changes use current visible state', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'}); await page.goto(route);
+  await page.locator('#pf-reference-next').focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('#pf-count')).toHaveText('3');
+  await expect(page.locator('#pf-previous-name')).toHaveText('一张卡片');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  const failures=await page.evaluate(async()=>{
+    const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
+    const range=document.querySelector<HTMLInputElement>('#pf-folds')!;
+    const initial=document.querySelector<HTMLInputElement>('#pf-initial')!;
+    const failures:string[]=[];
+    const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
+    let observing=true;
+    const sample=()=>{if(!lab.dataset.referenceVisible)failures.push(lab.dataset.visualFold??'');if(observing)requestAnimationFrame(sample);};requestAnimationFrame(sample);
+    for(const [n,mm] of [[65,.01],[12,1],[80,.1],[31,.25]]) {
+      range.value=String(n);range.dispatchEvent(new Event('input',{bubbles:true}));await delay(70);
+      initial.value=String(mm);initial.dispatchEvent(new Event('change',{bubbles:true}));await delay(70);
+    }
+    await delay(900);observing=false;return failures;
+  });
+  expect(failures).toEqual([]);await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-folds','31');
+  await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-motion','false');
+  await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-playing','false');
+});
+
+for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${width}px`, async ({page},testInfo)=>{
+  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  for(const fold of [3,10,24,29,34,41,51,68,80]) {
+    await setFolds(page,fold);
+    await expect(page.locator('#paper-fold-lab')).not.toHaveAttribute('data-reference-visible','');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    for(const side of ['previous','next']) {
+      const card=page.locator(`#pf-reference-${side}`);
+      expect(await card.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBeTruthy();
+    }
+    if([10,24,29,41,68,80].includes(fold)) await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)});
+  }
+});

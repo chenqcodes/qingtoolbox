@@ -3,3 +3,22 @@
 .pf-related{display:flex;align-items:center;gap:12px 25px;flex-wrap:wrap;padding:10px 5px 25px;font-size:12px}.pf-related>span{font-size:11px;color:#7b817d}.pf-related a{color:#8f6d45;text-decoration:none;min-height:32px;display:inline-flex;align-items:center;gap:9px}.pf-related a:hover{text-decoration:underline;text-underline-offset:4px}
 
 .tool-page .pf-intro h1{display:block;margin-right:0}
+
+/* The diagram keeps its own overlay coordinates; the reference rail always
+   remains in normal flow, so long translated labels cannot cover the canvas. */
+.pf-scene{position:relative}
+.pf-reference-context{padding:0 30px 20px;background:#101b25}
+.pf-reference-heading{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:#b0c1c8;margin-bottom:9px}
+.pf-reference-heading>span:first-child{color:#d5bd98;letter-spacing:.08em}
+.pf-reference-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pf-reference-pair button{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:5px;padding:12px 15px;border-color:#ffffff20;background:#ffffff04;text-align:left;color:#dbe3df}
+.pf-reference-pair button:disabled{opacity:1;color:#b7c4ca;background:#ffffff03}
+.pf-reference-kicker{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;color:#a9b9c1;font-size:10px}
+.pf-reference-kicker small{font-size:9px;color:#b5c7d5;background:#ffffff09;border-radius:3px;padding:2px 5px;margin-left:auto}
+.pf-reference-pair strong{font-size:15px;font-weight:500;line-height:1.4;color:#e1d2b6}
+.pf-reference-dimension{font-size:11px;line-height:1.6;color:#afc0c7;overflow-wrap:anywhere}
+.pf-reference-ratio{font-size:11px;color:#d6be98;line-height:1.5;margin-top:auto;padding-top:2px;font-variant-numeric:tabular-nums}
+.pf-reference-progress{height:3px;background:#5f79844a;margin-top:13px;border-radius:3px;overflow:hidden}
+.pf-reference-progress i{display:block;height:100%;width:var(--progress,0%);background:linear-gradient(90deg,#82b5b4,#dfbc83)}
+.pf-reference-context>p{font-size:10px;line-height:1.6;color:#9bb0ba;margin:8px 0 0}
+@media(max-width:540px){.pf-reference-context{padding:0 18px 17px}.pf-reference-pair{gap:8px}.pf-reference-pair button{padding:10px 9px;gap:6px}.pf-reference-pair strong{font-size:13px}.pf-reference-dimension,.pf-reference-ratio{font-size:10px}.pf-reference-kicker small{margin-left:0}.pf-reference-heading{font-size:9px}.pf-reference-context>p{font-size:9px}}

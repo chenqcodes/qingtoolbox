@@ -1,4 +1,5 @@
-import { REFERENCES, formatLength, niceScale, type Reference } from './model';
+import { formatLength, niceScale } from './model';
+import { projectedReferences, type JourneyReference } from './references';
 
 export interface SceneState { exponent: number; thicknessMm: number; logView: number; foldPhase: number; reducedMotion: boolean }
 const clamp = (value: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, value));
@@ -62,20 +63,72 @@ function drawSun(ctx: CanvasRenderingContext2D, x: number, bottom: number, diame
   const body=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);body.addColorStop(0,'#fff1b2');body.addColorStop(.6,'#f3cd72');body.addColorStop(1,'#c88943');ctx.fillStyle=body;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
   ctx.save();ctx.beginPath();ctx.arc(x,y,r*.99,0,Math.PI*2);ctx.clip();for(let i=0;i<44;i++){const angle=i*2.399963,rad=r*Math.sqrt((i+.5)/44);ctx.fillStyle=i%3?'#a6683220':'#fff4c033';ctx.beginPath();ctx.ellipse(x+Math.cos(angle)*rad,y+Math.sin(angle)*rad,r*.04,r*.014,angle,0,Math.PI*2);ctx.fill();}ctx.restore();ctx.restore();
 }
-function drawSolar(ctx: CanvasRenderingContext2D, x: number, bottom: number, diameter: number) {
+function drawSolar(ctx: CanvasRenderingContext2D, x: number, bottom: number, diameter: number, jupiter = false) {
   // Face-on orbit diameters are to scale; planet markers are deliberately enlarged.
   const r=diameter/2,y=bottom-r;
   ctx.save();ctx.strokeStyle='#7696ad';ctx.lineWidth=.8;
-  const fractions=[1/30,5.2/30,9.54/30,19.2/30,1];
+  const fractions=jupiter?[1/5.2,1]:[1/30,5.2/30,9.54/30,19.2/30,1];
+  const initialAlpha=ctx.globalAlpha;
   fractions.forEach((f,i)=>{ctx.globalAlpha*=.86;ctx.beginPath();ctx.arc(x,y,r*f,0,Math.PI*2);ctx.stroke();const a=[2,4.4,3.5,5.2,.6][i];ctx.fillStyle=['#9db9ac','#cbb791','#c9c0a7','#91bcc1','#799bc7'][i];ctx.beginPath();ctx.arc(x+Math.cos(a)*r*f,y+Math.sin(a)*r*f,clamp(diameter*.014,1.5,4),0,Math.PI*2);ctx.fill();});
-  ctx.globalAlpha=1;const glow=ctx.createRadialGradient(x,y,0,x,y,15);glow.addColorStop(0,'#edca8b99');glow.addColorStop(1,'#edca8b00');ctx.fillStyle=glow;ctx.fillRect(x-15,y-15,30,30);ctx.fillStyle='#efd4a0';ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
+  ctx.globalAlpha=initialAlpha;const glow=ctx.createRadialGradient(x,y,0,x,y,15);glow.addColorStop(0,'#edca8b99');glow.addColorStop(1,'#edca8b00');ctx.fillStyle=glow;ctx.fillRect(x-15,y-15,30,30);ctx.fillStyle='#efd4a0';ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
 }
-function drawReference(ctx: CanvasRenderingContext2D, ref: Reference, x: number, baseline: number, height: number) {
-  if(ref.kind==='person')drawPerson(ctx,x,baseline,height);
-  if(ref.kind==='house')drawHouse(ctx,x,baseline,height);
-  if(ref.kind==='earth')drawEarth(ctx,x,baseline,height);
-  if(ref.kind==='sun')drawSun(ctx,x,baseline,height);
-  if(ref.kind==='solar')drawSolar(ctx,x,baseline,height);
+function drawReference(ctx: CanvasRenderingContext2D, ref: JourneyReference, x: number, baseline: number, height: number) {
+  if (ref.kind === 'person') return drawPerson(ctx, x, baseline, height);
+  if (ref.kind === 'house') return drawHouse(ctx, x, baseline, height);
+  if (ref.kind === 'earth') return drawEarth(ctx, x, baseline, height);
+  if (ref.kind === 'sun') return drawSun(ctx, x, baseline, height);
+  if (ref.kind === 'solar') return drawSolar(ctx, x, baseline, height, ref.id === 'jupiter-orbit');
+  ctx.save(); ctx.translate(x, baseline); ctx.scale(height / 100, height / 100);
+  ctx.fillStyle = ref.color; ctx.strokeStyle = ref.color; ctx.lineWidth = 1;
+  if (ref.kind === 'hair') {
+    // Cross-section: vertical diameter, not the length of a strand.
+    const body = ctx.createRadialGradient(-14, -66, 1, 0, -50, 50);
+    body.addColorStop(0, '#c0a280'); body.addColorStop(1, '#6a4d37');
+    ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, -50, 50, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d3bc9666'; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(0, -50, 8 + i * 6, 0, Math.PI * 2); ctx.stroke(); }
+  } else if (ref.kind === 'card') {
+    ctx.fillRect(-85, -100, 170, 100); ctx.fillStyle = '#779d90'; ctx.fillRect(-85, -84, 170, 12);
+    ctx.fillStyle = '#d1ddc9'; ctx.fillRect(-85, -10, 170, 10);
+  } else if (ref.kind === 'grain') {
+    ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.ellipse(0, -50, 17, 50, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#a99a7c'; path(ctx, [[-3,-91], [1,-53], [-2,-13]], false); ctx.stroke();
+  } else if (ref.kind === 'ball') {
+    ctx.beginPath(); ctx.arc(0, -50, 50, 0, Math.PI * 2); ctx.fill(); ctx.clip();
+    ctx.strokeStyle = '#f0ead0'; ctx.lineWidth = 3; for (const cx of [-54,54]) { ctx.beginPath(); ctx.ellipse(cx, -50, 32, 56, 0, 0, Math.PI * 2); ctx.stroke(); }
+  } else if (ref.kind === 'book') {
+    ctx.fillRect(-32, -100, 64, 100); ctx.fillStyle = '#d8d3bb'; ctx.fillRect(-27, -96, 56, 91);
+    ctx.fillStyle = '#537f88'; path(ctx, [[-32,0],[-32,-100],[18,-92],[18,0]]); ctx.fill();
+    ctx.strokeStyle = '#b5c6bf'; line(ctx, -20,-72,7,-68); line(ctx,-20,-65,7,-61);
+  } else if (ref.kind === 'building' || ref.kind === 'tower') {
+    if (ref.kind === 'building') ctx.fillRect(-23, -100, 46, 100);
+    else { path(ctx, [[-19,0],[-19,-34],[-13,-34],[-13,-57],[-8,-57],[-8,-75],[-3,-75],[-3,-91],[0,-100],[3,-78],[8,-78],[8,-51],[14,-51],[14,0]]); ctx.fill(); }
+    ctx.strokeStyle = '#25404e'; ctx.lineWidth = .8;
+    for (let y = -6; y > -99; y -= 5) line(ctx, ref.kind === 'tower' ? -7 : -21, y, ref.kind === 'tower' ? 7 : 21, y);
+  } else if (ref.kind === 'mountain') {
+    ctx.fillStyle = '#6d8b91'; path(ctx, [[-82,0],[-43,-44],[-26,-38],[0,-100],[28,-55],[44,-59],[84,0]]); ctx.fill();
+    ctx.fillStyle = '#415f6a'; path(ctx, [[0,-100],[10,-28],[84,0],[28,-55]]); ctx.fill();
+    ctx.fillStyle = '#d0dfdc'; path(ctx, [[0,-100],[-18,-57],[-6,-66],[3,-53],[11,-64],[23,-61]]); ctx.fill();
+    ctx.strokeStyle = '#82bdd0'; line(ctx,-90,0,90,0);
+  } else if (ref.kind === 'moon' || ref.kind === 'jupiter') {
+    ctx.beginPath(); ctx.arc(0,-50,50,0,Math.PI*2); ctx.clip();
+    const body = ctx.createLinearGradient(-50,-80,50,-30); body.addColorStop(0,ref.color); body.addColorStop(1,ref.kind === 'moon' ? '#596570' : '#75635c'); ctx.fillStyle=body;ctx.fillRect(-50,-100,100,100);
+    if (ref.kind === 'moon') {
+      for (const [cx,cy,r] of [[-20,-70,12],[19,-46,17],[-13,-24,8],[11,-87,7]]) { ctx.fillStyle='#5c6a7550';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#e8ece833';ctx.stroke(); }
+    } else {
+      for (let i=0;i<9;i++) {ctx.fillStyle=i%2?'#f1dec560':'#8d615244';ctx.fillRect(-50,-94+i*11,100,5+i%3);}
+      ctx.fillStyle='#b97860';ctx.beginPath();ctx.ellipse(18,-35,13,6,-.12,0,Math.PI*2);ctx.fill();
+    }
+  } else if (ref.kind === 'galaxy') {
+    const glow=ctx.createRadialGradient(0,-50,0,0,-50,50);glow.addColorStop(0,'#f6dfb6');glow.addColorStop(.22,'#e2cdd480');glow.addColorStop(1,'#a5ace500');ctx.fillStyle=glow;ctx.fillRect(-50,-100,100,100);
+    for(let arm=0;arm<3;arm++){ctx.beginPath();for(let t=0;t<100;t++){const r=t*.5,a=t*.047+arm*Math.PI*2/3;const px=Math.cos(a)*r,py=-50+Math.sin(a)*r;t?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.strokeStyle='#cac2df80';ctx.lineWidth=2;ctx.stroke();}
+  } else {
+    // Distances use a vertical measured segment. Endpoint glyph sizes are schematic.
+    ctx.lineWidth = Math.min(3, 180 / height); ctx.setLineDash([4,4]); line(ctx,0,-100,0,0); ctx.setLineDash([]);
+    line(ctx,-13,-100,13,-100); line(ctx,-13,0,13,0);
+    const beam=ctx.createLinearGradient(-10,0,10,0);beam.addColorStop(0,'#99b8dc00');beam.addColorStop(.5,'#b7c8e344');beam.addColorStop(1,'#99b8dc00');ctx.fillStyle=beam;ctx.fillRect(-10,-100,20,100);
+    ctx.fillStyle=ref.color;ctx.beginPath();ctx.arc(0,-50,3,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
 }
 export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: number, state: SceneState): void {
   const mobile=width<540, baseline=height-(mobile?196:160), top=155, area=baseline-top;
@@ -106,22 +159,22 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
     ctx.beginPath();ctx.arc(guideX,baseline,radius,Math.PI,Math.PI*2);ctx.stroke();
   }
   ctx.restore();
-  // All reference heights use this one linear pixels/metre scale.
-  let visible=0;
-  for(const ref of [...REFERENCES].reverse()){
-    const ph=ref.metres*pixelsPerMetre;
-    if(ph<1.5||ph>area*12)continue;
-    const fadeIn=clamp(Math.log2(ph/1.5)/2,0,1),fadeOut=clamp(Math.log2(area*12/ph)/3,0,1);
-    const alpha=fadeIn*fadeOut;if(alpha<.03)continue;
-    visible=Math.max(visible,alpha);
-    const x=width*(ref.id==='person'?.63:ref.id==='house'?.79:.72);
-    ctx.save();ctx.beginPath();ctx.rect(width*.47,149,width*.53,baseline-125);ctx.clip();ctx.globalAlpha=alpha;
-    drawReference(ctx,ref,x,baseline,ph);
-    ctx.restore();
-    if(ph>20&&ph<area*1.35){ctx.save();ctx.globalAlpha=alpha;label(ctx,ref.name,x,baseline+21,ref.color,'center',mobile?9:11);if(ph>45)label(ctx,formatLength(ref.metres),x,baseline+36,'#839da8','center',9);if(ph<area*.95&&ref.kind!=='person'&&ref.kind!=='house')measure(ctx,x+ph*.55+9,baseline,ph,ref.dimension,ref.color,top);ctx.restore();}
+  // Dense references share the paper's exact linear pixels/metre scale. Alternate
+  // lanes keep neighbouring silhouettes separate while their opacity crossfades.
+  const references = projectedReferences(state.logView, area);
+  const primary = references.filter(item => item.pixels <= area * 1.15)
+    .sort((a,b) => b.pixels - a.pixels)[0] ?? references[0];
+  for (const item of [...references].sort((a,b) => b.pixels - a.pixels)) {
+    const { reference: ref, pixels: ph, opacity: alpha, index } = item;
+    const x = width * (index % 2 ? .77 : .62);
+    ctx.save(); ctx.beginPath(); ctx.rect(width*.47,149,width*.48,baseline-148); ctx.clip(); ctx.globalAlpha=alpha;
+    drawReference(ctx,ref,x,baseline,ph); ctx.restore();
+    if (item === primary) {
+      // One readable label at all sizes; full measurement details stay in the rail.
+      label(ctx,ref.name,width*.715,baseline+21,ref.color,'center',mobile?10:12);
+      label(ctx,formatLength(ref.metres),width*.715,baseline+36,'#a7bbc5','center',10);
+    }
   }
-  const next=REFERENCES.find(ref=>ref.metres>thickness)??REFERENCES[REFERENCES.length-1];
-  if(visible<.75){ctx.save();ctx.globalAlpha=(1-visible)*.85;const nx=width*.73,ny=top+area*.45;ctx.strokeStyle='#a4b7bd38';ctx.setLineDash([2,5]);ctx.beginPath();ctx.arc(nx,ny,25,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);label(ctx,thickness>next.metres?'已越过海王星轨道':'下一站',nx,ny-42,'#869ea9','center',10);label(ctx,thickness>next.metres?'继续向星际深处':next.name,nx,ny+53,'#b9c7cb','center',mobile?11:13);label(ctx,thickness>next.metres?'模型仍是同一个 × 2':formatLength(next.metres),nx,ny+72,'#a3b3bb','center',10);ctx.fillStyle='#d0b98b';ctx.beginPath();ctx.arc(nx,ny,2,0,Math.PI*2);ctx.fill();ctx.restore();}
   // The side's height is physical; width/depth are schematic, never volume claims.
   const px=width*(mobile?.275:.30),pw=mobile?84:132,depth=mobile?13:21,slant=mobile?15:25,sy=baseline-stackHeight;
   ctx.save();

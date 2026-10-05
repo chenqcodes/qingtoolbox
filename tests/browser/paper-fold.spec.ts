@@ -194,7 +194,7 @@ for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${widt
     const legend=await page.locator('.pf-scale-key').boundingBox();
     expect(legend!.y).toBeGreaterThanOrEqual(diagram!.y+diagram!.height);
     expect((await page.locator('#pf-stage').boundingBox())!.height).toBeLessThan(730);
-    if([10,41,45,49,54,55,57,68,83,88,96,103].includes(fold)) await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)});
+    if([10,41,45,49,54,55,57,68,83,88,96,103].includes(fold)) { await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'})); await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)}); }
   }
 });
 
@@ -215,6 +215,7 @@ for(const width of [1440,390,320]) test(`cosmic endpoint recalculates safely at 
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     const boxes=await page.locator('.pf-count,.pf-thickness').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right};}));
     expect(boxes[0].right).toBeLessThanOrEqual(boxes[1].left);
+    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
     await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`cosmic-end-${width}-${mm}.png`)});
   }
   await page.locator('#pf-initial').fill('.01');await page.locator('#pf-initial').press('Enter');await setFolds(page,107);
@@ -234,6 +235,13 @@ test('stellar and cosmic jumps preserve a fully visible reference throughout ani
     }
     return {failures,seen:[...seen]};
   });
-  expect(result.failures).toEqual([]);expect(result.seen).toEqual(expect.arrayContaining(['sirius','arcturus','aldebaran','antares','betelgeuse','vy-cma','solar','orion-nebula','omega-centauri','n44','small-magellanic','milky-way','andromeda','m87-distance','laniakea','observable-universe']));
+  expect(result.failures).toEqual([]);expect(result.seen).toEqual(expect.arrayContaining(['sirius','arcturus','aldebaran','antares','vy-cma','solar','orion-nebula','omega-centauri','n44','small-magellanic','milky-way','andromeda','m87-distance','laniakea','observable-universe']));
   await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-folds','103');
+});
+
+test('close red-supergiant references remain identifiable during ordinary playback', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);await setFolds(page,52);
+  await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('#pf-speed').selectOption('1000');await page.locator('#pf-play').click();
+  const seen=await page.evaluate(async()=>{const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;const seen=new Set<string>();await new Promise<void>(resolve=>{function sample(){(lab.dataset.referenceVisible??'').split(',').forEach(x=>seen.add(x));if(Number(lab.dataset.visualFold)>=56)resolve();else requestAnimationFrame(sample);}requestAnimationFrame(sample);});return [...seen];});
+  await page.locator('#pf-play').click();expect(seen).toEqual(expect.arrayContaining(['antares','betelgeuse','vy-cma','jupiter-orbit']));
 });

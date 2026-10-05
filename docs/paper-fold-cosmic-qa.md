@@ -6,7 +6,7 @@ The journey now contains 46 explicitly defined lengths. Six stars larger than th
 
 - Stellar source radii in solar radii become the same ratio of solar diameters, never an additional factor of two. Diameters use the existing 1,391,400 km solar reference
 - Sirius A: 1.713; Arcturus: 25.4; Aldebaran: 44.2 solar radii. Primary papers/institute publication records are linked on each reference
-- Antares: optical diameter about 700 solar diameters (ESO). Betelgeuse: stellar-model radius 764 +116/-62 solar radii (Joyce et al. 2020). VY CMa: Rosseland photospheric radius 1420 ±120 solar radii (Wittkowski et al. 2012). No largest-star ranking is claimed
+- Antares: optical diameter about 700 solar diameters (ALMA Observatory). Betelgeuse: stellar-model radius 764 +116/-62 solar radii (Joyce et al. 2020). VY CMa: Rosseland photospheric radius 1420 ±120 solar radii (Wittkowski et al. 2012). No largest-star ranking is claimed
 - Neptune's approximately 60 AU orbital diameter is not a boundary of the entire solar system
 - Orion Nebula 24 ly; Omega Centauri 150 ly; N44 whole complex 1000 ly; Small Magellanic Cloud 7000 ly; Milky Way stellar disk 100,000 ly. These are approximate extents
 - Andromeda 2.5 million ly and M87 54 million ly are distances from Earth, not their diameters

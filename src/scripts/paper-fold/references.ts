@@ -35,7 +35,7 @@ const referenceCatalog: JourneyReference[] = [
   star('sirius', '天狼星 A', 1.713, '恒星直径约为太阳的 1.71 倍', '#c6e1fa', { label: 'Davis 等（2011）· 天狼星 A 半径', url: 'https://arxiv.org/abs/1010.3790' }),
   star('arcturus', '大角星', 25.4, '红巨星直径约为太阳的 25.4 倍', '#f2bb7e', { label: 'IAC / Ramírez 等（2011）· 大角星半径', url: 'https://iac.es/en/science-and-technology/publications/fundamental-parameters-and-chemical-composition-arcturus' }),
   star('aldebaran', '毕宿五', 44.2, '红巨星直径约为太阳的 44.2 倍', '#efaa79', { label: 'Richichi 等（2005）· 毕宿五半径', url: 'https://arxiv.org/abs/astro-ph/0502181' }),
-  star('antares', '心宿二', 700, '可见光直径约为太阳的 700 倍（估计）', '#e68b72', { label: 'ESO · 心宿二可见光直径', url: 'https://www.eso.org/public/news/eso1726/' }),
+  star('antares', '心宿二', 700, '可见光直径约为太阳的 700 倍（估计）', '#e68b72', { label: 'ALMA · 心宿二可见光与射电尺寸', url: 'https://www.almaobservatory.org/en/press-releases/supergiant-atmosphere-of-antares-revealed-by-radio-telescopes/' }),
   star('betelgeuse', '参宿四', 764, '红超巨星直径约为太阳的 764 倍（模型估计）', '#f3a083', { label: 'Joyce 等（2020）· 参宿四半径模型', url: 'https://arxiv.org/abs/2006.09837' }),
   star('vy-cma', '大犬座 VY', 1420, '光球直径约为太阳的 1,420 倍（估计）', '#e38271', { label: 'Wittkowski 等（2012）· 大犬座 VY 光球半径', url: 'https://arxiv.org/abs/1203.5194' }),
   lightDistance('light-minute', '光走一分钟', 299_792_458 * 60, '真空中 60 秒的路程'),
@@ -78,13 +78,26 @@ export function adjacentReferences(metres: number) {
 /** Same projection used by the canvas and coverage tests. A full-size reference
  * is always retained in the 10 px–scene-height band; adjacent objects fade at
  * the band edges rather than disappearing in long gaps. */
-export function projectedReferences(logView: number, area: number) {
-  return JOURNEY_REFERENCES.map((reference, index) => {
+export function projectedReferences(logView: number, area: number, thicknessMetres?: number) {
+  // Keep the diagram tied to its two named comparison cards. Dense stellar
+  // estimates otherwise pile several bright discs onto the same two lanes.
+  const neighbours = thicknessMetres === undefined ? undefined : adjacentReferences(thicknessMetres);
+  const candidates = JOURNEY_REFERENCES.map((reference, index) => {
     const pixels = reference.metres * area / 2 ** logView;
     const fadeIn = Math.min(1, Math.max(0, (pixels - 3) / 7));
     const fadeOut = Math.min(1, Math.max(0, (area * 2.2 - pixels) / (area * 1.2)));
     return { reference, index, pixels, opacity: fadeIn * fadeOut };
   }).filter(item => item.opacity > .01);
+  if (!neighbours) return candidates;
+  const selected = candidates.filter(item => item.reference === neighbours.previous || item.reference === neighbours.next);
+  const readable = (item: typeof candidates[number]) => item.pixels >= 10 && item.pixels <= area && item.opacity === 1;
+  // The first folds deliberately hold a wider camera view. A single larger
+  // anchor keeps very thin unfolded sheets from losing a readable comparison.
+  if (!selected.some(readable)) {
+    const anchor = candidates.find(readable);
+    if (anchor && !selected.includes(anchor)) selected.push(anchor);
+  }
+  return selected;
 }
 
 const ratioFormatter = new Intl.NumberFormat('zh-CN', { maximumSignificantDigits: 3, notation: 'compact' });

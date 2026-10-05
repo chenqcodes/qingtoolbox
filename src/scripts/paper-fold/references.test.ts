@@ -37,7 +37,7 @@ test('every fractional frame keeps a fully opaque 10px-or-larger reference on sc
     for (let eighth = 0; eighth <= journeyFoldLimit(initial / 100) * 8; eighth++) {
       const exponent = eighth / 8, mm = initial / 100;
       for (const area of [199, 260]) {
-        const refs = projectedReferences(viewLog(exponent, mm), area);
+        const refs = projectedReferences(viewLog(exponent, mm), area, mm / 1000 * 2 ** exponent);
         assert.ok(refs.some(item => item.pixels >= 10 && item.pixels <= area && item.opacity === 1), `${mm} mm, fold ${exponent}, area ${area}`);
       }
     }
@@ -72,7 +72,7 @@ test('the original five landmarks leave gaps that the dense ladder closes', () =
     return pixels >= 10 && pixels <= area;
   }));
   assert.ok(oldBlankFolds.length > 40);
-  for (const n of oldBlankFolds) assert.ok(projectedReferences(viewLog(n, .1), area).some(item => item.pixels >= 10 && item.pixels <= area && item.opacity === 1));
+  for (const n of oldBlankFolds) assert.ok(projectedReferences(viewLog(n, .1), area, .0001 * 2 ** n).some(item => item.pixels >= 10 && item.pixels <= area && item.opacity === 1));
 });
 
 
@@ -99,4 +99,13 @@ test('cosmic dimensions keep object extents distinct from intergalactic distance
   assert.match(get('m87-distance').dimension,/距地球/);
   assert.match(get('laniakea').dimension,/速度流域.*定义/);
   assert.match(get('observable-universe').dimension,/当前直径.*模型/);
+});
+
+test('visible silhouettes only depict the neighbouring named lengths', () => {
+  for(let fold=0;fold<=journeyFoldLimit(.1);fold+=.03125) {
+    const metres=.0001*2**fold, pair=adjacentReferences(metres);
+    const visible=projectedReferences(viewLog(fold,.1),199,metres);
+    assert.ok(visible.length<=2);
+    assert.ok(visible.every(item=>item.reference===pair.previous||item.reference===pair.next));
+  }
 });

@@ -34,7 +34,7 @@ export function bootPaperFold(): void {
     const metres = 2 ** logMm / 1000 * 2 ** exponent;
     const { previous, next } = adjacentReferences(metres);
     const area = height - 60 - 155;
-    const visible = projectedReferences(logView, area);
+    const visible = projectedReferences(logView, area, metres);
     const text = (id: string, value: string) => { const node = get(id); if (node.textContent !== value) node.textContent = value; };
     root!.dataset.referencePrevious = previous?.id ?? 'start';
     root!.dataset.referenceNext = next?.id ?? 'end';

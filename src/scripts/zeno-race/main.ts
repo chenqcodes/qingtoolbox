@@ -289,6 +289,8 @@ if (root) {
   reducedMotion.addEventListener('change', () => { pause(); if (pending) finishStep(); render(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && running) { pause(); render(); announce('页面隐藏，播放已暂停。回来后可手动继续。'); } });
   window.addEventListener('pagehide', () => pause());
+  // A back/forward-cache restore keeps the DOM; refresh paused button state too.
+  window.addEventListener('pageshow', () => render());
   window.addEventListener('resize', render);
   syncInputs(); render();
 }

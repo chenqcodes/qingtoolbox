@@ -129,3 +129,20 @@ test('large growing gaps keep the secondary horizon and SVG coordinates finite',
   for (const id of ['#zr-full-rabbit', '#zr-full-turtle']) expect(await page.locator(id).getAttribute('transform')).not.toMatch(/NaN|Infinity/);
   await expect(page.locator('#zeno-race-lab')).not.toContainText('NaN'); await expect(page.locator('#zeno-race-lab')).not.toContainText('Infinity'); expect(errors).toEqual([]);
 });
+
+
+test('returning from browser history keeps animation paused and controls synchronized', async ({ page }) => {
+  await page.goto('/tools/zeno-race/'); await page.locator('#zr-play').click();
+  await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'true');
+  // Explicitly cover the persisted-DOM path even when this browser chooses reload.
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+  });
+  await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'false');
+  await expect(page.locator('#zr-play')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#zr-play')).not.toHaveText('暂停');
+  await page.locator('#zr-play').click(); await page.goto('/tools/paper-fold/'); await page.goBack();
+  await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'false');
+  await expect(page.locator('#zr-play')).toHaveAttribute('aria-pressed', 'false');
+});

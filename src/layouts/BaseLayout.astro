@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import '../styles/site-chrome.css';
 import Canonical from '../components/Canonical.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
@@ -31,8 +32,9 @@ const fullTitle = title == '轻工具箱' ? title : `${title} | 轻工具箱`;
     <title>{fullTitle}</title>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
     <SiteHeader />
-    <main class={wide ? 'container-wide' : 'container'}>
+    <main id="main-content" tabindex="-1" class:list={[wide ? 'container-wide' : 'container', 'site-main']}>
       <slot />
     </main>
     <SiteFooter />

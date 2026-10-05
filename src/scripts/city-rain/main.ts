@@ -197,7 +197,15 @@ if (root) {
     });
     resize.observe(canvas);
     const visibility = new IntersectionObserver(entries => {
-      const visible = entries[0]?.isIntersecting ?? false;
+      // Several crossings for this canvas can arrive together (for example,
+      // capture/resize then restoration). Older entries must not overwrite the
+      // final observation, or Resume can wait forever for an event already sent.
+      let latest: IntersectionObserverEntry | undefined;
+      for (const entry of entries) {
+        if (entry.target === canvas && (!latest || entry.time >= latest.time)) latest = entry;
+      }
+      if (!latest || disposed) return;
+      const visible = latest.isIntersecting;
       if (visible === inViewport) return; inViewport = visible;
       if (!visible) { cancelAnimationFrame(raf); raf = 0; last = 0; if (playing) status.textContent = '画布在屏幕外 · 等待返回'; }
       else { draw(); if (playing && !document.hidden) { last = 0; status.textContent = Number(rain.value) ? '正在降雨 · 观察汇流' : '雨已停 · 继续排水'; raf = requestAnimationFrame(tick); } }

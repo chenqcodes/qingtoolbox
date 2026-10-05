@@ -1,17 +1,12 @@
 ---
 const links = [
-  { href: '/', label: '首页' },
-  { href: '/about/', label: '关于' },
+  { href: '/', label: '全部工具' },
+  { href: '/about/', label: '关于这里' },
 ];
 ---
-
 <header class="site-header">
   <div class="container inner">
-    <a href="/" class="logo">轻工具箱</a>
-    <nav class="nav">
-      {links.map((l) => (
-        <a href={l.href}>{l.label}</a>
-      ))}
-    </nav>
+    <a href="/" class="logo" aria-label="轻工具箱首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="brand-copy">轻工具箱<small>LITTLE TOOLS, EVERYDAY</small></span></a>
+    <nav class="nav" aria-label="主导航">{links.map(link => <a href={link.href} aria-current={Astro.url.pathname === link.href ? 'page' : undefined}>{link.label}</a>)}</nav>
   </div>
 </header>

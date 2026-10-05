@@ -1,0 +1,114 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/zeno-race.css';
+---
+<ToolLayout title="兔子为什么追得上乌龟？ · 芝诺悖论可视化" description="每一次都还差一点，为什么最终能追上？在选定的暂停截图与连续时间之间切换，亲眼看见有限的相遇时刻。可调速度、领先距离，逐段探索芝诺的阿基里斯与乌龟悖论。" currentSlug="zeno-race">
+  <header class="zr-intro" slot="header">
+    <span class="zr-eyebrow">THOUGHT EXPERIMENT / 02</span>
+    <h1>每张截图都没追上。<br /><em>那下一秒呢？</em></h1>
+    <p>把阿基里斯换成兔子。困住我们的，是赛跑本身，还是选截图的方法？</p>
+  </header>
+  <section class="zr-lab" id="zeno-race-lab" aria-label="兔子追乌龟交互实验" data-mode="steps" data-time="0" data-stage="0" data-running="false">
+    <div class="zr-modebar" role="group" aria-label="观察方式">
+      <button type="button" id="zr-mode-steps" aria-pressed="true"><span>01</span> 只看选定的截图</button>
+      <button type="button" id="zr-mode-continuous" aria-pressed="false"><span>02</span> 播放完整的时间</button>
+    </div>
+    <div class="zr-scene">
+      <div class="zr-scene-top"><span>THE RACE GOES ON</span><span id="zr-scene-clock">t = 0 s</span></div>
+      <svg id="zr-track" viewBox="0 0 900 350" role="img" aria-labelledby="zr-track-title zr-track-desc">
+        <title id="zr-track-title">兔子与乌龟的同一条路</title><desc id="zr-track-desc">两条视觉跑道共用同一距离刻度。角色中心的细线标记精确位置。虚线标记兔子追赶的乌龟旧位置及相遇位置。</desc>
+        <defs>
+          <linearGradient id="zr-sky" x2="0" y2="1"><stop stop-color="#e9e6f3"/><stop offset="1" stop-color="#f6ede4"/></linearGradient>
+          <linearGradient id="zr-hill" x2="0" y2="1"><stop stop-color="#c2c6b5"/><stop offset="1" stop-color="#d9dbcc"/></linearGradient>
+          <pattern id="zr-track-dashes" width="26" height="1" patternUnits="userSpaceOnUse"><path d="M0 0H11" stroke="#a8a798" stroke-width="2"/></pattern>
+          <symbol id="zr-rabbit-art" viewBox="-44 -62 88 74">
+            <ellipse cx="-1" cy="8" rx="35" ry="5" fill="#524d6520"/>
+            <ellipse cx="-11" cy="-11" rx="23" ry="17" fill="#fffdf8" stroke="#777184" stroke-width="1.6"/>
+            <circle cx="-34" cy="-11" r="8" fill="#fffdf8" stroke="#777184" stroke-width="1.6"/>
+            <ellipse cx="13" cy="-43" rx="6" ry="18" transform="rotate(-19 13 -43)" fill="#fffdf8" stroke="#777184" stroke-width="1.6"/>
+            <ellipse cx="26" cy="-42" rx="5" ry="19" transform="rotate(13 26 -42)" fill="#fffdf8" stroke="#777184" stroke-width="1.6"/>
+            <path d="M11-54 16-35M28-54 24-35" stroke="#d3a9b8" stroke-width="3" stroke-linecap="round"/>
+            <ellipse cx="20" cy="-24" rx="17" ry="15" fill="#fffdf8" stroke="#777184" stroke-width="1.6"/>
+            <path d="M29-9 36 3 23 4M-17-4-27 5-5 6" fill="#fffdf8" stroke="#777184" stroke-width="1.6" stroke-linejoin="round"/>
+            <circle cx="27" cy="-27" r="2.3" fill="#4c455b"/><ellipse cx="37" cy="-20" rx="3" ry="2" fill="#c794a4"/>
+            <path d="m7-16 9 4" stroke="#b89bc2" stroke-width="5" stroke-linecap="round"/>
+          </symbol>
+          <symbol id="zr-turtle-art" viewBox="-44 -40 88 52">
+            <ellipse cx="0" cy="8" rx="36" ry="5" fill="#524d6520"/>
+            <path d="m-27-1-4 8h12l3-9M7-1 10 8h12l-5-12" fill="#a3ac73" stroke="#69734f" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M20-12c13-15 27-9 22 1-3 6-14 6-22 7" fill="#b9bf8a" stroke="#69734f" stroke-width="1.6"/>
+            <path d="m-29-5-10-3 7 9" fill="#a3ac73" stroke="#69734f" stroke-width="1.6"/>
+            <path d="M-33-4C-34-42 21-43 25-4Z" fill="#818c5a" stroke="#5d6944" stroke-width="1.8"/>
+            <path d="m-7-32 9 10-4 16M-7-32-19-17-11-5M-19-17l-12 2M2-22l18 6M-19-17 2-22" fill="none" stroke="#bdc497" stroke-width="1.5"/>
+            <path d="M-33-4h58" stroke="#ced4a7" stroke-width="5" stroke-linecap="round"/>
+            <circle cx="36" cy="-17" r="1.8" fill="#36452d"/>
+          </symbol>
+        </defs>
+        <rect width="900" height="350" fill="url(#zr-sky)"/>
+        <circle cx="725" cy="54" r="30" fill="#fff9dc"/>
+        <path d="M0 108Q100 47 234 98T460 91T700 77T900 98V172H0Z" fill="#d8d9d0"/>
+        <path d="M0 126Q136 93 286 122T560 116T900 118V350H0Z" fill="url(#zr-hill)"/>
+        <path d="M0 143H900V286H0Z" fill="#f7f3e8"/>
+        <path d="M0 164H900M0 280H900" stroke="#d8d5c8" stroke-width="1"/>
+        <path d="M0 219H900" stroke="#c7c6b8" stroke-width="1.3" stroke-dasharray="8 10"/>
+        <g id="zr-meeting-marker"><path d="M0 111V287" stroke="#8a6794" stroke-width="1.5" stroke-dasharray="4 5"/><path d="m0 111 23 0-6 8 6 8H0" fill="#8a6794"/></g>
+        <g id="zr-old-marker"><path d="M0 141V283" stroke="#bf8c4f" stroke-width="1.5" stroke-dasharray="3 5"/><circle cy="282" r="3" fill="#bf8c4f"/></g>
+        <g id="zr-rabbit" transform="translate(62 188)"><path d="M0-56V16" stroke="#958d9a" stroke-width="1" opacity=".5"/><use href="#zr-rabbit-art" x="-35" y="-57" width="70" height="65"/></g>
+        <g id="zr-turtle" transform="translate(615 258)"><path d="M0-49V16" stroke="#6f7d57" stroke-width="1" opacity=".5"/><use href="#zr-turtle-art" x="-35" y="-36" width="70" height="44"/></g>
+        <g id="zr-distance-ticks" fill="#626a58" font-size="12" font-family="ui-monospace, monospace"></g>
+        <text x="36" y="333" fill="#6b725f" font-size="11" letter-spacing="2">同一距离刻度 · m</text>
+        <g fill="#9ba580"><path d="m20 130 2-9 4 8 4-13 2 14M848 131l2-13 4 11 5-8 1 10M350 133l2-8 3 7 4-11 2 12"/></g>
+      </svg>
+      <div class="zr-track-caption"><span><i class="zr-dot rabbit"></i>兔子 <b id="zr-rabbit-position">0 m</b></span><span><i class="zr-dot turtle"></i>乌龟 <b id="zr-turtle-position">10 m</b></span><span class="zr-key-old">┆ 上一张截图的乌龟位置</span><span class="zr-key-limit">┆ 相遇位置</span></div>
+      <div class="zr-observation"><span id="zr-stage-label">起点 · 第 0 张截图</span><p id="zr-observation">下一张截图：等兔子跑到乌龟现在的位置，再按暂停。</p></div>
+      <div class="zr-metrics">
+        <div><span>这一段用了</span><strong id="zr-segment">—</strong></div>
+        <div><span>累计模型时间</span><strong id="zr-time">0 s</strong></div>
+        <div><span id="zr-gap-label">仍然落后</span><strong id="zr-gap">10 m</strong></div>
+        <div><span id="zr-tail-label">距相遇还需</span><strong id="zr-tail">≈ 1.111111 s</strong></div>
+      </div>
+    </div>
+    <aside class="zr-controls" aria-label="赛跑设置">
+      <div class="zr-control-heading"><span>SET THE SCENE</span><h2>给乌龟一个先手</h2></div>
+      <label for="zr-lead">乌龟领先 <output id="zr-lead-value">10 m</output><input id="zr-lead" type="range" min="0" max="30" step="1" value="10" /></label>
+      <label for="zr-rabbit-speed">兔子速度 <output id="zr-rabbit-speed-value">10 m/s</output><input id="zr-rabbit-speed" type="range" min="0" max="20" step="0.1" value="10" /></label>
+      <label for="zr-turtle-speed">乌龟速度 <output id="zr-turtle-speed-value">1 m/s</output><input id="zr-turtle-speed" type="range" min="0" max="20" step="0.1" value="1" /></label>
+      <p class="zr-control-note">匀速、同向、不停步。调整参数会暂停，并回到起点。</p>
+      <div class="zr-controls-rule"></div>
+      <button type="button" class="zr-primary" id="zr-next">到乌龟上一个位置 <span>→</span></button>
+      <div class="zr-actions"><button type="button" id="zr-play" aria-pressed="false">逐张播放</button><button type="button" id="zr-reset">回到起点</button></div>
+      <button type="button" class="zr-text-button" id="zr-replay">↺ 从头重播</button>
+      <p id="zr-play-note" class="zr-control-note">每 0.85 秒展示一张截图；这不是每一段实际耗时。</p>
+      <div class="zr-limit-card"><span id="zr-limit-heading">相遇发生在</span><strong id="zr-limit-time">10/9 s</strong><p id="zr-limit-detail">≈ 1.111111… 秒 · 100/9 米处</p><button type="button" id="zr-meet">把时钟拨到相遇 →</button></div>
+      <button type="button" id="zr-compare" class="zr-compare">直接看 1.2 秒 <span>↗</span><small>恢复默认参数，看看谁在前面</small></button>
+      <p id="zr-status" class="zr-status" role="status" aria-live="polite">准备好了，先选一张截图。</p>
+    </aside>
+    <section class="zr-time-section" aria-label="选定截图与完整连续时间的对照">
+      <div class="zr-time-heading"><h2>两种看法，同一段时间</h2><span id="zr-timeline-caption">选定的截图只会挤向这条相遇线</span></div>
+      <svg id="zr-timeline" viewBox="0 0 1100 180" role="img" aria-labelledby="zr-timeline-title zr-timeline-desc">
+        <title id="zr-timeline-title">截图序列与完整时间轴</title><desc id="zr-timeline-desc">上方标出每一张选定截图的时刻，下方是可以穿过相遇时刻的连续时间。截图时刻越来越密，但不会覆盖相遇之后。</desc>
+        <defs><marker id="zr-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="m0 0 6 3-6 3" fill="#746780"/></marker><pattern id="zr-future-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V7" stroke="#a695b33d" stroke-width="2"/></pattern></defs>
+        <g id="zr-future-region"></g>
+        <text x="0" y="51" class="zr-axis-label">选定的截图</text><text x="0" y="121" class="zr-axis-label">完整的时间</text>
+        <path id="zr-snapshot-baseline" d="M150 47H820" stroke="#d2c8d8" stroke-width="3"/>
+        <path id="zr-continuous-baseline" d="M150 117H1060" stroke="#c8bfce" stroke-width="3" marker-end="url(#zr-arrow)"/>
+        <g id="zr-segments"></g><g id="zr-snapshots"></g>
+        <g id="zr-limit-line"><path d="M0 20V142" stroke="#9562a5" stroke-dasharray="4 4"/><text id="zr-limit-axis-text" y="164" text-anchor="middle">相遇 t*</text></g>
+        <path id="zr-live-progress" d="M150 117H150" stroke="#746080" stroke-width="5"/>
+        <circle id="zr-time-cursor" cx="150" cy="117" r="7" fill="#746080" stroke="#fff" stroke-width="2"/>
+        <text id="zr-axis-zero" x="150" y="164" class="zr-axis-zero">0 s</text><text x="1060" y="164" text-anchor="end" id="zr-axis-end">1.5 s →</text>
+      </svg>
+      <div id="zr-continuous-controls" hidden><label for="zr-scrub">把时钟拖过相遇线 <output id="zr-scrub-value">0 s</output></label><input id="zr-scrub" type="range" min="0" max="1000" step="1" value="0" /><p>拖动会暂停。模型时间连续变化；相遇线之后，兔子还会接着跑。</p></div>
+      <div class="zr-sequence" id="zr-sequence" aria-label="已选择的截图时刻"><span>起点 0 s</span><span class="zr-sequence-hint">每按一次，新增一个有限编号的时刻</span></div>
+      <p class="zr-resolution" id="zr-resolution" hidden></p>
+    </section>
+  </section>
+  <section class="zr-insight" aria-labelledby="zr-insight-title"><div><span>THE MISSING PIECE</span><h2 id="zr-insight-title">你选的每个时刻，<br />都被安排在相遇之前。</h2></div><div><p>“第 1 次没追上，第 2 次没追上……”这句话是对的。因为每次都只让镜头走到<strong>乌龟的旧位置</strong>，你就永远只在相遇之前按暂停。</p><p>但这些时刻并不包含所有时间。默认设置里，它们是 1、1.1、1.11……秒，全部小于 10/9 秒。<strong>相遇时刻是这列时刻的极限，不是某个“最后编号”的截图。</strong>连续的时钟照样会到 1.2 秒，那时兔子已经在前面。</p><p class="zr-analogy">像一段完整的视频：如果每次只暂停在离终点还差一半的位置，你选出的所有截图都没到终点，也不能证明视频没有终点。</p></div></section>
+  <div class="zr-notes">
+    <section><span>01 / 所以，无穷要怎样做完？</span><h2>兔子没有接到“逐段执行”的指令</h2><p>分段是观察者对一段连续运动的描述。兔子一直匀速向前，没有在各段边界停下或等待。没有“最后一个有限编号”，不妨碍这些时刻拥有一个有限的极限；连续时间也没有被这组编号截断。</p><p>这里解释的是经典连续时间模型中的数学问题，不需要引入“最小时间单位”来让兔子追上。</p></section>
+    <section><span>02 / 把相遇直接算出来</span><h2>相同位置，只需要一个方程</h2><p>设领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，令两者相等：t* = L / (a − b)。默认 t* = 10/9 秒，位置为 100/9 米。</p><details><summary>展开：每段时间、剩余时间与边界条件</summary><p>当 0 &lt; b &lt; a，令 q = b/a。第 n 段用时 Δtₙ = (L/a)qⁿ⁻¹，累计 tₙ = t*(1 − qⁿ)，剩余距离 Lqⁿ，距相遇仍需 t*qⁿ。每个有限 n 的余量都大于零，且 tₙ → t*。</p><p>L = 0 时起点就已相遇；b = 0 且 a &gt; 0 时第一段直接到达。若 L &gt; 0 且 a ≤ b，则不能追上；兔子不动时连第一个旧位置也到不了。</p><p>页面只展示有限段。接近浮点数分辨率时会停下，并保留未完成的正余量；图形上的重叠不代表数学上的相遇。</p></details><a href="https://sites.pitt.edu/~jdnorton/teaching/paradox/chapters/Zeno/Zeno.html" target="_blank" rel="noopener noreferrer">匹兹堡大学 · 芝诺悖论与极限 ↗</a><a href="https://pi.math.cornell.edu/~mec/Summer2009/ABjorndahl/tools.html" target="_blank" rel="noopener noreferrer">康奈尔大学 · 几何级数推导 ↗</a></section>
+  </div>
+  <nav class="zr-related" aria-label="继续探索"><span>继续做一个思想实验</span><a href="/tools/paper-fold/">一张纸，折到月球 →</a><a href="/tools/double-pendulum/">双摆：一点不同，两条命运 →</a></nav>
+  <noscript><p>启用 JavaScript 后可以操作赛跑。核心结论：默认相遇于 10/9 秒；选定的第 n 个时刻都小于它，但连续的时间还能继续。</p></noscript>
+</ToolLayout>
+<script>import '../../scripts/zeno-race/main';</script>

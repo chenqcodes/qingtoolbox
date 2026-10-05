@@ -1,0 +1,39 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import '../../styles/paper-fold.css';
+---
+<ToolLayout title="纸张折叠宇宙 · 一张纸，能长到多远？" description="从 0.1 毫米纸张出发，连续对折并平滑缩放，看指数增长如何越过人的身高、房屋、地球、太阳与海王星轨道。可调整厚度，探索 0 到 80 次折叠的理想数学模型。" currentSlug="paper-fold">
+  <header class="pf-intro" slot="header"><div><span class="pf-eyebrow">EXPONENTIAL JOURNEY / 指数之旅</span><h1>一张纸，<em>能长到多远？</em></h1></div><p>每折一次，厚度翻倍。<br />从指尖的一张薄纸，慢慢折进宇宙。</p></header>
+  <section class="pf-lab" id="paper-fold-lab" aria-label="纸张折叠宇宙实验" data-folds="0" data-playing="false" data-motion="false">
+    <div class="pf-stage" id="pf-stage">
+      <div class="pf-stage-top"><span><i></i> 一次折叠 · 两倍厚度</span><span id="pf-status" role="status">从一张纸开始</span></div>
+      <div class="pf-readout"><div class="pf-count"><strong id="pf-count">0</strong><span>次对折<br /><small>OF 80</small></span></div><div class="pf-thickness"><small>此刻的理论厚度</small><strong id="pf-thickness">0.1 mm</strong><span id="pf-scientific">1 × 10⁻⁴ m</span></div></div>
+      <canvas id="pf-canvas" role="img" aria-label="一张纸的侧视图。下方控制可改变折叠次数，纸叠高度与参照物使用同一长度比例。">纸张厚度等于初始厚度乘以 2 的折叠次数次方。所有数值也在画布外提供。</canvas>
+      <div class="pf-scale-key"><span class="pf-paper-dot"></span>纸叠厚度<span class="pf-reference-dot"></span>同尺参照<span class="pf-scale-annotation">宽度与纹理为示意</span></div>
+      <div class="pf-scene-caption"><span id="pf-chapter">01 / 指尖尺度</span><strong id="pf-journey-title">微小，是这一切的起点。</strong><p id="pf-comparison">再折 15 次，理论厚度就会超过 1.7 米的人的身高。</p></div>
+    </div>
+    <div class="pf-console">
+      <div class="pf-actions"><button type="button" id="pf-play" class="pf-primary" aria-pressed="false"><span aria-hidden="true">▶</span> 开始折叠</button><button type="button" id="pf-step" aria-label="再折一次">+ 再折一次</button><button type="button" id="pf-reset" class="pf-reset">重置</button><label class="pf-speed" for="pf-speed">节奏<select id="pf-speed"><option value="1600">慢慢看</option><option value="1000" selected>标准</option><option value="500">快一点</option></select></label></div>
+      <div class="pf-timeline-heading"><label for="pf-folds">拖动，穿过 80 次翻倍</label><output id="pf-folds-output" for="pf-folds">第 0 次</output></div>
+      <input class="pf-fold-slider" id="pf-folds" type="range" min="0" max="80" step="1" value="0" aria-label="折叠次数" />
+      <div class="pf-ticks" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span></div>
+      <div class="pf-milestones" aria-label="跳到尺度里程碑">
+        <button type="button" data-milestone="person"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4" r="2"/><path d="M8 10l4-3 4 3M12 7v8m0-1-4 7m4-7 4 7"/></svg><span>人的身高<small data-milestone-fold="person">15 次</small></span></button>
+        <button type="button" data-milestone="house"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8M6 9v12h12V9m-8 12v-7h4v7"/></svg><span>房屋高度<small data-milestone-fold="house">17 次</small></span></button>
+        <button type="button" data-milestone="earth"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5 6 5 1 2 4-4 2 1 5m10-12-4 4 4 4-1 6"/></svg><span>地球直径<small data-milestone-fold="earth">37 次</small></span></button>
+        <button type="button" data-milestone="sun"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></svg><span>太阳直径<small data-milestone-fold="sun">44 次</small></span></button>
+        <button type="button" data-milestone="solar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(55 12 12)"/></svg><span>海王星轨道<small data-milestone-fold="solar">57 次</small></span></button>
+      </div>
+      <div class="pf-settings"><label for="pf-initial">换一张纸 <span><input id="pf-initial" type="number" min="0.01" max="1" step="0.01" value="0.1" inputmode="decimal" /> mm</span></label><p id="pf-input-help">初始厚度 0.01–1 mm · 修改会暂停</p><div class="pf-layer-count"><small>层数</small><span id="pf-layers">1</span><span id="pf-layer-power">= 2⁰</span></div></div>
+      <p class="pf-motion-note" id="pf-motion-note" hidden>已跟随系统减少动态效果：折叠和尺度直接切换，自动播放需手动开始。</p>
+    </div>
+  </section>
+  <div class="pf-explanation">
+    <section class="pf-equation"><span class="pf-eyebrow">一个简单的规则</span><h2>增长，开始得很安静。</h2><div class="pf-formula" aria-label="厚度等于初始厚度乘以 2 的 n 次方"><span id="pf-formula-initial">0.1 mm</span><b>×</b><span>2<sup id="pf-formula-power">0</sup></span><b>=</b><span id="pf-formula-result">0.1 mm</span></div><p>这是指数增长：每增加一次对折，增加的是此前的全部厚度。时间轴的每一格都代表一次翻倍；画面用连续变化的对数相机缩放，让跨越几十个数量级的变化仍然看得见。</p></section>
+    <section><span class="pf-eyebrow">先把现实说清楚</span><h2>思想实验，不是折纸挑战。</h2><p>这里假设纸张能无限延展、每次完美对半折叠，而且不压缩、没有空隙。真实纸张会受尺寸、材料、折痕和所需力量限制；“最多只能折 7 次”并不是普适定律。80 次只是本实验的探索上限。</p><p>纸叠的竖直厚度与参照物的高度或直径共用比例尺，纸叠宽度和层纹只是示意。动画中的过渡厚度用于平滑表现，数值面板始终显示选中整数次折叠的计算结果。</p></section>
+  </div>
+  <details class="pf-sources"><summary>尺度口径与数据来源</summary><div><p>人高 1.7 m、房屋高 10 m 是选定的生活参照，并非统计平均值。地球采用赤道直径 12,756 km，太阳采用直径 1,391,400 km，都是近似参考值。</p><p>本页的“太阳系尺度”特指海王星轨道的近似直径：约 60 AU。它不是太阳系的真实边界，也不是海王星本身的直径。太阳系还包括更远的天体。轨道图为俯视示意，行星点大小做了可见性放大。</p><ul><li><a href="https://science.nasa.gov/earth/facts/" target="_blank" rel="noopener noreferrer">NASA · 地球数据</a></li><li><a href="https://www.jpl.nasa.gov/edu/pdfs/scaless_reference.pdf" target="_blank" rel="noopener noreferrer">NASA/JPL · 太阳系尺寸与距离参考表</a></li><li><a href="https://science.nasa.gov/neptune/neptune-facts/" target="_blank" rel="noopener noreferrer">NASA · 海王星距离太阳约 30 AU</a></li><li><a href="https://science.nasa.gov/solar-system/solar-system-facts/" target="_blank" rel="noopener noreferrer">NASA · 太阳系范围说明</a></li><li><a href="https://ssd.jpl.nasa.gov/astro_par.html" target="_blank" rel="noopener noreferrer">NASA/JPL · 天文单位、光速与儒略年定义</a></li></ul><p>1 AU = 149,597,870,700 m；1 光年约为 9.4607 × 10¹⁵ m。大数长度保留适合阅读的有效数字；层数使用整数精确计算，避免大整数精度丢失。</p></div></details>
+  <nav class="pf-related" aria-label="相关科学实验"><span>继续探索</span><a href="/tools/cosmic-scale/">宇宙尺度漫游 <span aria-hidden="true">↗</span></a><a href="/tools/zeno-race/">芝诺悖论追逐实验 <span aria-hidden="true">↗</span></a></nav>
+  <noscript><p>交互折叠需要 JavaScript。默认 0.1 mm 纸张经过 n 次理想对折，厚度为 0.1 × 2ⁿ mm。</p></noscript>
+</ToolLayout>
+<script>import '../../scripts/paper-fold/main';</script>

@@ -82,3 +82,42 @@ test('keyboard editing announces existing terrain and model water depth', async 
   await expect(page.locator('#cr-edit-help')).toContainText('当前是');
   await expect(page.locator('#cr-edit-help')).toContainText('模型水深 0.000');
 });
+
+test('native visibility transitions suspend and resume without overriding manual pause', async ({ page }, testInfo) => {
+  // A shorter real viewport makes the canvas fully scrollable offscreen.
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/tools/city-rain/');
+  const canvas = page.locator('#cr-canvas'), lab = page.locator('#city-rain-lab'), status = page.locator('#cr-status');
+  await page.locator('#cr-play').click();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(.2);
+  for (let round = 0; round < 3; round++) {
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    await expect(canvas).not.toBeInViewport();
+    await expect(status).toContainText('画布在屏幕外');
+    const stopped = await lab.getAttribute('data-time');
+    await page.waitForTimeout(200);
+    await expect(lab).toHaveAttribute('data-time', stopped!);
+    await canvas.scrollIntoViewIfNeeded();
+    await expect(canvas).toBeInViewport();
+    await expect(status).toContainText('正在降雨');
+    await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(Number(stopped));
+  }
+  await page.getByRole('button', { name: '暂停模拟', exact: true }).click();
+  const paused = await lab.getAttribute('data-time');
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+  await expect(canvas).not.toBeInViewport();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect(canvas).toBeInViewport();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ path: testInfo.outputPath('city-rain-paused-visibility-regression.png'), fullPage: true });
+  await expect(page.locator('#cr-play')).toHaveAttribute('aria-pressed', 'false');
+  await page.waitForTimeout(200);
+  await expect(lab).toHaveAttribute('data-time', paused!);
+  await page.locator('#cr-rain').evaluate((input: HTMLInputElement) => { input.value = '0'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.getByRole('button', { name: '继续模拟' }).click();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect(status).toContainText('雨已停');
+  await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(Number(paused));
+});

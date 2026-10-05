@@ -200,3 +200,21 @@ test('each stop and fractional slider position has finite same-scale geometry', 
     await expect(page.locator('#cosmic-name')).toHaveText('你手边的杯子');
   }
 });
+
+test('record continuous interstellar journeys through incoming galaxy layers', async ({ page }, testInfo) => {
+  await page.goto('/tools/cosmic-scale/');
+  const start = STOPS.find(s => s.id === 'stellar')!, end = STOPS.find(s => s.id === 'arm')!;
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+    await setScale(page, stopExponent(start));
+    await page.locator('#cosmic-play').click();
+    await page.locator('#cosmic-stage').scrollIntoViewIfNeeded();
+    await expect.poll(() => exponent(page), { timeout: 20_000, intervals: [100] }).toBeGreaterThan(stopExponent(end) + .3);
+    await page.locator('#cosmic-stage').focus();
+    await page.keyboard.press(' ');
+    await expect(page.locator('#cosmic-play')).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-continuous-journey-${width}.png`) });
+    const paused = await exponent(page); await page.waitForTimeout(250);
+    expect(await exponent(page)).toBe(paused);
+  }
+});

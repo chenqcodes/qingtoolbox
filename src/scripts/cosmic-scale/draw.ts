@@ -120,7 +120,7 @@ function paintObject(c: C, stop: ScaleStop) {
     case 'moon-distance': {
       line(c, [-.5, 0, .5, 0], '#c6d7ec66', .0015);
       c.save(); c.translate(-.5, 0); c.scale(12_756_000 / stop.size, 12_756_000 / stop.size); earth(c); c.restore();
-      disc(c, .5, 0, 1_740_000 / stop.size, '#e8ddd0'); break;
+      disc(c, .5, 0, 1_737_400 / stop.size, '#e8ddd0'); break;
     }
     case 'sun': {
       disc(c, 0, 0, .63, gradient(c, 0, 0, .63, [[0, '#e7b65e44'], [.74, '#efa34822'], [1, '#ffca5700']]));

@@ -160,6 +160,16 @@ test('all intermediate decades keep real objects and compact reading at 320, 390
       await expect(page.locator('#cosmic-app')).toHaveAttribute('data-visible-objects', new RegExp(pair[1]));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect(await page.locator('.cosmic-reading').getAttribute('open')).toBeNull();
+      const painted = await page.locator('#cosmic-canvas').evaluate((canvas: HTMLCanvasElement) => {
+        const c = canvas.getContext('2d')!;
+        const box = canvas.getBoundingClientRect();
+        const scale = canvas.width / box.width;
+        const pixels = c.getImageData(0, Math.round(130 * scale), canvas.width, Math.round((box.height * .66 - 130) * scale)).data;
+        let visible = 0;
+        for (let i = 0; i < pixels.length; i += 4) if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 92) visible++;
+        return visible / (pixels.length / 4);
+      });
+      expect(painted, `painted reference coverage ${pair.join('→')} at ${width}px`).toBeGreaterThan(.001);
       await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-transition-${pair.join('-')}-${width}.png`) });
     }
     for (const id of ['virus', 'moon-body', 'jupiter', 'nebula', 'cluster', 'galaxy']) {

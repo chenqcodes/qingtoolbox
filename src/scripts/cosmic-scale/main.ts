@@ -18,7 +18,7 @@ export function bootCosmicScale(): void {
   const abort = new AbortController();
   const signal = abort.signal;
   let exponent = HOME_EXP;
-  let width = 600, height = 525, lastStop = '';
+  let width = 600, height = 525, dpr = 1, lastStop = '';
   let raf = 0, previousTime = 0, playing = false;
   let motion: { from: number; to: number; start: number; duration: number } | undefined;
   let status = '';
@@ -43,7 +43,8 @@ export function bootCosmicScale(): void {
     const scene = sceneAt(exponent, width, height);
     root!.dataset.visibleObjects = scene.objects.map(object => object.stop.id).join(',');
     root!.dataset.sceneCoverage = String(Math.max(...scene.objects.map(object => object.visibleExtent / Math.min(width, height)), 0));
-    get('cosmic-lane-caption').textContent = `${scene.lower.name} → ${scene.upper.name}`;
+    get('cosmic-art-note').textContent = scene.objects.some(object => ['solar', 'stellar', 'orbit', 'heliosphere', 'comet-orbit', 'oort', 'nebula', 'cluster', 'bubble', 'arm', 'galaxy'].includes(object.stop.kind) && object.visibleSpan > width * .08) ? '区域 / 距离按比例 · 光点放大示意' : '尺寸按比例 · 插画非照片';
+    get('cosmic-lane-caption').textContent = scene.lower.id === scene.upper.id ? `已抵达 ${scene.upper.name}` : `${scene.lower.name} → ${scene.upper.name}`;
     get('cosmic-progress').style.setProperty('--journey-progress', `${(exponent - MIN_EXP) / (MAX_EXP - MIN_EXP) * 100}%`);
     if (stop.id !== lastStop) {
       lastStop = stop.id;
@@ -60,7 +61,7 @@ export function bootCosmicScale(): void {
       root!.querySelectorAll<HTMLButtonElement>('[data-stop]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.stop === stop.id)));
     }
     canvas.setAttribute('aria-label', `${stop.name}，${stop.dimension}。画布视野宽 ${formatLength(10 ** exponent)}。${stop.caveat} 同比例可见参照：${scene.objects.filter(object => object.pixels >= 6).map(object => object.stop.name).join('、')}。`);
-    if (context) drawScale(context, width, height, exponent, stop);
+    if (context) drawScale(context, width, height, exponent, stop, dpr);
   }
   function buttonState() {
     play.disabled = media.matches || !context;
@@ -116,7 +117,7 @@ export function bootCosmicScale(): void {
   function resize() {
     const bounds = stage.getBoundingClientRect();
     width = Math.max(1, bounds.width); height = Math.max(1, bounds.height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
     context?.setTransform(dpr, 0, 0, dpr, 0, 0); paint();
   }

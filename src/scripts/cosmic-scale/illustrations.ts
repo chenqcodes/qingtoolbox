@@ -101,7 +101,7 @@ export function paintIntermediate(c: C, stop: ScaleStop): void {
     }
     case 'nebula': {
       c.save(); c.beginPath(); c.rect(-.5, -.4, 1, .8); c.clip();
-      for (let i = 0; i < 85; i++) { const x = (random(i + 84) - .5) * .87, y = (random(i + 301) - .5) * .56 + Math.sin(x * 7) * .1; glow(c, x, y, .08 + random(i + 38) * .14, i % 3 ? '#c978ab' : '#76c5d1', '34'); }
+      for (let i = 0; i < 85; i++) { const x = (random(i + 84) - .5) * .87, y = (random(i + 301) - .5) * .56 + Math.sin(x * 7) * .1; glow(c, x, y, Math.max(.01, Math.min(.08 + random(i + 38) * .14, .5 - Math.abs(x), .4 - Math.abs(y))), i % 3 ? '#c978ab' : '#76c5d1', '48'); }
       for (let i = 0; i < 14; i++) { const x = -.45 + i / 14 * .9, y = Math.sin(x * 9) * .1; glow(c, x, y, .07, '#081321', 'bb'); }
       for (let i = 0; i < 100; i++) dot(c, random(i + 5) - .5, (random(i + 106) - .5) * .7, .001 + random(i + 384) * .003, '#faf0e6aa');
       glow(c, -.1, -.04, .11, '#edcfeb', 'bb'); dot(c, -.1, -.04, .008, '#fff3dd'); c.restore(); break;

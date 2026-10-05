@@ -1,5 +1,5 @@
 import { formatLength, scaleBar, type ScaleStop } from './model';
-import { sceneAt, measureAxis, labelAnchor, type SceneObject } from './scene';
+import { sceneAt, measureAxis, sceneLabels, measurementLabel, type SceneObject } from './scene';
 import { paintIntermediate } from './illustrations';
 type C = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -73,16 +73,18 @@ function galaxy(c: C) {
         const x = Math.cos(a) * r, y = Math.sin(a) * r;
         j ? c.lineTo(x, y) : c.moveTo(x, y);
       }
-      c.strokeStyle = ribbon % 2 ? '#a79ddd09' : '#c2bdf30d'; c.lineWidth = .015; c.stroke();
+      c.strokeStyle = ribbon % 2 ? '#a79ddd1c' : '#c2bdf328'; c.lineWidth = .026; c.stroke();
     }
   }
   for (let arm = 0; arm < 4; arm++) {
     for (let j = 0; j < 430; j++) {
       const r = .025 + .475 * Math.sqrt(j / 430); const a = arm * Math.PI / 2 + r * 9 + (noise(j * 7 + arm * 99) - .5) * .53;
       const rr = Math.min(.498, r * (.9 + noise(j * 13 + arm) * .13));
-      disc(c, Math.cos(a) * rr, Math.sin(a) * rr, .0008 + noise(j + arm * 22) * .003, ['#dbc8fa', '#adb7e9', '#f8dbb6', '#fcf0d8'][j % 4]);
+      disc(c, Math.cos(a) * rr, Math.sin(a) * rr, .0008 + noise(j + arm * 22) * .003, ['#dbc8fac7', '#adb7e9bb', '#f8dbb6a6', '#fcf0d8de'][j % 4]);
     }
   }
+  for (let i = 0; i < 700; i++) { const a = noise(i + 638) * TAU, r = .49 * Math.sqrt(noise(i + 777)); disc(c, Math.cos(a) * r, Math.sin(a) * r, .0007 + noise(i + 124) * .0016, '#c8c6e566'); }
+  c.beginPath(); c.ellipse(0, 0, .16, .046, .35, 0, TAU); c.fillStyle = '#e5c8c622'; c.fill();
   disc(c, 0, 0, .14, gradient(c, 0, 0, .14, [[0, '#fff4dc'], [.18, '#ffe9cddd'], [.5, '#e8c7d377'], [1, '#e2bbe000']])); c.restore();
 }
 function paintObject(c: C, stop: ScaleStop) {
@@ -142,8 +144,13 @@ function paintObject(c: C, stop: ScaleStop) {
 // A bounded LRU caches static vector paintings, not animation frames. Eight 768²
 // surfaces cost at most ~18 MiB; the mobile bucket is 512² (~8 MiB).
 const artwork = new Map<string, HTMLCanvasElement>();
-function drawObject(c: C, object: SceneObject, width: number) {
+function drawObject(c: C, object: SceneObject, width: number, dpr: number) {
   const resolution = width < 600 ? 512 : 768;
+  // Never upscale a cached body beyond its available device pixels. Incoming
+  // foregrounds use the original vector paths, preserving edges and texture.
+  if (object.pixels * dpr > resolution / 1.7) {
+    c.save(); c.globalAlpha = object.alpha; c.translate(object.x, object.y); c.scale(object.pixels, object.pixels); paintObject(c, object.stop); c.restore(); return;
+  }
   const key = `${object.stop.id}:${resolution}`;
   let sprite = artwork.get(key);
   if (typeof document !== 'undefined' && !sprite) {
@@ -163,7 +170,7 @@ function drawObject(c: C, object: SceneObject, width: number) {
   } else { c.translate(object.x, object.y); c.scale(object.pixels, object.pixels); paintObject(c, object.stop); }
   c.restore();
 }
-export function drawScale(c: C, width: number, height: number, exponent: number, focused: ScaleStop) {
+export function drawScale(c: C, width: number, height: number, exponent: number, focused: ScaleStop, dpr = 1) {
   c.clearRect(0, 0, width, height);
   const bg = c.createRadialGradient(width * .48, height * .5, 0, width * .48, height * .5, Math.max(width, height) * .85);
   bg.addColorStop(0, exponent < 6 ? '#162e35' : '#1d2842'); bg.addColorStop(1, '#08121d'); c.fillStyle = bg; c.fillRect(0, 0, width, height);
@@ -179,23 +186,25 @@ export function drawScale(c: C, width: number, height: number, exponent: number,
   const scene = sceneAt(exponent, width, height);
   // Every object uses the same metres-to-pixels conversion. Incoming large
   // shapes are clipped by the viewport, never shrunk to fit an arbitrary card.
-  c.save(); c.beginPath(); c.rect(0, 105, width, height - 180); c.clip();
-  for (const object of [...scene.objects].reverse()) drawObject(c, object, width);
+  c.save(); c.beginPath(); c.rect(0, 0, width, height); c.clip();
+  for (const object of [...scene.objects].reverse()) drawObject(c, object, width, dpr);
   c.restore();
   // Show up to three unambiguous labels. Tiny bodies fade at their actual size;
   // we do not enlarge them to keep them visible or cover the picture with prose.
-  let previousRight = -Infinity;
-  const candidates = scene.objects.filter(o => o.pixels >= width * .06 && o.pixels <= width * 2.5 && o.visibleSpan > width * .07).slice(-3);
-  for (const object of candidates) {
-    const anchor = labelAnchor(object, width, height);
-    const labelWidth = width < 500 ? 112 : 170;
-    if (anchor.x - labelWidth / 2 < previousRight + 5) continue;
-    previousRight = anchor.x + labelWidth / 2;
+  for (const anchor of sceneLabels(scene, width, height, focused)) {
+    const object = anchor.object;
+    const labelWidth = anchor.width;
     c.save(); c.globalAlpha = Math.min(1, object.visibleSpan / (width * .15));
+    if (anchor.y < object.y || Math.abs(anchor.x - object.x) > 12) {
+      const endpoint = Math.max(7, Math.min(width - 7, object.x));
+      const startY = anchor.y < object.y ? anchor.y + 25 : anchor.y - 20;
+      line(c, [anchor.x, startY, endpoint, object.y], object.stop.color + '44', 1);
+    }
+    c.fillStyle = '#081521df'; c.fillRect(anchor.x - labelWidth / 2 - 4, anchor.y - 16, labelWidth + 8, 42);
     const name = object.stop.name.replace('你手边的', '').replace('一个人的身高', '身高').replace('一枚', '').replace('一粒', '');
     c.textAlign = 'center'; c.font = `${width < 500 ? 12 : 14}px system-ui, sans-serif`;
     c.fillStyle = '#ebf1ee'; c.fillText(name, anchor.x, anchor.y, labelWidth);
-    c.font = `${width < 500 ? 11 : 12}px system-ui, sans-serif`; c.fillStyle = object.stop.color; c.fillText(formatLength(object.stop.size), anchor.x, anchor.y + 19, labelWidth);
+    c.font = `${width < 500 ? 11 : 12}px system-ui, sans-serif`; c.fillStyle = object.stop.color; c.fillText(`${measurementLabel(object.stop)} ${formatLength(object.stop.size)}`, anchor.x, anchor.y + 19, labelWidth);
     if (object.stop.id === focused.id && object.pixels < width * .55 && object.pixels > 40) {
       if (measureAxis(object.stop) === 'vertical') { const x = object.x + object.pixels * .36; const top = object.y - object.pixels / 2; line(c, [x - 4, top, x + 4, top, x, top, x, top + object.pixels, x - 4, top + object.pixels, x + 4, top + object.pixels], object.stop.color + '99', 1); }
       else { const y = anchor.y - 15; line(c, [object.left, y - 4, object.left, y, object.right, y, object.right, y - 4], object.stop.color + '77', 1); }

@@ -6,6 +6,9 @@ test('SI constants and scientific reference dimensions remain explicit', () => {
   assert.equal(AU, 149_597_870_700);
   assert.equal(LIGHT_YEAR, 9_460_730_472_580_800);
   assert.equal(STOPS.find(s => s.id === 'earth')?.size, 12_756_000);
+  assert.equal(STOPS.find(s => s.id === 'moon-body')?.size, 2 * 1_737_400);
+  assert.equal(STOPS.find(s => s.id === 'jupiter')?.size, 2 * 69_911_000);
+  assert.equal(STOPS.find(s => s.id === 'mercury-orbit')?.size, .774 * AU);
   assert.equal(STOPS.find(s => s.id === 'solar')!.size / AU, 60.12);
   assert.equal(STOPS.find(s => s.id === 'galaxy')!.size / LIGHT_YEAR, 100_000);
   for (const stop of STOPS) { assert.ok(stop.size > 0); assert.ok(stop.dimension); assert.ok(stop.caveat); }

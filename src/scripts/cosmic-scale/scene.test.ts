@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MAX_EXP, MIN_EXP, STOPS, stopExponent } from './model';
-import { sceneAt, measureAxis } from './scene';
+import { sceneAt, measureAxis, measurementLabel, sceneLabels, zoomOverlay } from './scene';
 
 test('35 recognizable references bridge the former empty decades', () => {
   assert.equal(STOPS.length, 35);
@@ -49,4 +49,42 @@ test('height definitions stay separate from horizontal diameters and distances',
   assert.match(STOPS.find(s => s.id === 'comet-orbit')!.caveat, /虚构/);
   assert.match(STOPS.find(s => s.id === 'oort-outer')!.caveat, /半径 5 万/);
   assert.match(STOPS.find(s => s.id === 'heliosphere')!.caveat, /不是实测全宽/);
+});
+
+test('canvas labels distinguish segment length, height, orbit diameter and distance', () => {
+  const label = (id: string) => measurementLabel(STOPS.find(s => s.id === id)!);
+  assert.equal(label('dna'), '片段长'); assert.equal(label('person'), '身高');
+  assert.equal(label('moon'), '中心距离'); assert.equal(label('earth-orbit'), '轨道直径');
+  assert.equal(label('comet-orbit'), '长轴'); assert.equal(label('oort-outer'), '模型直径');
+});
+
+
+test('the selected object always keeps its measurement label on mobile and desktop', () => {
+  for (const width of [280, 320, 390, 600, 1100]) for (const stop of STOPS) {
+    const height = width < 500 ? 430 : 600;
+    const labels = sceneLabels(sceneAt(stopExponent(stop), width, height), width, height, stop);
+    assert.ok(labels.some(label => label.object.stop.id === stop.id), `${stop.id} at ${width}px lost its label`);
+    for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+      assert.ok(Math.abs(labels[i].x - labels[j].x) > (labels[i].width + labels[j].width) / 2 + 6 || Math.abs(labels[i].y - labels[j].y) > 43);
+    }
+  }
+});
+
+
+test('camera velocity matches across every anchor, not only its position', () => {
+  for (const stop of STOPS.slice(1, -1)) {
+    const e = stopExponent(stop), h = 1e-6;
+    const x = (value: number) => sceneAt(value, 1100, 600).objects.find(o => o.stop.id === stop.id)!.x;
+    const incoming = (x(e) - x(e - h)) / h, outgoing = (x(e + h) - x(e)) / h;
+    assert.ok(Math.abs(incoming - outgoing) < .05, `${stop.id} changed camera velocity abruptly`);
+  }
+});
+
+test('fractional-scale labels do not sit underneath zoom controls', () => {
+  for (const width of [280, 320, 390, 600, 1100]) for (let e = MIN_EXP; e < MAX_EXP; e += .041) {
+    const height = width < 500 ? 430 : 600;
+    const scene = sceneAt(e, width, height), overlay = zoomOverlay(width, height);
+    const focus = STOPS.reduce((best, s) => Math.abs(stopExponent(s)-e) < Math.abs(stopExponent(best)-e) ? s : best);
+    for (const label of sceneLabels(scene, width, height, focus)) assert.ok(label.x + label.width / 2 < overlay.left || label.y + 22 < overlay.top || label.y - 15 > overlay.bottom);
+  }
 });

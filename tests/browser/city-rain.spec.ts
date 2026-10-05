@@ -3,38 +3,6 @@ import { test, expect } from '@playwright/test';
 // Record actual browser motion for visual review alongside the still images.
 test.use({ video: { mode: 'on', size: { width: 1000, height: 700 } } });
 
-// Transparent diagnostic: retain native observer timing and payloads without
-// changing the callback or weakening any assertion. Retain with failing traces.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    const NativeObserver = window.IntersectionObserver;
-    const diagnostics: unknown[] = [];
-    (window as unknown as { rainVisibilityDiagnostics: unknown[] }).rainVisibilityDiagnostics = diagnostics;
-    const rect = (r: DOMRectReadOnly | null) => r && ({ x: r.x, y: r.y, width: r.width, height: r.height });
-    const state = () => ({ now: performance.now(), scrollX, scrollY, innerWidth, innerHeight, hidden: document.hidden,
-      canvas: rect(document.querySelector('#cr-canvas')?.getBoundingClientRect() ?? null),
-      status: document.querySelector('#cr-status')?.textContent,
-      modelTime: (document.querySelector('#city-rain-lab') as HTMLElement | null)?.dataset.time });
-    window.IntersectionObserver = class extends NativeObserver {
-      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-        super((entries, observer) => {
-          if (entries.some(entry => entry.target.id === 'cr-canvas')) diagnostics.push({ kind: 'observer', ...state(), entries: entries.map(entry => ({ target: entry.target.id, time: entry.time, isIntersecting: entry.isIntersecting, ratio: entry.intersectionRatio, rootBounds: rect(entry.rootBounds), bounds: rect(entry.boundingClientRect), intersection: rect(entry.intersectionRect) })) });
-          callback(entries, observer);
-        }, options);
-      }
-    };
-    document.addEventListener('click', event => {
-      const id = (event.target as Element)?.closest('button')?.id;
-      if (id === 'cr-play') diagnostics.push({ kind: 'play-click', ...state() });
-    }, true);
-  });
-});
-test.afterEach(async ({ page }, testInfo) => {
-  const events = await page.evaluate(() => (window as unknown as { rainVisibilityDiagnostics?: unknown[] }).rainVisibilityDiagnostics ?? []);
-  await testInfo.attach('rain-visibility-events', { body: JSON.stringify(events, null, 2), contentType: 'application/json' });
-  if (testInfo.status !== testInfo.expectedStatus) console.log('RAIN_VISIBILITY_DIAGNOSTICS', JSON.stringify(events));
-});
-
 test('rain budget, wet editing, rainfall stop and reset', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -113,4 +81,41 @@ test('keyboard editing announces existing terrain and model water depth', async 
   await expect(page.locator('#cr-edit-help')).toHaveAttribute('aria-live', 'polite');
   await expect(page.locator('#cr-edit-help')).toContainText('当前是');
   await expect(page.locator('#cr-edit-help')).toContainText('模型水深 0.000');
+});
+
+test('native visibility transitions suspend and resume without overriding manual pause', async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/tools/city-rain/');
+  const canvas = page.locator('#cr-canvas'), lab = page.locator('#city-rain-lab'), status = page.locator('#cr-status');
+  await page.locator('#cr-play').click();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(.2);
+  for (let round = 0; round < 3; round++) {
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    await expect(canvas).not.toBeInViewport();
+    await expect(status).toContainText('画布在屏幕外');
+    const stopped = await lab.getAttribute('data-time');
+    await page.waitForTimeout(200);
+    await expect(lab).toHaveAttribute('data-time', stopped!);
+    await canvas.scrollIntoViewIfNeeded();
+    await expect(canvas).toBeInViewport();
+    await expect(status).toContainText('正在降雨');
+    await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(Number(stopped));
+  }
+  await page.getByRole('button', { name: '暂停模拟', exact: true }).click();
+  const paused = await lab.getAttribute('data-time');
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+  await expect(canvas).not.toBeInViewport();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect(canvas).toBeInViewport();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.screenshot({ path: testInfo.outputPath('city-rain-paused-visibility-regression.png'), fullPage: true });
+  await expect(page.locator('#cr-play')).toHaveAttribute('aria-pressed', 'false');
+  await page.waitForTimeout(200);
+  await expect(lab).toHaveAttribute('data-time', paused!);
+  await page.locator('#cr-rain').evaluate((input: HTMLInputElement) => { input.value = '0'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.getByRole('button', { name: '继续模拟' }).click();
+  await canvas.scrollIntoViewIfNeeded();
+  await expect(status).toContainText('雨已停');
+  await expect.poll(async () => Number(await lab.getAttribute('data-time'))).toBeGreaterThan(Number(paused));
 });

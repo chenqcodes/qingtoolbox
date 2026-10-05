@@ -97,8 +97,9 @@ if (root) {
     const ratio = p.rabbit > 0 ? p.turtle / p.rabbit : 1;
     const settled = pursuitFrame(p, Math.max(0, stage.index - 1), stage.index > 0 ? 1 : 0);
     const start = pursuitFrame(p, stage.index, 0);
-    const chasing = !!pending && phase !== 'zoom';
-    let scene = pending ? chasing ? pursuitFrame(p, stage.index, progress) : start : settled;
+    const moving = !!pending && !reducedMotion.matches;
+    const chasing = moving && phase !== 'zoom';
+    let scene = moving ? chasing ? pursuitFrame(p, stage.index, progress) : start : settled;
     let lens = 0;
     if (pending && phase === 'zoom') {
       lens = Math.min(1, phaseTime / .95); lens = lens * lens * (3 - 2 * lens);
@@ -140,9 +141,9 @@ if (root) {
     el('zr-ruler-value').setAttribute('font-size', mobile ? '24' : '13');
     el('zr-old-label').setAttribute('font-size', mobile ? '23' : '14');
     const zoomPower = (scene.logPixelsPerMetre - Math.log(580 / (1 + ratio)) + Math.log(p.lead || 1)) / Math.LN10;
-    text('zr-camera-label', phase === 'zoom' ? `${ratio < 1 ? '镜头放大中' : '镜头重新取景'} · 模型时间暂停` : `固定镜头 · ×${zoomPower < 3 ? format(10 ** zoomPower, 1) : `10^${format(zoomPower, 1)}`}`);
-    text('zr-ruler-value', `${formatLogDistance(Math.log(120) - scene.logPixelsPerMetre)} / 标尺`);
-    const targetX = pending && phase !== 'zoom' ? start.targetX : scene.targetX;
+    text('zr-camera-label', logGap === -Infinity ? '两者已经相遇' : phase === 'zoom' ? `${ratio < 1 ? '镜头放大中' : '镜头重新取景'} · 模型时间暂停` : `固定镜头 · ×${zoomPower < 3 ? format(10 ** zoomPower, 1) : `10^${format(zoomPower, 1)}`}`);
+    text('zr-ruler-value', logGap === -Infinity ? '位置标记已重合' : `${formatLogDistance(Math.log(120) - scene.logPixelsPerMetre)} / 标尺`);
+    const targetX = moving && phase !== 'zoom' ? start.targetX : scene.targetX;
     const showMarker = p.lead > 0 && logGap !== -Infinity && phase !== 'zoom';
     el('zr-old-marker').setAttribute('d', `M${targetX} 150V263`); el('zr-old-marker').setAttribute('opacity', showMarker ? '.8' : '0');
     el('zr-old-label').setAttribute('x', String(targetX)); el('zr-old-label').setAttribute('opacity', showMarker ? '1' : '0');
@@ -150,7 +151,7 @@ if (root) {
     el('zr-rabbit-pin').setAttribute('cx', String(left - 2)); el('zr-turtle-pin').setAttribute('cx', String(right + 2));
     const outlines = el('zr-history-outlines'); outlines.replaceChildren();
     if (phase !== 'zoom' && p.lead > 0) {
-      const origin = pending ? start : pursuitFrame(p, Math.max(0, stage.index - 1), 0);
+      const origin = moving ? start : pursuitFrame(p, Math.max(0, stage.index - 1), 0);
       outlines.append(svgElement('path', { d: `M${origin.rabbitX} 232v-21M${origin.turtleX} 232v-21`, stroke: '#a89daf', 'stroke-dasharray': '3 3', opacity: .6 }));
       outlines.append(svgElement('path', { d: `M${origin.rabbitX} 236H${left}`, stroke: '#ae91b9', 'stroke-width': 3, opacity: .35 }));
     }
@@ -161,7 +162,7 @@ if (root) {
     }
     const completed = pending && phase === 'hold' ? stage.index + 1 : stage.index;
     text('zr-stage-label', phase === 'zoom' ? `第 ${stage.index + 1} 段前 · ${ratio < 1 ? '放大这道缝' : '调整镜头'}` : chasing && phase === 'chase' ? `第 ${stage.index + 1} 段 · 向前追赶` : logGap === -Infinity ? (completed ? `第 ${completed} 段 · 已追上` : '起点 · 已经相遇') : completed ? `第 ${completed} 段 · 还差一点` : '起点 · 第 0 段');
-    text('zr-phase-label', phase === 'zoom' ? ratio < 1 ? '③ 放大剩下的缝' : '③ 调整下一段镜头' : chasing && phase === 'chase' ? '① 镜头不动，看它追近' : completed ? '② 到了旧位置，仍有一点距离' : '① 先盯住乌龟的旧位置');
+    text('zr-phase-label', logGap === -Infinity ? '位置重合，已经追上了' : phase === 'zoom' ? ratio < 1 ? '③ 放大剩下的缝' : '③ 调整下一段镜头' : chasing && phase === 'chase' ? ratio < 1 ? '① 镜头不动，看它追近' : '① 镜头不动，看它们向前' : completed ? ratio < 1 ? '② 到了旧位置，仍有一点距离' : '② 到了旧位置，间距还在' : '① 先盯住乌龟的旧位置');
     let observation = completed === 0 ? '盯住虚线。兔子会向右跑到这里，乌龟也在往前走。' : `到了旧位置。乌龟又往前走了，还差 ${distance}。`;
     if (phase === 'chase' && pending) observation = '背景和虚线不动。兔子向前跑得更快，两者正在靠近。';
     if (phase === 'zoom') observation = `刚才还差 ${distance}。现在只${ratio < 1 ? '放大这道缝' : '调整镜头'}，赛跑时间暂时定格。`;

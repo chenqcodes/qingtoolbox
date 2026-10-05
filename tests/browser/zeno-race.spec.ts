@@ -28,20 +28,21 @@ test('the primary experience shrinks through metre, centimetre and microscopic g
 });
 
 test('one step moves continuously; pause, resume and rapid interruptions do not create stale frames', async ({ page }, testInfo) => {
+  await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-05T00:00:01Z'));
   await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab');
   await page.locator('#zr-next').click();
-  await expect.poll(async () => Number(await lab.getAttribute('data-progress'))).toBeGreaterThan(.1);
+  await page.clock.runFor(350); expect(Number(await lab.getAttribute('data-progress'))).toBeGreaterThan(.1);
   const during = Number(await lab.getAttribute('data-screen-gap')); expect(during).toBeLessThan(528); expect(during).toBeGreaterThan(52);
   await page.screenshot({ path: testInfo.outputPath('zeno-gap-in-motion.png') });
   await page.locator('#zr-play').click(); const frozen = await lab.getAttribute('data-progress');
-  await page.waitForTimeout(250); await expect(lab).toHaveAttribute('data-progress', frozen!);
-  await page.locator('#zr-play').click(); await expect.poll(async () => Number(await lab.getAttribute('data-stage'))).toBeGreaterThanOrEqual(1);
+  await page.clock.runFor(250); await expect(lab).toHaveAttribute('data-progress', frozen!);
+  await page.locator('#zr-play').click(); await page.clock.runFor(2800); await expect.poll(async () => Number(await lab.getAttribute('data-stage'))).toBeGreaterThanOrEqual(1);
   await page.locator('#zr-reset').click(); await expect(lab).toHaveAttribute('data-stage', '0');
   await page.locator('#zr-play').click(); await setRange(page, '#zr-lead', 20);
-  await page.waitForTimeout(250); await expect(lab).toHaveAttribute('data-running', 'false'); await expect(lab).toHaveAttribute('data-stage', '0');
+  await page.clock.runFor(250); await expect(lab).toHaveAttribute('data-running', 'false'); await expect(lab).toHaveAttribute('data-stage', '0');
   await expect(page.locator('#zr-gap')).toHaveText('20 m');
   await page.locator('#zr-next').evaluate((node: HTMLButtonElement) => { node.click(); node.click(); node.click(); });
-  await page.locator('#zr-reset').click(); await page.waitForTimeout(1800);
+  await page.locator('#zr-reset').click(); await page.clock.runFor(1800);
   await expect(lab).toHaveAttribute('data-stage', '0'); await expect(lab).toHaveAttribute('data-running', 'false');
   await setRange(page, '#zr-turtle-speed', 0); await page.locator('#zr-next').click(); await expect(page.locator('#zr-observation')).toContainText('乌龟留在原地'); await page.locator('#zr-reset').click();
 });
@@ -115,8 +116,9 @@ test('rounded microscopic stage never becomes an exact meeting merely by opening
 });
 
 test('changing motion preference completes the current step without reversing the gap', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-05T00:00:01Z'));
   await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab'); await page.locator('#zr-next').click();
-  await expect.poll(async () => Number(await lab.getAttribute('data-progress'))).toBeGreaterThan(.1);
+  await page.clock.runFor(350); expect(Number(await lab.getAttribute('data-progress'))).toBeGreaterThan(.1);
   const gap = Number(await lab.getAttribute('data-screen-gap')); await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(lab).toHaveAttribute('data-stage', '1'); expect(Number(await lab.getAttribute('data-screen-gap'))).toBeLessThan(gap);
   await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-next')).toBeEnabled();
@@ -210,4 +212,16 @@ for (const ratio of [0.1, .9]) test(`repeated fixed-camera pursuit at deep stage
     expect(bounds.rabbit.right).toBeLessThan(bounds.turtle.left);
     await page.clock.runFor(900); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', String(stage + 1));
   }
+});
+
+test('reduced-motion autoplay holds each completed near-gap rather than reopening the next chase', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-05T00:00:01Z'));
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/'); await page.locator('#zr-play').click();
+  await page.clock.runFor(2150); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '1');
+  const first = await motion(page); expect(first.gap).toBeLessThan(53);
+  await page.clock.runFor(800); const held = await motion(page);
+  expect(held.gap).toBe(first.gap); expect(held.rabbit).toBe(first.rabbit); expect(held.turtle).toBe(first.turtle); expect(held.logGap).toBe(first.logGap);
+  await page.clock.runFor(1250); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '2');
+  const second = await motion(page); expect(second.gap).toBeLessThan(first.gap);
+  await page.locator('#zr-play').click(); await page.clock.runFor(4000); expect((await motion(page)).gap).toBe(second.gap);
 });

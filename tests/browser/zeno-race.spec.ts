@@ -259,7 +259,18 @@ for (const width of [320, 390, 1440]) test(`whole-scene camera zoom remains cohe
   }
   const zoom = await motion(page); expect(zoom.gap).toBeGreaterThan(near.gap * 8);
   await page.locator('#zr-play').click(); const frozen = await motion(page); await page.clock.runFor(1000); expect(await motion(page)).toEqual(frozen);
-  await page.locator('#zr-play').click(); await page.clock.runFor(200); expect((await motion(page)).phase).toBe('chase');
+  await page.locator('#zr-play').click();
+  const shape = () => page.locator('#zr-rabbit .zr-whole').evaluate((node: SVGGraphicsElement) => { const m = node.getScreenCTM()!; return { y: m.f, scale: m.a }; });
+  let lastShape = await shape();
+  for (let sample = 0; sample < 12; sample++) {
+    await page.clock.runFor(32); const current = await shape();
+    // A true rebase cannot move body pixels vertically by a screenful or reset
+    // their scale when the lens finishes. Includes the first running frames.
+    expect(Math.abs(current.y - lastShape.y)).toBeLessThan(5);
+    expect(Math.abs(current.scale - lastShape.scale)).toBeLessThan(.25);
+    lastShape = current;
+  }
+  expect((await motion(page)).phase).toBe('chase');
   await track.screenshot({ path: testInfo.outputPath(`camera-${width}-09-next-chase.png`) });
   await page.locator('#zr-reset').click(); await page.clock.runFor(5000); await expect(lab).toHaveAttribute('data-stage','0');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

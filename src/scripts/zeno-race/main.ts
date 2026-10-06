@@ -117,16 +117,18 @@ if (root) {
     const scale = Math.exp(Math.min(Math.log(40), magnification));
     const bodyOpacity = Math.max(0, Math.min(1, (Math.log(24) - magnification) / Math.log(12), (magnification + Math.log(8)) / Math.log(4)));
     const pointMix = 1 - bodyOpacity;
+    const localBodyScale = Math.exp(Math.min(Math.log(40), scene.logPixelsPerMetre - initialCamera));
+    const bodyY = 235 - 11 * localBodyScale;
     const bob = running && phase === 'chase' && !reducedMotion.matches ? Math.sin(progress * Math.PI * 16) * 2.5 : 0;
     el('zr-camera').setAttribute('transform', `matrix(${camera.scale} 0 0 ${camera.scale} ${camera.x} ${camera.y})`);
     for (const [id, x, shift] of [['zr-rabbit', scene.rabbitX, -44], ['zr-turtle', scene.turtleX, 44]] as const) {
-      const group = el(id); group.setAttribute('transform', `translate(${x} 224)`);
+      const group = el(id); group.setAttribute('transform', `translate(${x} ${bodyY})`);
       const whole = group.querySelector('.zr-whole')!, head = group.querySelector('.zr-head')!, point = group.querySelector('.zr-point')!;
-      const localScale = scale / camera.scale;
+      const localScale = localBodyScale;
       whole.setAttribute('transform', `translate(${shift * localScale} ${id === 'zr-rabbit' ? bob : bob * .25}) scale(${localScale})`);
       whole.setAttribute('opacity', String(bodyOpacity)); head.setAttribute('opacity', '0');
       // A screen-size annotation marks a projected coordinate, not animal size.
-      point.setAttribute('transform', `translate(${Math.sign(shift) * 8 / camera.scale} ${(235 - 224) * (1 - 1 / camera.scale)}) scale(${1 / camera.scale})`);
+      point.setAttribute('transform', `translate(${Math.sign(shift) * 8 / camera.scale} ${235 - bodyY - 11 / camera.scale}) scale(${1 / camera.scale})`);
       point.setAttribute('opacity', String(pointMix));
     }
     const world = el('zr-world'), grid = el('zr-ground-grid'); world.replaceChildren();
@@ -155,9 +157,9 @@ if (root) {
     world.append(svgElement('path', { d: `M${minX} 235H${maxX}`, stroke: '#9f9c89', 'stroke-width': 1.5 / camera.scale }));
     // A retained ground landmark is a useful visual witness of the shared lens.
     const witnessX = anchor;
-    world.append(svgElement('path', { id: 'zr-ground-landmark', d: `M${witnessX} 235v12m-5-5h10`, stroke: '#89946d', 'stroke-width': 1.5, fill: 'none' }));
+    world.append(svgElement('path', { id: 'zr-ground-landmark', d: `M${witnessX} 235v${12 * localBodyScale}m${-5 * localBodyScale} ${-5 * localBodyScale}h${10 * localBodyScale}`, stroke: '#89946d', 'stroke-width': 1.5 * localBodyScale, opacity: bodyOpacity, fill: 'none' }));
     el('zr-gap-wash').setAttribute('x', String(scene.rabbitX)); el('zr-gap-wash').setAttribute('width', String(Math.max(0, scene.screenGap)));
-    el('zr-gap-wash').setAttribute('y', '229'); el('zr-gap-wash').setAttribute('height', '6');
+    el('zr-gap-wash').setAttribute('y', String(235 - 6 * localBodyScale)); el('zr-gap-wash').setAttribute('height', String(6 * localBodyScale)); el('zr-gap-wash').setAttribute('opacity', String(bodyOpacity));
     el('zr-gap-bracket').setAttribute('d', `M${left} 259v9H${right}v-9`);
     el('zr-gap-svg').setAttribute('x', String((left + right) / 2)); el('zr-gap-svg').setAttribute('y', '300');
     const distance = formatLogDistance(logGap);

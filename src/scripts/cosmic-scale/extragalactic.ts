@@ -20,31 +20,62 @@ function galaxyMark(c: C, x: number, y: number, size: number, seed: number, spir
   }
   glow(c, 0, 0, .18, '#ffead1', 'cc'); c.restore();
 }
-/** An illustrative web, not a catalogue. Every node is stable as the camera moves.
- * Projected physical width is exactly 1; glow and node sizes are explicitly marks. */
-function web(c: C, cells: number, seed: number, color: string) {
-  const nodes: [number, number][] = [];
-  for (let y = 0; y <= cells; y++) for (let x = 0; x <= cells; x++) {
-    const id = y * (cells + 1) + x;
-    nodes.push([-.5 + (x + (noise(id + seed) - .5) * .66) / cells, -.5 + (y + (noise(id + seed + 230) - .5) * .66) / cells]);
-  }
-  for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) {
-    const id = y * (cells + 1) + x, a = nodes[id];
-    const neighbors = [id + 1, id + cells + 1];
-    if (noise(id + seed + 25) > .7) neighbors.push(id + cells + 2);
-    for (const neighbor of neighbors) {
-      const b = nodes[neighbor];
-      line(c, [...a, ...b], color + '16', .019 / cells);
-      line(c, [...a, ...b], color + '30', .007 / cells);
-      for (let j = 0; j < 12; j++) {
-        const t = j / 12, jitter = (noise(id * 71 + neighbor * 31 + j) - .5) * .027 / cells;
-        const px = a[0] + (b[0] - a[0]) * t + jitter, py = a[1] + (b[1] - a[1]) * t + jitter;
-        dot(c, px, py, (.003 + noise(id * 13 + j) * .007) / cells, color + (j % 4 ? '8c' : 'ce'));
+type Point = [number, number];
+const webCache = new Map<string, [Point, Point][]>();
+/** Seeded Voronoi cell edges form irregular filaments around visible voids.
+ * Geometry is cached once, never regenerated while zooming. */
+function webEdges(count: number, seed: number): [Point, Point][] {
+  const key = `${count}:${seed}`;
+  const cached = webCache.get(key); if (cached) return cached;
+  const points: Point[] = Array.from({ length: count }, (_, i) => [noise(i * 7 + seed) - .5, noise(i * 7 + seed + 194) - .5]);
+  const edges: [Point, Point][] = [], seen = new Set<string>();
+  for (const [index, a] of points.entries()) {
+    let polygon: Point[] = [[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]];
+    for (const [other, b] of points.entries()) {
+      if (other === index || !polygon.length) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const side = (p: Point) => (p[0] - mx) * dx + (p[1] - my) * dy;
+      const clipped: Point[] = [];
+      for (let j = 0; j < polygon.length; j++) {
+        const p = polygon[j], q = polygon[(j + 1) % polygon.length], dp = side(p), dq = side(q);
+        if (dp <= 0) clipped.push(p);
+        if ((dp <= 0) !== (dq <= 0)) { const t = dp / (dp - dq); clipped.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
       }
+      polygon = clipped;
     }
-    glow(c, a[0], a[1], .055 / cells, color, '77');
-    dot(c, a[0], a[1], .01 / cells, '#eee6efcc');
+    for (let j = 0; j < polygon.length; j++) {
+      const p = polygon[j], q = polygon[(j + 1) % polygon.length];
+      const edgeKey = [p.map(v => v.toFixed(5)).join(','), q.map(v => v.toFixed(5)).join(',')].sort().join(':');
+      if (!seen.has(edgeKey)) { seen.add(edgeKey); edges.push([p,q]); }
+    }
   }
+  webCache.set(key, edges); return edges;
+}
+function web(c: C, count: number, seed: number, color: string) {
+  const edges = webEdges(count, seed);
+  for (const [i, [a, b]] of edges.entries()) {
+    line(c, [...a, ...b], color + '12', .007); line(c, [...a, ...b], color + '50', .0014);
+    const steps = Math.max(3, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 240));
+    for (let j = 0; j <= steps; j++) {
+      const t = j / steps, jitter = (noise(i * 73 + j + seed) - .5) * .006;
+      dot(c, a[0] + (b[0] - a[0]) * t + jitter, a[1] + (b[1] - a[1]) * t + jitter, .0006 + noise(i * 17 + j) * .0014, color + (j % 4 ? '99' : 'da'));
+    }
+    glow(c, a[0], a[1], .006, color, '88'); dot(c, a[0], a[1], .0016, '#eee6efcc');
+  }
+}
+/** Branches are a structural illustration, never an observed member map. */
+function filament(c: C, a: Point, b: Point, bend: number, seed: number, color: string) {
+  const points: number[] = [], dx = b[0] - a[0], dy = b[1] - a[1];
+  for (let j = 0; j <= 100; j++) {
+    const t = j / 100, curve = Math.sin(t * Math.PI) * bend;
+    const x = a[0] + dx * t - dy * curve, y = a[1] + dy * t + dx * curve;
+    points.push(x, y);
+    for (let k = 0; k < 3; k++) {
+      const spread = .005 + .005 * Math.sin(t * Math.PI);
+      dot(c, x + (noise(seed + j * 13 + k) - .5) * spread, y + (noise(seed + j * 29 + k) - .5) * spread, .0007 + noise(j + seed + k * 71) * .002, color + 'aa');
+    }
+  }
+  line(c, points, color + '15', .013); line(c, points, color + '50', .002);
 }
 export function paintExtragalactic(c: C, stop: ScaleStop): void {
   switch (stop.kind) {
@@ -67,22 +98,32 @@ export function paintExtragalactic(c: C, stop: ScaleStop): void {
       }
       galaxyMark(c, -.055, -.024, .095, 940); galaxyMark(c, .075, .025, .068, 137); break;
     }
-    case 'supercluster': case 'laniakea': {
-      c.save(); c.beginPath(); c.ellipse(0, 0, .5, stop.kind === 'supercluster' ? .34 : .46, 0, 0, TAU); c.clip();
-      const branches = stop.kind === 'laniakea' ? 23 : 12;
-      for (let i = 0; i < branches; i++) {
-        const a = i / branches * TAU, points: number[] = [];
-        const length = .3 + noise(i + 288) * .24;
-        for (let j = 0; j < 80; j++) {
-          const t = j / 79, r = t * length;
-          const x = -.1 + Math.cos(a + .8 * t) * r * 1.12, y = .02 + Math.sin(a + .8 * t) * r * (stop.kind === 'supercluster' ? .66 : .9);
-          points.push(x, y);
-          if (j % 4 === 0) { glow(c, x, y, .012 + noise(i * 88 + j) * .008, stop.color, '66'); dot(c, x, y, .0018 + noise(j + i * 11) * .003, '#ede3f0cc'); }
-          if (j % 17 === 0 && j) galaxyMark(c, x, y, .026, i * 62 + j, true);
-        }
-        line(c, points, stop.color + '35', .003); line(c, points, stop.color + '0b', .013);
+    case 'supercluster': {
+      const nodes: Point[] = [[-.49,-.08],[-.38,-.19],[-.33,.07],[-.21,-.02],[-.07,.055],[.1,-.05],[.28,-.14],[.49,-.03],[.13,.18],[.35,.29],[-.23,.29],[-.08,-.31],[.24,-.27]];
+      const edges = [[0,1],[0,2],[1,3],[2,3],[3,4],[4,5],[5,6],[6,7],[5,8],[8,9],[4,10],[3,11],[6,12]];
+      for (const [i, [a,b]] of edges.entries()) filament(c, nodes[a], nodes[b], (noise(i + 481) - .5) * .7, i * 137, '#bac4e8');
+      nodes.forEach(([x,y], i) => {
+        glow(c, x, y, i === 4 ? .065 : .024 + noise(i + 727) * .021, '#c9cbe7', '88');
+        for (let j = 0; j < 35; j++) { const a = noise(i * 53 + j) * TAU, r = noise(i * 81 + j) * .025; galaxyMark(c, x + Math.cos(a) * r, y + Math.sin(a) * r, .003 + noise(j + 731) * .012, i * 29 + j); }
+      }); break;
+    }
+    case 'laniakea': {
+      const attraction: Point = [-.17,.07];
+      const edges: [Point, Point][] = [
+        [[-.48,-.15],[-.29,-.09]], [[-.43,.2],[-.3,.14]], [[-.29,-.41],[-.12,-.17]],
+        [[-.03,-.44],[.09,-.23]], [[.25,-.37],[.09,-.23]], [[.47,-.17],[.27,-.08]],
+        [[.49,.04],[.27,-.08]], [[.43,.29],[.18,.22]], [[.22,.42],[.18,.22]],
+        [[-.03,.38],[-.02,.21]], [[-.29,-.09],attraction], [[-.3,.14],attraction],
+        [[-.12,-.17],attraction], [[.09,-.23],[-.12,-.17]], [[.27,-.08],[.08,.035]],
+        [[.18,.22],[.08,.035]], [[-.02,.21],attraction], [[.08,.035],attraction],
+      ];
+      for (const [i, [a,b]] of edges.entries()) {
+        filament(c, a, b, (noise(i + 302) - .5) * 1.3, i * 251, '#e7c3a4');
+        // Parallel, gently curved flow lines describe an asymmetric basin.
+        for (const offset of [-.014,.014]) filament(c, [a[0],a[1]+offset], [b[0],b[1]+offset*.2], (noise(i + 302) - .5) * 1.3, i * 251 + 791, '#a7c9de');
+        glow(c, b[0], b[1], .025, '#e5c39f', '66');
       }
-      glow(c, -.1, .02, .1, '#f4d3b3', '66'); c.restore(); break;
+      glow(c, attraction[0], attraction[1], .06, '#ffe2b9', '99'); break;
     }
     case 'wall': {
       c.save(); c.beginPath(); c.rect(-.5, -.35, 1, .7); c.clip();
@@ -101,14 +142,14 @@ export function paintExtragalactic(c: C, stop: ScaleStop): void {
     }
     case 'cosmic-web': {
       c.save(); c.beginPath(); c.rect(-.5, -.5, 1, 1); c.clip();
-      c.fillStyle = '#0b17252b'; c.fillRect(-.5, -.5, 1, 1); web(c, 9, 337, '#b8c8ed');
+      c.fillStyle = '#0b17252b'; c.fillRect(-.5, -.5, 1, 1); web(c, 76, 337, '#b8c8ed');
       c.strokeStyle = '#b2cbe34d'; c.lineWidth = .0015; c.strokeRect(-.5, -.5, 1, 1); c.restore(); break;
     }
     case 'observable': {
       // This is a present-day spatial schematic. It does not pretend to be a
       // photograph outside the universe, nor a literal CMB sphere / physical rim.
       c.save(); c.beginPath(); c.arc(0, 0, .5, 0, TAU); c.clip();
-      glow(c, 0, 0, .5, '#99afd1', '19'); web(c, 25, 617, '#abbfe3');
+      glow(c, 0, 0, .5, '#99afd1', '19'); web(c, 210, 617, '#b8cdeb');
       for (let i = 0; i < 2000; i++) { const a = noise(i + 73) * TAU, r = Math.sqrt(noise(i + 933)) * .498; dot(c, Math.cos(a) * r, Math.sin(a) * r, .0005 + noise(i + 473) * .0006, '#cad5e878'); }
       c.restore(); boundary(c, '#c6dcefbb');
       line(c, [-.02, 0, .02, 0], '#f6e5bdaa', .0018); line(c, [0, -.02, 0, .02], '#f6e5bdaa', .0018); break;

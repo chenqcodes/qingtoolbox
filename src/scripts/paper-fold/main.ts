@@ -1,5 +1,6 @@
 import { DEFAULT_THICKNESS_MM, MAX_FOLDS, journeyFoldLimit, MIN_THICKNESS_MM, MAX_THICKNESS_MM, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
 import { drawScene, viewLog } from './draw';
+import { drawStackFold, foldGeometry, interpolateFoldGeometry, type FoldGeometry } from './stack-fold';
 import { JOURNEY_REFERENCES, MILESTONE_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
 
 let dispose: (() => void) | undefined;
@@ -9,6 +10,7 @@ export function bootPaperFold(): void {
   if (!root) return;
   const get = <T extends HTMLElement>(id: string) => document.querySelector<T>(`#${id}`)!;
   const canvas = get<HTMLCanvasElement>('pf-canvas'), ctx = canvas.getContext('2d');
+  const detailCanvas = get<HTMLCanvasElement>('pf-fold-detail-canvas'), detailCtx = detailCanvas.getContext('2d');
   const range = get<HTMLInputElement>('pf-folds'), initial = get<HTMLInputElement>('pf-initial');
   const play = get<HTMLButtonElement>('pf-play'), step = get<HTMLButtonElement>('pf-step');
   const speed = get<HTMLSelectElement>('pf-speed');
@@ -16,9 +18,11 @@ export function bootPaperFold(): void {
   const abort = new AbortController(), { signal } = abort;
   let folds = 0, thicknessMm = DEFAULT_THICKNESS_MM, playing = false;
   const foldLimit = () => journeyFoldLimit(thicknessMm);
-  let exponent = 0, logMm = Math.log2(thicknessMm), logView = viewLog(0, thicknessMm), foldPhase = 0;
-  let width = 800, height = 575, raf = 0, nextFoldAt = 0;
-  type Motion = { fromExponent: number; toExponent: number; fromLogMm: number; toLogMm: number; fromView: number; toView: number; start: number; duration: number; leaf: boolean };
+  let exponent = 0, logMm = Math.log2(thicknessMm), logView = viewLog(0, thicknessMm);
+  let width = 800, height = 575, detailWidth = 320, detailHeight = 180, raf = 0, nextFoldAt = 0;
+  let detailPose = (half: number): FoldGeometry => foldGeometry(0, half);
+  let detailCustom = false;
+  type Motion = { fromExponent: number; toExponent: number; fromLogMm: number; toLogMm: number; fromView: number; toView: number; start: number; duration: number; detailJump: boolean; fromDetail: (half: number) => FoldGeometry };
   let motion: Motion | undefined;
   const status = (text: string) => { get('pf-status').textContent = text; };
   const superscript = (text: string) => text.replace(/\^(-?\d+)/g, (_, digits: string) => [...digits].map(char => ({'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'}[char] ?? char)).join(''));
@@ -27,7 +31,25 @@ export function bootPaperFold(): void {
     root!.dataset.view = logView.toFixed(8);
     root!.dataset.visualFold = exponent.toFixed(6);
     renderReferenceContext();
-    if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView, foldPhase, reducedMotion: media.matches });
+    const detail = detailCtx ? drawStackFold(detailCtx, detailWidth, detailHeight, exponent, detailPose) : detailPose(80);
+    root!.dataset.foldAngle = detail.angle.toFixed(6);
+    root!.dataset.foldPhase = detail.phase.toFixed(6);
+    root!.dataset.foldBundle = String(Math.floor(exponent));
+    root!.dataset.foldMode = motion?.detailJump ? 'journey' : detail.phase > 0 ? 'whole-stack' : 'rest';
+    const layerFold = Math.floor(exponent);
+    const layerText = layerFold < 10 ? `${2 ** layerFold} 层` : superscript(`2^${layerFold} 层`);
+    const nextLayerText = layerFold < 9 ? `${2 ** (layerFold + 1)} 层` : superscript(`2^${layerFold + 1} 层`);
+    const backward = Boolean(motion && motion.toExponent < motion.fromExponent);
+    get('pf-fold-detail-title').textContent = motion?.detailJump ? `前往第 ${folds} 次的纸叠`
+      : detail.phase > 0 ? backward ? `${nextLayerText} → ${layerText}` : `${layerText} → ${nextLayerText}`
+      : `${layerText}，${folds === foldLimit() ? '旅程抵达终点' : '准备对折'}`;
+    get('pf-fold-detail-state').textContent = motion?.detailJump ? '尺度跳转，纸叠从当前形态连续过渡'
+      : backward ? '整叠沿原折痕展开，回看上一折'
+      : detail.phase > .76 ? '整叠已经合拢 · 重新取景，准备下一折'
+      : detail.phase > 0 ? '右半叠的全部已有层，沿同一折痕翻转'
+      : '沿中线折起右半叠，所有层一起落下';
+    detailCanvas.setAttribute('aria-label', `整叠对折动作近景，${layerText}。所有已有层一起折起；近景宽厚和层组纹理为示意，实际厚度比例见上方。`);
+    if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView });
   }
   function renderReferenceContext() {
     // Follow the visible fractional state, not the selected endpoint of a jump.
@@ -84,8 +106,8 @@ export function bootPaperFold(): void {
   }
   function cancelFrame() { if (raf) cancelAnimationFrame(raf); raf=0; }
   function requestFrame() { if (!raf && !document.hidden && (motion || playing)) raf=requestAnimationFrame(frame); }
-  function finishMotion() { motion=undefined; exponent=folds;logMm=Math.log2(thicknessMm);logView=viewLog(folds,thicknessMm);foldPhase=0; }
-  function pause(message?: string, settle = true) {
+  function finishMotion() { motion=undefined; exponent=folds;logMm=Math.log2(thicknessMm);logView=viewLog(folds,thicknessMm);detailCustom=false;const settledFold=folds;detailPose=(half)=>foldGeometry(settledFold,half); }
+  function pause(message?: string, settle = false) {
     playing=false;nextFoldAt=0;cancelFrame();
     if(settle)finishMotion();else motion=undefined;
     renderValues();paint();if(message)status(message);
@@ -94,12 +116,12 @@ export function bootPaperFold(): void {
     folds=Math.min(foldLimit(),clampFolds(target));
     const toLogMm=Math.log2(thicknessMm), toView=viewLog(folds,thicknessMm);
     if(media.matches || duration===0)finishMotion();
-    else motion={fromExponent:exponent,toExponent:folds,fromLogMm:logMm,toLogMm,fromView:logView,toView,start:performance.now(),duration,leaf:Math.abs(folds-exponent)<1.1&&folds>exponent};
+    else motion={fromExponent:exponent,toExponent:folds,fromLogMm:logMm,toLogMm,fromView:logView,toView,start:performance.now(),duration,detailJump:Math.abs(folds-exponent)>1.001||detailCustom,fromDetail:detailPose};
     renderValues();paint();requestFrame();
   }
   function jumpTo(target: number, message: string) {
     // Start a new camera move exactly where the interrupted one is drawn.
-    pause(undefined,false);moveTo(target,Math.min(1800,550+Math.abs(target-exponent)*24));status(message);
+    pause(undefined,false);moveTo(target,Math.abs(target-exponent)<=1.001?1100:Math.min(1800,550+Math.abs(target-exponent)*24));status(message);
   }
   function frame(now: number) {
     raf=0;if(document.hidden)return;
@@ -108,7 +130,9 @@ export function bootPaperFold(): void {
       exponent=motion.fromExponent+(motion.toExponent-motion.fromExponent)*ease;
       logMm=motion.fromLogMm+(motion.toLogMm-motion.fromLogMm)*ease;
       logView=motion.fromView+(motion.toView-motion.fromView)*ease;
-      foldPhase=motion.leaf?progress:0;
+      detailCustom=motion.detailJump;
+      const visibleExponent=exponent, fromDetail=motion.fromDetail, target=motion.toExponent;
+      detailPose=motion.detailJump ? (half)=>interpolateFoldGeometry(fromDetail(half),foldGeometry(target,half),ease) : (half)=>foldGeometry(visibleExponent,half);
       if(progress>=1)finishMotion();
       paint();
     }
@@ -122,6 +146,7 @@ export function bootPaperFold(): void {
   play.addEventListener('click',()=>{
     if(playing){pause('已暂停 · 可以细看这一刻');return;}
     if(folds===foldLimit()){folds=0;finishMotion();renderValues();paint();}
+    if(Math.abs(exponent-folds)>1e-8)moveTo(folds,650);
     playing=true;nextFoldAt=0;renderValues();status(media.matches?'逐步播放 · 已减少动态效果':'镜头会随纸叠一起向外');requestFrame();
   },{signal});
   step.addEventListener('click',()=>jumpTo(folds+1,`再折一次 · 第 ${Math.min(foldLimit(),folds+1)} 次`),{signal});
@@ -151,12 +176,14 @@ export function bootPaperFold(): void {
   initial.addEventListener('keydown',event=>{if(event.key==='Enter')initial.blur();},{signal});
   speed.addEventListener('change',()=>{if(playing)nextFoldAt=performance.now()+Number(speed.value);},{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause('离开页面 · 已为你暂停');},{signal});
-  media.addEventListener('change',()=>{get('pf-motion-note').hidden=!media.matches;pause(media.matches?'已减少动态效果':'已恢复平滑缩放');},{signal});
+  media.addEventListener('change',()=>{get('pf-motion-note').hidden=!media.matches;pause(media.matches?'已减少动态效果':'已恢复平滑缩放',true);},{signal});
   function resize() {
     const rect=canvas.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);
-    const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx?.setTransform(dpr,0,0,dpr,0,0);paint();
+    const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx?.setTransform(dpr,0,0,dpr,0,0);
+    const detailRect=detailCanvas.getBoundingClientRect();detailWidth=Math.max(1,detailRect.width);detailHeight=Math.max(1,detailRect.height);
+    detailCanvas.width=Math.round(detailWidth*dpr);detailCanvas.height=Math.round(detailHeight*dpr);detailCtx?.setTransform(dpr,0,0,dpr,0,0);paint();
   }
-  const observer=new ResizeObserver(resize);observer.observe(canvas);
+  const observer=new ResizeObserver(resize);observer.observe(canvas);observer.observe(detailCanvas);
   window.addEventListener('resize',resize,{signal});
   get('pf-motion-note').hidden=!media.matches;
   renderValues();resize();
@@ -166,4 +193,3 @@ export function bootPaperFold(): void {
 bootPaperFold();
 document.addEventListener('astro:page-load',bootPaperFold);
 document.addEventListener('astro:before-swap',()=>dispose?.());
-

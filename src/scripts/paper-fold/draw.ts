@@ -1,7 +1,7 @@
 import { formatLength, niceScale } from './model';
 import { projectedReferences, type JourneyReference } from './references';
 
-export interface SceneState { exponent: number; thicknessMm: number; logView: number; foldPhase: number; reducedMotion: boolean }
+export interface SceneState { exponent: number; thicknessMm: number; logView: number }
 const clamp = (value: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, value));
 export function viewLog(exponent: number, thicknessMm: number): number {
   return Math.log2(thicknessMm / 1000) + Math.max(6, exponent + .65);
@@ -211,9 +211,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
   for(let i=1;i<=nLines;i++)line(ctx,px-pw/2,sy+stackHeight*i/(nLines+1),px+pw/2,sy+stackHeight*i/(nLines+1));ctx.restore();
   const topColor=ctx.createLinearGradient(px,sy-depth,px,sy);topColor.addColorStop(0,'#f1e2c2');topColor.addColorStop(1,'#e3d3ad');ctx.fillStyle=topColor;
   path(ctx,[[px-pw/2,sy],[px-pw/2+slant,sy-depth],[px+pw/2+slant,sy-depth],[px+pw/2,sy]]);ctx.fill();ctx.strokeStyle='#f3e6c33f';ctx.lineWidth=.7;ctx.stroke();
-  // An opening/closing top leaf provides a readable fold without inventing layer detail.
-  const lift=state.reducedMotion?0:Math.sin(Math.PI*state.foldPhase)*Math.min(42,area*.23);
-  if(lift>.25&&state.exponent<16){const flap=pw*.48*Math.cos(state.foldPhase*Math.PI);ctx.fillStyle='#f5e7c7';path(ctx,[[px,sy],[px+slant,sy-depth],[px+slant+flap,sy-depth-lift],[px+flap,sy-lift]]);ctx.fill();ctx.strokeStyle='#b59c7066';ctx.stroke();}
   measure(ctx,px-pw/2-17,baseline,stackHeight,formatLength(thickness),'#dfbf8e',top-20);
   label(ctx,'纸叠 · 厚度',px+slant*.4,baseline+22,'#d6bc94','center',mobile?9:11);
   ctx.restore();
@@ -222,4 +219,3 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
   const rx=width-(mobile?20:34),ry=top+9;
   ctx.save();ctx.strokeStyle='#8096a577';ctx.lineWidth=1;line(ctx,rx,ry,rx,ry+rulerPixels);line(ctx,rx-5,ry,rx+1,ry);line(ctx,rx-5,ry+rulerPixels,rx+1,ry+rulerPixels);ctx.translate(rx-9,ry+rulerPixels/2);ctx.rotate(-Math.PI/2);label(ctx,formatLength(rulerMetres),0,0,'#8da3ae','center',9);ctx.restore();
 }
-

@@ -15,7 +15,9 @@ export class RollingNumber {
     this.accessible.textContent = value;
     if (animate && now - this.sampledAt < 140) return;
     if (this.value === value) { if (!animate) this.settle(); return; }
-    this.element.dataset.compact = String(value.length >= 10);
+    // Keep one font size throughout scientific notation, even when a rounded
+    // mantissa loses a trailing zero (7.10e-17 -> 7.1e-17).
+    this.element.dataset.compact = String(/e[+-]?\d/.test(value) || value.length >= 10);
     this.sampledAt = now;
     const previous = this.value;
     this.value = value;

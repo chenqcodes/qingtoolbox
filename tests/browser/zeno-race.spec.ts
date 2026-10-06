@@ -311,7 +311,7 @@ test('completed and microscopic metric snapshots never confuse rounded totals wi
 for (const width of [320, 390, 1440]) test(`record rolling metrics with three live line crossings at ${width}px`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: width < 720 ? 844 : 1000 }); await page.goto('/tools/zeno-race/');
   await page.locator('#zr-play').click();
-  await page.locator('.zr-scene-top').evaluate(node => node.scrollIntoView({ block: 'start' }));
+  await page.locator('.zr-scene-top').evaluate(node => window.scrollTo({ top: scrollY + node.getBoundingClientRect().top - 90, behavior: 'instant' }));
   await page.evaluate(() => {
     type Sample = { stage: number; elapsed: string; total: string; gap: string; animated: number; top: number; height: number };
     const samples: Sample[] = []; (window as unknown as { metricSamples: Sample[] }).metricSamples = samples;
@@ -329,7 +329,8 @@ for (const width of [320, 390, 1440]) test(`record rolling metrics with three li
   expect(new Set(samples.map(s => s.elapsed)).size).toBeGreaterThan(30);
   expect(Math.max(...samples.map(s => s.height)) - Math.min(...samples.map(s => s.height))).toBeLessThan(2);
   await testInfo.attach('rolling-metric-samples', { body: JSON.stringify(samples), contentType: 'application/json' });
-  await page.locator('.zr-scene').screenshot({ path: testInfo.outputPath(`rolling-metrics-${width}-three-segments.png`) });
+  await page.locator('.zr-scene-top').evaluate(node => window.scrollTo({ top: scrollY + node.getBoundingClientRect().top - 90, behavior: 'instant' }));
+  await page.screenshot({ path: testInfo.outputPath(`rolling-metrics-${width}-three-segments.png`) });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
@@ -353,13 +354,15 @@ test('visible rolling ink resets with its segment and fits deep scientific readi
   }
   await page.locator('#zr-reset').click(); await page.emulateMedia({ reducedMotion: 'reduce' }); await steps(page, 16);
   await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.locator('#zr-play').click();
-  for (let i = 0; i < 10; i++) {
-    await page.clock.runFor(300);
+  for (let i = 0; i < 30; i++) {
+    await page.clock.runFor(100);
     for (const id of ['#zr-gap', '#zr-segment-elapsed']) {
       const fits = await page.locator(id).evaluate(node => {
         const cell = node.getBoundingClientRect(), ink = node.querySelector('.zr-number-ink')!.getBoundingClientRect();
         return ink.left >= cell.left - 1 && ink.right <= cell.right + 1;
       }); expect(fits).toBe(true);
+      await expect(page.locator(id)).toHaveAttribute('data-compact', 'true');
+      expect(await page.locator(id).evaluate(node => getComputedStyle(node).fontSize)).toBe('17px');
     }
   }
 });

@@ -33,3 +33,9 @@
 .pf-ticks{position:relative;height:14px;display:block;margin:0 5px}.pf-ticks span{position:absolute;transform:translateX(-50%)}
 .pf-milestones{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:540px){.pf-count strong{font-size:48px}.pf-count{gap:7px}.pf-readout{gap:8px}.pf-thickness strong{font-size:clamp(15px,5.1vw,21px)}.pf-milestones button span{font-size:9px}.pf-milestones{row-gap:7px}}
+
+/* The close-up shows the folding mechanics; the original canvas above keeps
+   the exact shared length scale. It is never substituted for the scale tower. */
+.pf-fold-detail{display:grid;grid-template-columns:minmax(160px,1fr) minmax(0,1.6fr);gap:12px;align-items:center;margin:0 30px 20px;padding:16px 20px 10px;border:1px solid #c9ac7c2b;border-radius:9px;background:linear-gradient(130deg,#29333270,#18272d80)}
+.pf-fold-detail-copy{min-width:0}.pf-fold-detail .pf-eyebrow{color:#c6ad88;font-size:10px;letter-spacing:.09em}.pf-fold-detail strong{display:block;font-size:15px;font-weight:500;color:#ead6b5;line-height:1.6;margin-top:7px;overflow-wrap:anywhere}.pf-fold-detail p{font-size:11px;line-height:1.75;color:#c0cbd0;margin:5px 0 9px;min-height:20px}.pf-fold-detail small{font-size:10px;color:#9faeaf;line-height:1.7}#pf-fold-detail-canvas{display:block;width:100%;height:180px;min-width:0}
+@media(max-width:540px){.pf-fold-detail{grid-template-columns:1fr;margin:0 18px 18px;padding:13px 12px 4px;gap:0}.pf-fold-detail-copy{display:grid;grid-template-columns:1fr auto;gap:3px 7px}.pf-fold-detail .pf-eyebrow{grid-column:1/-1}.pf-fold-detail strong{font-size:13px;margin-top:2px}.pf-fold-detail p{grid-column:1/-1;margin:2px 0;font-size:10px;min-height:18px}.pf-fold-detail small{grid-column:2;grid-row:2;font-size:8px;text-align:right}.pf-fold-detail small br{display:none}#pf-fold-detail-canvas{height:174px}}

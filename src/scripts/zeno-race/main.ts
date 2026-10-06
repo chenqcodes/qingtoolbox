@@ -1,5 +1,5 @@
-import { pursuitMetrics, formatMetricTime } from './metrics';
-import { RollingNumber } from './rolling-number';
+import { pursuitMetrics, formatMetricTime, stopwatchReading } from './metrics';
+import { StopwatchNumber } from './stopwatch-number';
 import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, pursuitTime, groundAnchor, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
 
 const root = document.querySelector<HTMLElement>('#zeno-race-lab');
@@ -27,11 +27,10 @@ if (root) {
   let pending: Stage | null = null, progress = 0, autoplay = false, resumeAutoplay = false, historyKey = '';
   let phase: 'idle' | 'chase' = 'idle', phaseTime = 0;
   const STEP_SECONDS = 2.8;
-  let metricSegment = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const play = el<HTMLButtonElement>('zr-play'), next = el<HTMLButtonElement>('zr-next');
   const scrub = el<HTMLInputElement>('zr-scrub'), explanation = el<HTMLDetailsElement>('zr-explanation');
-  const counters = new Map(['zr-gap', 'zr-segment-elapsed', 'zr-total-time', 'zr-total-distance'].map(id => [id, new RollingNumber(el<HTMLElement>(id))]));
+  const counters = new Map(['zr-gap', 'zr-segment-elapsed', 'zr-total-time-base', 'zr-total-time-increment', 'zr-total-distance-base', 'zr-total-distance-increment'].map(id => [id, new StopwatchNumber(el<HTMLElement>(id))]));
   const ns = 'http://www.w3.org/2000/svg';
   const svgElement = (tag: string, attrs: Record<string, string | number>, value?: string): SVGElement => {
     const node = document.createElementNS(ns, tag);
@@ -147,15 +146,17 @@ if (root) {
     el('zr-gap-bracket').setAttribute('d', `M${left} 259v9H${right}v-9`);
     el('zr-gap-svg').setAttribute('x', String((left + right) / 2)); el('zr-gap-svg').setAttribute('y', '300');
     const distance = formatLogDistance(logGap);
-    const animateMetrics = running && mode === 'steps' && !reducedMotion.matches;
-    counters.get('zr-gap')!.set(distance, animateMetrics);
+    counters.get('zr-gap')!.set(stopwatchReading(logGap, 'distance'));
     text('zr-gap-svg', distance);
     const metrics = pursuitMetrics(p, stage.index, moving ? progress : 0, !!pending);
     const displayTime = formatMetricTime(Math.log(metrics.totalTime));
-    counters.get('zr-segment-elapsed')!.set(formatMetricTime(metrics.logElapsed), animateMetrics && metricSegment === metrics.segment);
-    metricSegment = metrics.segment;
-    counters.get('zr-total-time')!.set(displayTime, animateMetrics);
-    counters.get('zr-total-distance')!.set(formatLogDistance(metrics.logTotalDistance), animateMetrics);
+    counters.get('zr-segment-elapsed')!.set(stopwatchReading(metrics.logElapsed, 'time'));
+    counters.get('zr-total-time-base')!.set(stopwatchReading(metrics.logBaselineTime, 'time'));
+    counters.get('zr-total-time-increment')!.set(stopwatchReading(metrics.logElapsed, 'time'));
+    counters.get('zr-total-distance-base')!.set(stopwatchReading(metrics.logBaselineDistance, 'distance'));
+    counters.get('zr-total-distance-increment')!.set(stopwatchReading(metrics.logIncrementDistance, 'distance'));
+    el('zr-total-time').dataset.value = displayTime;
+    el('zr-total-distance').dataset.value = formatLogDistance(metrics.logTotalDistance);
     text('zr-segment-label', metrics.possible ? `第 ${metrics.segment} 段已用` : p.lead === 0 ? '起点已相遇' : '当前段已用');
     text('zr-segment-duration', metrics.possible ? formatMetricTime(metrics.logDuration) : p.lead === 0 ? '0 s' : '无法到达');
     text('zr-segment-state', !metrics.possible ? p.lead === 0 ? '无需追赶' : '兔子静止，无法到达下一条线'
@@ -168,10 +169,11 @@ if (root) {
     const roundedToLimit = scene.logTail !== null && Number.isFinite(scene.logTail) && metrics.totalTime > 0
       && formatMetricTime(Math.log(meetingTime(p) ?? 0)) === displayTime;
     text('zr-metric-note', mode === 'continuous' ? '这里保留逐段画面的读数；下方完整时钟可越过相遇'
-      : roundedToLimit ? '累计读数已四舍五入；本段与间距仍在变化，尚未相遇'
-      : '模型读数取约 3 位有效数字；慢放时长不等于赛跑用时');
+      : roundedToLimit ? '此前累计已四舍五入；本段新增与间距仍在变化，尚未相遇'
+      : '累计 = 此前各段 + 本段新增，读数已四舍五入；慢放时长不等于模型用时');
     root!.dataset.segment = String(metrics.segment); root!.dataset.segmentFraction = String(metrics.fraction);
     root!.dataset.logSegmentElapsed = String(metrics.logElapsed); root!.dataset.logSegmentDuration = String(metrics.logDuration);
+    root!.dataset.baselineTime = String(metrics.baselineTime); root!.dataset.logIncrementDistance = String(metrics.logIncrementDistance);
     root!.dataset.totalTime = String(metrics.totalTime); root!.dataset.logTotalDistance = String(metrics.logTotalDistance);
     text('zr-gap-label', logGap === -Infinity ? '此刻间距' : '还差');
     text('zr-gap-context', p.lead === 0 || logGap === -Infinity ? '这组条件下，它们已经相遇' : p.rabbit <= p.turtle ? '这组速度下，间距不会收敛到零' : '一直向前，镜头也一直靠近');

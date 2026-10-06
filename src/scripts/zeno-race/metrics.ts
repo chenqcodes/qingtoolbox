@@ -18,7 +18,12 @@ export function pursuitMetrics(p: RaceParameters, index: number, progress: numbe
   const logElapsed = elapsedFraction === 0 ? -Infinity : duration + Math.log(elapsedFraction);
   const totalTime = active ? pursuitTime(p, index, progress) : stageAt(p, index).time;
   const logTotalDistance = p.rabbit > 0 && totalTime > 0 ? Math.log(p.rabbit) + Math.log(totalTime) : -Infinity;
+  const baselineTime = stageAt(p, origin).time;
+  const logBaselineTime = Math.log(baselineTime);
+  const logBaselineDistance = p.rabbit > 0 ? Math.log(p.rabbit) + logBaselineTime : -Infinity;
+  const logIncrementDistance = p.rabbit > 0 ? Math.log(p.rabbit) + logElapsed : -Infinity;
   return { segment, completed, possible, logDuration: duration, logElapsed,
+    baselineTime, logBaselineTime, logBaselineDistance, logIncrementDistance,
     fraction: elapsedFraction, totalTime, logTotalDistance };
 }
 
@@ -37,4 +42,40 @@ export function formatMetricTime(logSeconds: number): string {
           : exponent >= -12 && exponent < -9 ? { exponent: -12, label: 'ps' } : null;
   if (!unit) return `${mantissa}e${exponent} s`;
   return `${Number((mantissa * 10 ** (exponent - unit.exponent)).toPrecision(3))} ${unit.label}`;
+}
+
+export interface StopwatchReading {
+  /** The same six character positions for every value: 000.00. */
+  digits: string;
+  unit: string;
+  /** A separately reserved line, never inserted into the mantissa. */
+  exponent: number | null;
+  value: string;
+}
+
+/** Fixed hundredths within a compact SI unit. Log-space scientific notation
+ * retains positive readings below floating-point underflow; only -Infinity is 0.
+ * Three integer slots, two decimals and reserved suffixes never change geometry. */
+export function stopwatchReading(logValue: number, kind: 'distance' | 'time'): StopwatchReading {
+  const base = kind === 'distance' ? 'm' : 's';
+  if (logValue === -Infinity) return { digits: '000.00', unit: base, exponent: null, value: `0.00 ${base}` };
+  if (!Number.isFinite(logValue)) return { digits: '---.--', unit: base, exponent: null, value: '超出显示范围' };
+  // Tolerate logarithm roundoff exactly at powers of ten, without erasing
+  // genuinely sub-boundary values. Carry rounded 999.995 into the next scale.
+  let power = Math.floor(logValue / Math.LN10 + 1e-12);
+  const units = kind === 'distance'
+    ? [[3, 'km'], [0, 'm'], [-2, 'cm'], [-3, 'mm'], [-6, 'μm'], [-9, 'nm'], [-12, 'pm']] as const
+    : [[0, 's'], [-3, 'ms'], [-6, 'μs'], [-9, 'ns'], [-12, 'ps']] as const;
+  let unit = units.find(([exponent]) => power >= exponent);
+  let exponent: number | null = null;
+  let amount = Math.exp(logValue - (unit?.[0] ?? power) * Math.LN10);
+  if (!unit || amount >= 999.995) {
+    // Scientific notation is normalized, but padded to the identical face.
+    unit = undefined; amount = Math.exp(logValue - power * Math.LN10);
+    if (amount >= 9.995) { amount = 1; power++; }
+    exponent = power;
+  }
+  const fixed = amount.toFixed(2), label = unit?.[1] ?? base;
+  return { digits: fixed.padStart(6, '0'), unit: label, exponent,
+    value: `${fixed}${exponent === null ? '' : `e${exponent}`} ${label}` };
 }

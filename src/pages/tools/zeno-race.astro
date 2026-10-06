@@ -16,8 +16,12 @@ import '../../styles/zeno-race.css';
         <div class="zr-segment-heading"><span id="zr-segment-label">第 1 段已用</span><strong id="zr-segment-elapsed">0 s</strong><span>本段共 <b id="zr-segment-duration">1 s</b></span></div>
       </div>
       <div class="zr-segment-meter"><div id="zr-segment-progress" role="progressbar" aria-label="当前段的模型时间进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="zr-segment-state">从上一条线，跑到下一条线</span></div>
-      <div class="zr-total-metrics"><span>累计用时 <b id="zr-total-time">0 s</b></span><span>兔子累计跑过 <b id="zr-total-distance">0 m</b></span></div>
-      <p class="zr-metric-note" id="zr-metric-note">模型读数取约 3 位有效数字；慢放时长不等于赛跑用时</p>
+      <div class="zr-total-metrics" aria-label="累计读数等于此前累计加本段新增">
+        <div class="zr-total-heading"><span></span><span>此前累计</span><span aria-hidden="true"></span><span>本段新增</span></div>
+        <div class="zr-total-row" id="zr-total-time"><span>累计用时</span><b id="zr-total-time-base">0.00 s</b><span class="zr-total-plus" aria-label="加">+</span><b id="zr-total-time-increment">0.00 s</b></div>
+        <div class="zr-total-row" id="zr-total-distance"><span>累计跑过</span><b id="zr-total-distance-base">0.00 m</b><span class="zr-total-plus" aria-label="加">+</span><b id="zr-total-distance-increment">0.00 m</b></div>
+      </div>
+      <p class="zr-metric-note" id="zr-metric-note">累计 = 此前各段 + 本段新增，读数已四舍五入；慢放时长不等于模型用时</p>
       <p class="zr-gap-context" id="zr-gap-context">每一段之后，都还有下一段</p>
       <div class="zr-phase"><i aria-hidden="true"></i><span id="zr-phase-label">边追近，边放大 · 脚步不停</span></div>
       <svg id="zr-track" viewBox="0 100 900 280" role="img" aria-labelledby="zr-track-title zr-track-desc">

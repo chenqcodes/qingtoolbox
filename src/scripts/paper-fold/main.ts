@@ -137,7 +137,7 @@ export function bootPaperFold(): void {
       detailCustom=motion.detailJump;
       const visibleExponent=exponent, fromDetail=motion.fromDetail, target=motion.toExponent;
       detailPose=motion.detailJump ? (half)=>interpolateFoldGeometry(fromDetail(half),foldGeometry(target,half),ease) : (half)=>foldGeometry(visibleExponent,half);
-      if(progress>=1)finishMotion();
+      if(progress>=1){finishMotion();renderValues();}
       paint();
     }
     if(playing&&!motion&&now>=nextFoldAt){

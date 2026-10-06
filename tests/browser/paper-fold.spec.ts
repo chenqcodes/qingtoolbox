@@ -277,5 +277,6 @@ for(const width of [1440,390,320]) test(`integrated fold and turn poses stay rea
     await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-rotate.png`)});
     await setFolds(page,base+1);
     await expect(lab).toHaveAttribute('data-motion','false');
+    if(base===102)await expect(page.locator('#pf-play')).toContainText('重新旅行');
   }
 });

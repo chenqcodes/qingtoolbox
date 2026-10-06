@@ -1,12 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAIL_FOLD_END, DETAIL_MAX_BANDS, detailThickness, foldGeometry, interpolateFoldGeometry, projectPoint, type FoldGeometry, type Point } from './stack-fold';
+import { DETAIL_FOLD_END, DETAIL_MAX_BANDS, DETAIL_MAX_THICKNESS, detailThickness, foldGeometry, interpolateFoldGeometry, projectPoint, type FoldGeometry, type Point } from './stack-fold';
+import { MAX_FOLDS, thicknessMetres } from './model';
 
 const close=(a:number,b:number,tolerance=1e-7)=>assert.ok(Math.abs(a-b)<tolerance,`${a} != ${b} (tolerance ${tolerance})`);
 const distance=(a:Point,b:Point)=>Math.hypot(...a.map((v,i)=>v-b[i]));
 const vertices=(g:FoldGeometry)=>[...g.outline,...g.backOutline];
 const span=(points:readonly Point[],axis:number)=>Math.max(...points.map(p=>p[axis]))-Math.min(...points.map(p=>p[axis]));
 const rotate=([x,y,z]:Point,angle:number):Point=>[x*Math.cos(angle)+y*Math.sin(angle),y*Math.cos(angle)-x*Math.sin(angle),z];
+
+test('schematic thickness keeps growing throughout the journey within a modest screen-space budget',()=>{
+  close(detailThickness(0),2.5);
+  for(let n=0;n<MAX_FOLDS;n++){
+    const current=detailThickness(n),next=detailThickness(n+1);
+    assert.ok(next-current>=20/MAX_FOLDS-1e-10,'late folds must not plateau');
+    assert.ok(next-current<2,'a single fold must not make an oversized visual jump');
+    assert.ok(next<=DETAIL_MAX_THICKNESS);
+    // The surface actually drawn carries the growth; it is not undone by zoom.
+    for(const half of [34,42.75,82]){
+      close(span(vertices(foldGeometry(n+1,half)),2),next);
+      assert.ok(span(vertices(foldGeometry(n+1,half)),2)>span(vertices(foldGeometry(n,half)),2));
+    }
+    // Compression belongs only to the diagram. Numerical thickness still doubles.
+    close(thicknessMetres(n+1)/thicknessMetres(n),2);
+  }
+  assert.ok(detailThickness(12)-detailThickness(3)>4);
+  assert.ok(detailThickness(103)-detailThickness(12)>17);
+  close(detailThickness(1e9),detailThickness(MAX_FOLDS));
+  for(const value of [-1,NaN,Infinity,-Infinity])close(detailThickness(value),2.5);
+});
 
 test('every existing layer participates in the fold with the full displayed bundle thickness',()=>{
   for(const n of [0,1,2,3,4,10,50,102,106])for(const phase of [.03,.15,DETAIL_FOLD_END/2,.55,DETAIL_FOLD_END,.8,.95]){

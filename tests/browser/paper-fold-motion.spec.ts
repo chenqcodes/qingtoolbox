@@ -26,9 +26,9 @@ for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay cont
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
   const samples=await page.evaluate(async()=>{
     const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
-    const rows:{time:number;fold:number;yaw:number;angle:number;mode:string;axis:string;reference:string}[]=[];
+    const rows:{time:number;fold:number;yaw:number;angle:number;mode:string;axis:string;reference:string;wording:string}[]=[];
     await new Promise<void>(resolve=>{
-      function sample(t:number){rows.push({time:t,fold:Number(lab.dataset.visualFold),yaw:Number(lab.dataset.foldYaw),angle:Number(lab.dataset.foldAngle),mode:lab.dataset.foldMode!,axis:lab.dataset.foldAxis!,reference:lab.dataset.referenceVisible!});if(Number(lab.dataset.visualFold)>=6)resolve();else requestAnimationFrame(sample);}
+      function sample(t:number){rows.push({time:t,fold:Number(lab.dataset.visualFold),yaw:Number(lab.dataset.foldYaw),angle:Number(lab.dataset.foldAngle),mode:lab.dataset.foldMode!,axis:lab.dataset.foldAxis!,reference:lab.dataset.referenceVisible!,wording:[document.querySelector('#pf-fold-detail-title')?.textContent,document.querySelector('#pf-fold-detail-state')?.textContent,document.querySelector('#pf-canvas')?.getAttribute('aria-label')].join(' ')});if(Number(lab.dataset.visualFold)>=6)resolve();else requestAnimationFrame(sample);}
       requestAnimationFrame(sample);
     });
     (document.querySelector('#pf-play') as HTMLButtonElement).click();return rows;
@@ -36,6 +36,7 @@ for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay cont
   await testInfo.attach('consecutive-cycle-telemetry',{body:JSON.stringify(samples),contentType:'application/json'});
   expect(samples.length).toBeGreaterThan(100);
   expect(samples.every(s=>s.reference.length>0)).toBeTruthy();
+  expect(samples.every(s=>!s.wording.includes('转向'))).toBeTruthy();
   for(let fold=0;fold<6;fold++){
     const cycle=samples.filter(s=>Math.floor(s.fold)===fold);
     expect(cycle.some(s=>s.mode==='whole-stack'&&s.angle>.5&&s.angle<2.7)).toBeTruthy();

@@ -43,14 +43,14 @@ export function bootPaperFold(): void {
     const nextLayerText = layerFold < 9 ? `${2 ** (layerFold + 1)} 层` : superscript(`2^${layerFold + 1} 层`);
     const backward = Boolean(motion && motion.toExponent < motion.fromExponent);
     get('pf-fold-detail-title').textContent = motion?.detailJump ? `前往第 ${folds} 次`
-      : detail.phase >= DETAIL_FOLD_END ? `${layerText} · 转向 90°`
+      : detail.phase >= DETAIL_FOLD_END ? `${layerText}，完成对折`
       : detail.phase > 0 ? backward ? `${nextLayerText} → ${layerText}` : `${layerText} → ${nextLayerText}`
       : `${layerText}，${folds === foldLimit() ? '旅程抵达终点' : '准备对折'}`;
     get('pf-fold-detail-state').textContent = motion?.detailJump ? '纸叠从当前形态连续过渡'
       : backward ? '沿同一过程倒放，回看上一折'
-      : detail.phase >= DETAIL_FOLD_END ? '形状保持不变，整叠转向下一轴'
+      : detail.phase >= DETAIL_FOLD_END ? '合拢成叠，准备下一折'
       : detail.phase > 0 ? '全部已有层一起折起、合拢'
-      : '合拢后转向 90°，再沿下一轴对折';
+      : '每次整叠对折，层数翻倍';
     if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView, foldPose: detailPose });
   }
   function renderReferenceContext() {
@@ -105,7 +105,7 @@ export function bootPaperFold(): void {
       root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
       root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
     }
-    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。左侧厚度刻度与参照物的高度、直径或距离共用长度比例尺；整叠交替折叠、转向的形态与层纹为示意。下方提供相邻参照与倍数。`);
+    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。左侧厚度刻度与参照物的高度、直径或距离共用长度比例尺；纸叠形态、显示厚度与层纹为示意。下方提供相邻参照与倍数。`);
   }
   function cancelFrame() { if (raf) cancelAnimationFrame(raf); raf=0; }
   function requestFrame() { if (!raf && !document.hidden && (motion || playing)) raf=requestAnimationFrame(frame); }

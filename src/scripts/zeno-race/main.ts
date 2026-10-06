@@ -1,4 +1,4 @@
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, pursuitCamera, groundAnchor, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
 
 const root = document.querySelector<HTMLElement>('#zeno-race-lab');
 if (root) {
@@ -99,36 +99,69 @@ if (root) {
     const start = pursuitFrame(p, stage.index, 0);
     const moving = !!pending && !reducedMotion.matches;
     const chasing = moving && phase !== 'zoom';
-    let scene = moving ? chasing ? pursuitFrame(p, stage.index, progress) : start : settled;
-    let lens = 0;
-    if (pending && phase === 'zoom') {
-      lens = Math.min(1, phaseTime / .95); lens = lens * lens * (3 - 2 * lens);
-      const mix = (a: number, b: number) => a + (b - a) * lens;
-      scene = { ...start, rabbitX: mix(settled.rabbitX, start.rabbitX), turtleX: mix(settled.turtleX, start.turtleX),
-        screenGap: mix(settled.screenGap, start.screenGap), glyphScale: mix(settled.glyphScale, start.glyphScale),
-        decades: mix(settled.decades, start.decades), logGap: stage.logGap,
-        logPixelsPerMetre: Math.log(mix(settled.screenGap, start.screenGap)) - stage.logGap };
-    }
-    const { rabbitX: left, turtleX: right, screenGap, glyphScale: scale, decades, logGap } = scene;
-    const headMix = Math.min(1, Math.max(0, (decades - 1) / 3));
-    const pointMix = Math.min(1, Math.max(0, (decades - 6) / 10));
+    const zooming = !!pending && phase === 'zoom';
+    let lens = zooming ? Math.min(1, phaseTime / 1.35) : 0;
+    lens = lens * lens * (3 - 2 * lens);
+    // Freeze the entire previous scene and move one lens over it. On handover,
+    // coordinates are rebased, but every painted point keeps the same position.
+    const scene = zooming ? settled : moving ? pursuitFrame(p, stage.index, progress) : settled;
+    const camera = zooming ? pursuitCamera(p, stage.index, lens) : { scale: 1, x: 0, y: 0 };
+    const project = (x: number) => x * camera.scale + camera.x;
+    const left = project(scene.rabbitX), right = project(scene.turtleX), screenGap = scene.screenGap * camera.scale;
+    const logGap = scene.logGap;
+    const logPixelsPerMetre = scene.logPixelsPerMetre + Math.log(camera.scale);
+    const initialCamera = pursuitFrame(p, 0, 0).logPixelsPerMetre;
+    const magnification = logGap === -Infinity ? 0 : logPixelsPerMetre - initialCamera;
+    // The animals really grow with the world. Once outside this microscopic
+    // field, readable position annotations take over; never shrink them back.
+    const scale = Math.exp(Math.min(Math.log(40), magnification));
+    const bodyOpacity = Math.max(0, Math.min(1, (Math.log(24) - magnification) / Math.log(12), (magnification + Math.log(8)) / Math.log(4)));
+    const pointMix = 1 - bodyOpacity;
+    const localBodyScale = Math.exp(Math.min(Math.log(40), scene.logPixelsPerMetre - initialCamera));
+    const bodyY = 235 - 11 * localBodyScale;
     const bob = running && phase === 'chase' && !reducedMotion.matches ? Math.sin(progress * Math.PI * 16) * 2.5 : 0;
-    for (const [id, x, shift] of [['zr-rabbit', left, -44], ['zr-turtle', right, 44]] as const) {
-      const group = el(id); group.setAttribute('transform', `translate(${x} 224)`);
+    el('zr-camera').setAttribute('transform', `matrix(${camera.scale} 0 0 ${camera.scale} ${camera.x} ${camera.y})`);
+    for (const [id, x, shift] of [['zr-rabbit', scene.rabbitX, -44], ['zr-turtle', scene.turtleX, 44]] as const) {
+      const group = el(id); group.setAttribute('transform', `translate(${x} ${bodyY})`);
       const whole = group.querySelector('.zr-whole')!, head = group.querySelector('.zr-head')!, point = group.querySelector('.zr-point')!;
-      whole.setAttribute('transform', `translate(${shift * scale} ${id === 'zr-rabbit' ? bob : bob * .25}) scale(${scale})`);
-      head.setAttribute('transform', `translate(${shift * .55 * scale} 0) scale(${scale})`);
-      point.setAttribute('transform', `translate(${Math.sign(shift) * 8} 0)`);
-      whole.setAttribute('opacity', String(1 - headMix));
-      head.setAttribute('opacity', String(headMix * (1 - pointMix)));
+      const localScale = localBodyScale;
+      whole.setAttribute('transform', `translate(${shift * localScale} ${id === 'zr-rabbit' ? bob : bob * .25}) scale(${localScale})`);
+      whole.setAttribute('opacity', String(bodyOpacity)); head.setAttribute('opacity', '0');
+      // A screen-size annotation marks a projected coordinate, not animal size.
+      point.setAttribute('transform', `translate(${Math.sign(shift) * 8 / camera.scale} ${235 - bodyY - 11 / camera.scale}) scale(${1 / camera.scale})`);
       point.setAttribute('opacity', String(pointMix));
     }
-    // Track and target do not move at all while the animals are running.
-    el('zr-world').setAttribute('transform', 'translate(0 0)');
-    el('zr-gap-wash').setAttribute('x', String(left)); el('zr-gap-wash').setAttribute('width', String(Math.max(0, screenGap)));
-    el('zr-gap-wash').setAttribute('y', '204'); el('zr-gap-wash').setAttribute('height', '29');
-    el('zr-gap-bracket').setAttribute('d', `M${left} 249v10H${right}v-10`);
-    el('zr-gap-svg').setAttribute('x', String((left + right) / 2)); el('zr-gap-svg').setAttribute('y', '290');
+    const world = el('zr-world'), grid = el('zr-ground-grid'); world.replaceChildren();
+    world.setAttribute('transform', 'translate(0 0)');
+    const anchor = groundAnchor(p, zooming || !moving ? Math.max(0, stage.index - 1) : stage.index, scene);
+    const minX = -camera.x / camera.scale, maxX = (900 - camera.x) / camera.scale;
+    const minY = (100 - camera.y) / camera.scale, maxY = (380 - camera.y) / camera.scale;
+    world.append(svgElement('rect', { x: minX - 1, y: minY - 1, width: maxX - minX + 2, height: maxY - minY + 2, fill: '#f1eee7' }));
+    grid.replaceChildren();
+    // Nested metric grids share the same world origin and same camera. Coarser
+    // lines visibly spread apart while their finer divisions come into view.
+    const decade = Math.floor((Math.log(70) - logPixelsPerMetre) / Math.LN10);
+    for (let level = decade - 1; level <= decade + 2; level++) {
+      const spacing = Math.exp(level * Math.LN10 + scene.logPixelsPerMetre);
+      const pixels = spacing * camera.scale;
+      const opacity = Math.max(0, Math.min(1, (pixels - 12) / 42, (1800 - pixels) / 1300));
+      if (!opacity || !Number.isFinite(spacing) || spacing <= 0) continue;
+      let lines = '';
+      const firstX = minX + ((anchor - minX) % spacing + spacing) % spacing;
+      for (let x = firstX; x <= maxX + spacing / 100; x += spacing) lines += `M${x} ${minY}V${maxY}`;
+      const firstY = minY + ((235 - minY) % spacing + spacing) % spacing;
+      for (let y = firstY; y <= maxY + spacing / 100; y += spacing) lines += `M${minX} ${y}H${maxX}`;
+      grid.append(svgElement('path', { d: lines, stroke: '#a49e8d', 'stroke-width': 1 / camera.scale, opacity: opacity * .28, fill: 'none', 'data-world-unit': level }));
+    }
+    world.append(grid);
+    world.append(svgElement('path', { d: `M${minX} 235H${maxX}`, stroke: '#9f9c89', 'stroke-width': 1.5 / camera.scale }));
+    // A retained ground landmark is a useful visual witness of the shared lens.
+    const witnessX = anchor;
+    world.append(svgElement('path', { id: 'zr-ground-landmark', d: `M${witnessX} 235v${12 * localBodyScale}m${-5 * localBodyScale} ${-5 * localBodyScale}h${10 * localBodyScale}`, stroke: '#89946d', 'stroke-width': 1.5 * localBodyScale, opacity: bodyOpacity, fill: 'none' }));
+    el('zr-gap-wash').setAttribute('x', String(scene.rabbitX)); el('zr-gap-wash').setAttribute('width', String(Math.max(0, scene.screenGap)));
+    el('zr-gap-wash').setAttribute('y', String(235 - 6 * localBodyScale)); el('zr-gap-wash').setAttribute('height', String(6 * localBodyScale)); el('zr-gap-wash').setAttribute('opacity', String(bodyOpacity));
+    el('zr-gap-bracket').setAttribute('d', `M${left} 259v9H${right}v-9`);
+    el('zr-gap-svg').setAttribute('x', String((left + right) / 2)); el('zr-gap-svg').setAttribute('y', '300');
     const distance = formatLogDistance(logGap);
     text('zr-gap', distance); text('zr-gap-svg', distance);
     text('zr-gap-label', logGap === -Infinity ? '此刻间距' : '还差');
@@ -140,32 +173,29 @@ if (root) {
     el('zr-gap-svg').setAttribute('font-size', mobile ? '28' : '20');
     el('zr-ruler-value').setAttribute('font-size', mobile ? '24' : '13');
     el('zr-old-label').setAttribute('font-size', mobile ? '23' : '14');
-    const zoomPower = (scene.logPixelsPerMetre - Math.log(580 / (1 + ratio)) + Math.log(p.lead || 1)) / Math.LN10;
+    const zoomPower = magnification / Math.LN10;
     text('zr-camera-label', logGap === -Infinity ? '两者已经相遇' : phase === 'zoom' ? `${ratio < 1 ? '镜头放大中' : '镜头重新取景'} · 模型时间暂停` : `固定镜头 · ×${zoomPower < 3 ? format(10 ** zoomPower, 1) : `10^${format(zoomPower, 1)}`}`);
-    text('zr-ruler-value', logGap === -Infinity ? '位置标记已重合' : `${formatLogDistance(Math.log(120) - scene.logPixelsPerMetre)} / 标尺`);
-    const targetX = moving && phase !== 'zoom' ? start.targetX : scene.targetX;
-    const showMarker = p.lead > 0 && logGap !== -Infinity && phase !== 'zoom';
-    el('zr-old-marker').setAttribute('d', `M${targetX} 150V263`); el('zr-old-marker').setAttribute('opacity', showMarker ? '.8' : '0');
-    el('zr-old-label').setAttribute('x', String(targetX)); el('zr-old-label').setAttribute('opacity', showMarker ? '1' : '0');
+    text('zr-ruler-value', logGap === -Infinity ? '位置标记已重合' : `${formatLogDistance(Math.log(120) - logPixelsPerMetre)} / 标尺`);
+    const targetX = project(scene.targetX);
+    const showMarker = p.lead > 0 && logGap !== -Infinity;
+    el('zr-old-marker').setAttribute('d', `M${scene.targetX} 150V263`); el('zr-old-marker').setAttribute('opacity', showMarker ? '.8' : '0');
+    el('zr-old-label').setAttribute('x', String(targetX)); el('zr-old-label').setAttribute('opacity', showMarker && phase !== 'zoom' ? '1' : '0');
     text('zr-old-label', chasing && progress < 1 || stage.index === 0 ? '乌龟刚才在这里' : '兔子到了这里');
-    el('zr-rabbit-pin').setAttribute('cx', String(left - 2)); el('zr-turtle-pin').setAttribute('cx', String(right + 2));
-    const outlines = el('zr-history-outlines'); outlines.replaceChildren();
-    if (phase !== 'zoom' && p.lead > 0) {
-      const origin = moving ? start : pursuitFrame(p, Math.max(0, stage.index - 1), 0);
-      outlines.append(svgElement('path', { d: `M${origin.rabbitX} 232v-21M${origin.turtleX} 232v-21`, stroke: '#a89daf', 'stroke-dasharray': '3 3', opacity: .6 }));
-      outlines.append(svgElement('path', { d: `M${origin.rabbitX} 236H${left}`, stroke: '#ae91b9', 'stroke-width': 3, opacity: .35 }));
+    for (const [id, x] of [['zr-rabbit-pin', scene.rabbitX], ['zr-turtle-pin', scene.turtleX]] as const) {
+      el(id).setAttribute('cx', String(x)); el(id).setAttribute('r', String(2.5 / camera.scale));
     }
-    if (phase === 'zoom' && pending) {
-      // A retained, non-moving outline identifies the exact gap being magnified.
-      outlines.append(svgElement('path', { d: `M${settled.rabbitX} 241v18H${settled.turtleX}v-18`, stroke: '#b194b8', 'stroke-dasharray': '3 3', opacity: 1 - lens * .6 }));
-      outlines.append(svgElement('path', { d: `M${settled.rabbitX} 259L${left} 304M${settled.turtleX} 259L${right} 304`, stroke: '#b194b8', 'stroke-dasharray': '3 5', opacity: .6 }));
+    const outlines = el('zr-history-outlines'); outlines.replaceChildren();
+    if (p.lead > 0) {
+      const origin = moving && !zooming ? start : pursuitFrame(p, Math.max(0, stage.index - 1), 0);
+      outlines.append(svgElement('path', { d: `M${origin.rabbitX} 232v-21M${origin.turtleX} 232v-21`, stroke: '#a89daf', 'stroke-dasharray': '3 3', opacity: .6 }));
+      outlines.append(svgElement('path', { d: `M${origin.rabbitX} 236H${scene.rabbitX}`, stroke: '#ae91b9', 'stroke-width': 3, opacity: .35 }));
     }
     const completed = pending && phase === 'hold' ? stage.index + 1 : stage.index;
     text('zr-stage-label', phase === 'zoom' ? `第 ${stage.index + 1} 段前 · ${ratio < 1 ? '放大这道缝' : '调整镜头'}` : chasing && phase === 'chase' ? `第 ${stage.index + 1} 段 · 向前追赶` : logGap === -Infinity ? (completed ? `第 ${completed} 段 · 已追上` : '起点 · 已经相遇') : completed ? `第 ${completed} 段 · 还差一点` : '起点 · 第 0 段');
     text('zr-phase-label', logGap === -Infinity ? '位置重合，已经追上了' : phase === 'zoom' ? ratio < 1 ? '③ 放大剩下的缝' : '③ 调整下一段镜头' : chasing && phase === 'chase' ? ratio < 1 ? '① 镜头不动，看它追近' : '① 镜头不动，看它们向前' : completed ? ratio < 1 ? '② 到了旧位置，仍有一点距离' : '② 到了旧位置，间距还在' : '① 先盯住乌龟的旧位置');
     let observation = completed === 0 ? '盯住虚线。兔子会向右跑到这里，乌龟也在往前走。' : `到了旧位置。乌龟又往前走了，还差 ${distance}。`;
     if (phase === 'chase' && pending) observation = '背景和虚线不动。兔子向前跑得更快，两者正在靠近。';
-    if (phase === 'zoom') observation = `刚才还差 ${distance}。现在只${ratio < 1 ? '放大这道缝' : '调整镜头'}，赛跑时间暂时定格。`;
+    if (phase === 'zoom') observation = `刚才还差 ${distance}。现在${ratio < 1 ? '把整个画面放大' : '移动整个镜头'}，地面和角色一起变化，赛跑时间暂时定格。`;
     if (p.lead === 0) observation = '起点就已相遇。这里没有需要追赶的领先距离。';
     else if (p.rabbit === 0) observation = '兔子不动，连乌龟的第一个旧位置也到不了。';
     else if (p.turtle === 0) observation = logGap === -Infinity ? '乌龟一直没有动。兔子在第一段就真的追上了。' : pending ? '乌龟留在原地。兔子正在靠近，这一段就能追上。' : '乌龟没有移动。兔子只需跑完这一段。';
@@ -176,7 +206,7 @@ if (root) {
     root!.dataset.screenGap = String(screenGap); root!.dataset.glyphScale = String(scale); root!.dataset.logZoom = String(zoomPower * Math.LN10);
     root!.dataset.rabbitX = String(left); root!.dataset.turtleX = String(right); root!.dataset.targetX = String(targetX);
     root!.dataset.motionTime = String(chasing && pending ? stage.time + pending.duration * progress : stage.time);
-    root!.dataset.cameraScale = String(scene.logPixelsPerMetre); root!.dataset.progress = String(progress);
+    root!.dataset.cameraScale = String(logPixelsPerMetre); root!.dataset.lensScale = String(camera.scale); root!.dataset.lensX = String(camera.x); root!.dataset.progress = String(progress);
     const key = `${p.lead}/${p.rabbit}/${p.turtle}/${stage.index}`;
     if (historyKey !== key) {
       historyKey = key;
@@ -227,7 +257,7 @@ if (root) {
     play.disabled = !!availability && !pending;
     play.textContent = mode === 'steps' && running ? '暂停' : pending ? '继续追赶' : '自动追赶';
     play.setAttribute('aria-pressed', String(mode === 'steps' && running));
-    text('zr-play-note', reducedMotion.matches ? '已减少动态：直接显示每段终点。播放时长不是实际用时。' : '追赶慢放 2 秒，停留片刻后再放大；动画时长不是实际用时。');
+    text('zr-play-note', reducedMotion.matches ? '已减少动态：直接显示每段终点。播放时长不是实际用时。' : '追赶慢放 2 秒，再放大整个画面；动画时长不是实际用时。');
     renderGap();
     const note = el<HTMLElement>('zr-resolution');
     note.hidden = availability !== 'stage-cap' && availability !== 'resolution';
@@ -256,7 +286,7 @@ if (root) {
       if (!pending && !prepareStep()) { render(); return; }
       phaseTime += elapsed;
       if (reducedMotion.matches) { if (phaseTime >= 2) finishStep(); }
-      else if (phase === 'zoom') { if (phaseTime >= .95) { phase = 'chase'; phaseTime = 0; } }
+      else if (phase === 'zoom') { if (phaseTime >= 1.35) { phase = 'chase'; phaseTime = 0; } }
       else if (phase === 'chase') {
         progress = Math.min(1, phaseTime / 2);
         if (progress >= 1) { phase = 'hold'; phaseTime = 0; }
@@ -318,4 +348,3 @@ if (root) {
   window.addEventListener('resize', render);
   syncInputs(); render();
 }
-

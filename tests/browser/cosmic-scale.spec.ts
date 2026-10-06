@@ -19,7 +19,7 @@ test('cosmic scale has readable stops, real dimensions and desktop/mobile visual
   await expect(page.locator('#cosmic-status')).toContainText('已减少动态效果');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ fullPage: true, path: testInfo.outputPath('cosmic-cup-desktop.png') });
-  for (const id of ['dna', 'cell', 'earth', 'solar', 'galaxy']) {
+  for (const id of ['dna', 'cell', 'earth', 'solar', 'galaxy', 'observable']) {
     const stop = STOPS.find(s => s.id === id)!;
     await page.locator(`[data-stop="${id}"]`).click();
     await expect(page.locator('#cosmic-name')).toHaveText(stop.name);
@@ -68,7 +68,7 @@ test('cosmic travel is continuous, manually interruptible and latest navigation 
   await expect(page.locator('#cosmic-name')).toHaveText('地球');
   await setScale(page, MAX_EXP - .01);
   await page.locator('#cosmic-play').click();
-  await expect(page.locator('#cosmic-status')).toContainText('已抵达银河系');
+  await expect(page.locator('#cosmic-status')).toContainText('已抵达可观测宇宙');
   await expect(page.locator('#cosmic-play')).toHaveAttribute('aria-pressed', 'false');
 });
 
@@ -217,4 +217,77 @@ test('record continuous interstellar journeys through incoming galaxy layers', a
     const paused = await exponent(page); await page.waitForTimeout(250);
     expect(await exponent(page)).toBe(paused);
   }
+});
+
+
+test('extragalactic layers retain physical coverage and readable endpoint at 320, 390 and desktop', async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/tools/cosmic-scale/');
+  const newStops = STOPS.slice(STOPS.findIndex(stop => stop.id === 'galaxy'));
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+    for (let i = 0; i < newStops.length; i++) {
+      const stop = newStops[i];
+      await page.locator('#cosmic-select').selectOption(stop.id);
+      await expect(page.locator('#cosmic-name')).toHaveText(stop.name);
+      await expect(page.locator('#cosmic-dimension')).toHaveText(stop.dimension);
+      await expect(page.locator('#cosmic-source')).toHaveAttribute('href', stop.source!.url);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-extragalactic-${stop.id}-${width}.png`) });
+      if (i < newStops.length - 1) {
+        await setScale(page, (stopExponent(stop) + stopExponent(newStops[i + 1])) / 2);
+        expect(Number(await page.locator('#cosmic-app').getAttribute('data-scene-coverage'))).toBeGreaterThan(.23);
+        await expect(page.locator('#cosmic-app')).toHaveAttribute('data-visible-objects', new RegExp(stop.id));
+        await expect(page.locator('#cosmic-app')).toHaveAttribute('data-visible-objects', new RegExp(newStops[i + 1].id));
+        await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-extragalactic-transition-${stop.id}-${width}.png`) });
+      }
+    }
+    await expect(page.locator('#cosmic-next')).toBeDisabled();
+    await expect(page.locator('#cosmic-out')).toBeDisabled();
+    await expect(page.locator('#cosmic-field-size')).toHaveText('2,760 亿光年');
+    await expect(page.locator('#cosmic-dimension')).toHaveText('现今直径约 920 亿光年');
+    await expect(page.locator('#cosmic-art-note')).toContainText('不是宇宙的实体边缘');
+    await page.locator('.cosmic-reading summary').click();
+    await expect(page.locator('#cosmic-caveat')).toContainText('目前没有可靠答案');
+    await page.locator('.cosmic-reading summary').click();
+    await page.screenshot({ fullPage: true, path: testInfo.outputPath(`cosmic-observable-page-${width}.png`) });
+    await page.locator('#cosmic-stage').focus();
+    await page.keyboard.press('PageUp');
+    await expect(page.locator('#cosmic-name')).toHaveText('宇宙网的一片区域');
+    await page.keyboard.press('End');
+    expect(Math.abs(await exponent(page) - MAX_EXP)).toBeLessThan(.001);
+    await page.keyboard.press('Home');
+    expect(Math.abs(await exponent(page) - HOME_EXP)).toBeLessThan(.001);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('record uninterrupted galaxy-to-observable motion and reverse navigation', async ({ page }, testInfo) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/tools/cosmic-scale/');
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+    await setScale(page, stopExponent(STOPS.find(stop => stop.id === 'galaxy')!));
+    await page.locator('#cosmic-play').click();
+    await page.locator('#cosmic-stage').scrollIntoViewIfNeeded();
+    await expect.poll(() => exponent(page), { timeout: 22_000, intervals: [100] }).toBeGreaterThan(MAX_EXP - .001);
+    await expect(page.locator('#cosmic-status')).toContainText('已抵达可观测宇宙');
+    await expect(page.locator('#cosmic-app')).toHaveAttribute('data-playing', 'false');
+    await page.locator('#cosmic-stage').screenshot({ path: testInfo.outputPath(`cosmic-continuous-observable-${width}.png`) });
+    await page.locator('#cosmic-select').selectOption('local-group');
+    await expect(page.locator('#cosmic-app')).toHaveAttribute('data-motion', 'true');
+    await page.locator('#cosmic-select').selectOption('observable');
+    await expect.poll(() => exponent(page)).toBeCloseTo(MAX_EXP, 3);
+    await page.locator('#cosmic-home').click();
+    await expect(page.locator('#cosmic-app')).toHaveAttribute('data-motion', 'true');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.locator('#cosmic-app')).toHaveAttribute('data-motion', 'false');
+    const paused = await exponent(page); await page.waitForTimeout(250);
+    expect(await exponent(page)).toBe(paused);
+    await page.locator('#cosmic-select').selectOption('observable');
+    expect(Math.abs(await exponent(page) - MAX_EXP)).toBeLessThan(.001);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  }
+  expect(errors).toEqual([]);
 });

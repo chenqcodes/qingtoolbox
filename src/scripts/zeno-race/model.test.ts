@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame, pursuitCamera, groundAnchor } from './model';
 const close = (a: number, b: number, tolerance = 1e-12) => assert.ok(Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(b)), `${a} ≠ ${b}`);
 test('default stages are 1, 0.1, 0.01 seconds; the finite limit is 10/9', () => {
   close(meetingTime(DEFAULT_RACE)!, 10 / 9);
@@ -313,4 +313,41 @@ test('extreme finite speed ratios never turn a positive gap into a mathematical 
       if (u === 1) close(current.logGap, stageAt(p, 1).logGap);
     }
   }
+});
+
+
+
+test('one camera maps every frozen coordinate coherently into the next chase', () => {
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: .1 }, { lead: 10, rabbit: 10, turtle: 9 }, { lead: 10, rabbit: 1, turtle: 2 }, { lead: 10, rabbit: 2, turtle: 2 }]) {
+    for (const index of [1, 2, 5, 20, 100, 199]) {
+      const before = pursuitFrame(p, index - 1, 1), after = pursuitFrame(p, index, 0);
+      if (!Number.isFinite(stageAt(p, index).time)) continue;
+      const start = pursuitCamera(p, index, 0), end = pursuitCamera(p, index, 1);
+      assert.deepEqual(start, { scale: 1, x: 0, y: 0 });
+      close(before.rabbitX * end.scale + end.x, after.rabbitX, 1e-10);
+      close(before.turtleX * end.scale + end.x, after.turtleX, 1e-10);
+      const anchor = groundAnchor(p, index - 1, before), nextAnchor = groundAnchor(p, index, after);
+      close(anchor * end.scale + end.x, nextAnchor, 1e-10);
+      let previous = start.scale;
+      for (let u = 0; u <= 1; u += .025) {
+        const camera = pursuitCamera(p, index, u);
+        assert.ok(Object.values(camera).every(Number.isFinite)); assert.ok(camera.scale > 0);
+        close(235 * camera.scale + camera.y, 235);
+        close(camera.x, end.x * u); close(camera.scale, 1 + (end.scale - 1) * u);
+        if (p.turtle < p.rabbit) assert.ok(camera.scale >= previous);
+        previous = camera.scale;
+        close((before.turtleX - before.rabbitX) * camera.scale, before.screenGap * camera.scale, 1e-10);
+      }
+    }
+  }
+});
+
+test('ground landmarks remain stationary through a chase and share the zoom focal point', () => {
+  for (const p of [DEFAULT_RACE, { lead: 10, rabbit: 10, turtle: 9.9 }, { lead: 10, rabbit: 1, turtle: 2 }, { lead: 10, rabbit: 2, turtle: 2 }]) {
+    for (const index of [0, 1, 20, 199]) {
+      const origin = groundAnchor(p, index, pursuitFrame(p, index, 0));
+      for (const u of [0, .2, .5, .8, 1]) close(groundAnchor(p, index, pursuitFrame(p, index, u)), origin, 1e-10);
+    }
+  }
+  assert.throws(() => pursuitCamera(DEFAULT_RACE, 1, NaN), RangeError);
 });

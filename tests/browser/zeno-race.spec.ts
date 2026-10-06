@@ -100,6 +100,8 @@ for (const width of [390, 320]) test(`mobile ${width}px keyboard, reduced motion
   await steps(page, 190); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '200');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   await page.screenshot({ path: testInfo.outputPath(`zeno-gap-last-${width}.png`), fullPage: true });
+  expect(await page.locator('#zr-turtle .zr-point').evaluate(node => node.getBoundingClientRect().width)).toBeGreaterThanOrEqual(4);
+  expect(await page.locator('#zr-ruler-value').evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(9);
   await page.locator('#zr-explanation>summary').focus(); await page.keyboard.press('Enter'); await expect(page.locator('#zr-explanation')).toHaveAttribute('open', '');
   await page.locator('#zr-mode-continuous').focus(); await page.keyboard.press('Enter'); await page.locator('#zr-scrub').focus(); await page.keyboard.press('End');
   await expect(page.locator('#zr-full-gap')).toContainText('兔子已领先');

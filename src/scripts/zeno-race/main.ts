@@ -97,6 +97,7 @@ if (root) {
   function renderGap() {
     const ratio = p.rabbit > 0 ? p.turtle / p.rabbit : 1;
     const moving = !!pending && !reducedMotion.matches;
+    const mobile = window.matchMedia('(max-width: 720px)').matches;
     const scene = pursuitFrame(p, stage.index, moving ? progress : 0);
     const { rabbitX: left, turtleX: right, screenGap, logGap, logPixelsPerMetre,
       glyphScale: scale, bodyOpacity, pointMix } = scene;
@@ -111,7 +112,7 @@ if (root) {
       const whole = group.querySelector('.zr-whole')!, head = group.querySelector('.zr-head')!, point = group.querySelector('.zr-point')!;
       whole.setAttribute('transform', `translate(${shift * scale} ${id === 'zr-rabbit' ? bob : bob * .25}) scale(${scale})`);
       whole.setAttribute('opacity', String(bodyOpacity)); head.setAttribute('opacity', '0');
-      point.setAttribute('transform', `translate(0 ${224 - bodyY})`); point.setAttribute('r', '5');
+      point.setAttribute('transform', `translate(0 ${224 - bodyY})`); point.setAttribute('r', mobile ? '7' : '5');
       point.setAttribute('opacity', String(pointMix));
     }
     const world = el('zr-world'), grid = el('zr-ground-grid'); world.replaceChildren();
@@ -148,9 +149,8 @@ if (root) {
     const unit = distance.split(' ').at(-1) ?? 'm';
     const scaleNames: Record<string, string> = { m: '米的尺度', cm: '厘米的尺度', mm: '毫米的尺度', 'μm': '微米的尺度', nm: '纳米的尺度', pm: '皮米的尺度' };
     text('zr-scale-label', logGap === -Infinity ? '已经相遇' : distance.includes('e-') ? '继续细分 · 数学尺度' : scaleNames[unit] ?? '数学尺度');
-    const mobile = window.matchMedia('(max-width: 720px)').matches;
     el('zr-gap-svg').setAttribute('font-size', mobile ? '28' : '20');
-    el('zr-ruler-value').setAttribute('font-size', mobile ? '24' : '13');
+    el('zr-ruler-value').setAttribute('font-size', mobile ? '32' : '13');
     el('zr-old-label').setAttribute('font-size', mobile ? '23' : '14');
     const zoomPower = magnification / Math.LN10;
     text('zr-camera-label', logGap === -Infinity ? '两者已经相遇' : `${ratio < 1 && p.turtle > 0 ? '连续放大' : '跟随镜头'} · ×${Math.abs(zoomPower) < 3 ? format(10 ** zoomPower, 1) : `10^${format(zoomPower, 1)}`}`);

@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import { MAX_EXP, MIN_EXP, STOPS, stopExponent } from './model';
 import { sceneAt, measureAxis, measurementLabel, sceneLabels, zoomOverlay } from './scene';
 
-test('35 recognizable references bridge the former empty decades', () => {
-  assert.equal(STOPS.length, 35);
+test('44 recognizable references bridge every scale through the observable universe', () => {
+  assert.equal(STOPS.length, 44);
   for (let i = 1; i < STOPS.length; i++) assert.ok(STOPS[i].size / STOPS[i - 1].size <= 15, `${STOPS[i-1].id}→${STOPS[i].id}`);
   for (const id of ['virus', 'bacterium', 'pollen', 'coin', 'tree', 'park', 'moon-body', 'jupiter', 'comet-orbit', 'oort-inner', 'oort-outer', 'nebula', 'cluster', 'bubble', 'arm']) assert.ok(STOPS.find(s => s.id === id));
 });
@@ -73,7 +73,8 @@ test('the selected object always keeps its measurement label on mobile and deskt
 
 test('camera velocity matches across every anchor, not only its position', () => {
   for (const stop of STOPS.slice(1, -1)) {
-    const e = stopExponent(stop), h = 1e-6;
+    // Close extragalactic anchors have higher curvature: reduce truncation error.
+    const e = stopExponent(stop), h = 1e-7;
     const x = (value: number) => sceneAt(value, 1100, 600).objects.find(o => o.stop.id === stop.id)!.x;
     const incoming = (x(e) - x(e - h)) / h, outgoing = (x(e + h) - x(e)) / h;
     assert.ok(Math.abs(incoming - outgoing) < .05, `${stop.id} changed camera velocity abruptly`);

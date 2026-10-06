@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AU, LIGHT_YEAR, STOPS, MIN_EXP, MAX_EXP, HOME_EXP, clamp, formatLength, nearestStop, nextStop, projectedSize, scaleBar, stopExponent } from './model';
+import { AU, LIGHT_YEAR, OBSERVABLE_DIAMETER, STOPS, MIN_EXP, MAX_EXP, HOME_EXP, clamp, formatLength, nearestStop, nextStop, projectedSize, scaleBar, stopExponent } from './model';
 
 test('SI constants and scientific reference dimensions remain explicit', () => {
   assert.equal(AU, 149_597_870_700);
@@ -46,6 +46,8 @@ test('readable unit formatting avoids overflowing exponential strings', () => {
   assert.equal(formatLength(7.5e-6), '7.5 微米'); assert.equal(formatLength(.12), '12 厘米');
   assert.equal(formatLength(200), '200 米'); assert.equal(formatLength(30_000), '30 千米');
   assert.equal(formatLength(AU), '1 AU'); assert.equal(formatLength(100_000 * LIGHT_YEAR), '10 万光年');
+  assert.equal(formatLength(OBSERVABLE_DIAMETER), '920 亿光年');
+  assert.equal(formatLength(OBSERVABLE_DIAMETER * 3), '2,760 亿光年');
   assert.equal(formatLength(NaN), '—');
   for (let e = MIN_EXP; e <= MAX_EXP; e += .11) assert.ok(!formatLength(10 ** e).includes('e+'));
 });
@@ -56,4 +58,17 @@ test('scale ruler is physically correct at all zoom levels and viewport widths',
     assert.ok(bar.pixels > width * .0799 && bar.pixels <= width * .20001);
     assert.ok(Math.abs(bar.pixels / width - bar.metres / 10 ** e) < 1e-12);
   }
+});
+
+
+test('extragalactic references distinguish distances, structures and the observable horizon', () => {
+  assert.equal(STOPS.at(-1)!.id, 'observable');
+  assert.equal(STOPS.at(-1)!.size, OBSERVABLE_DIAMETER);
+  assert.equal(OBSERVABLE_DIAMETER / LIGHT_YEAR, 92_000_000_000);
+  const cases: Record<string, number> = { andromeda: 220_000, 'andromeda-distance': 2_500_000, 'local-group': 10_000_000, 'coma-cluster': 20_000_000, 'local-supercluster': 100_000_000, laniakea: 520_000_000, 'sloan-wall': 1_370_000_000, 'cosmic-web': 10_000_000_000 };
+  for (const [id, ly] of Object.entries(cases)) { const s = STOPS.find(s => s.id === id)!; assert.equal(s.size, ly * LIGHT_YEAR); assert.ok(s.source?.url.startsWith('https://')); }
+  assert.match(STOPS.at(-1)!.caveat, /不是宇宙的实体边缘/);
+  assert.match(STOPS.at(-1)!.caveat, /目前没有可靠答案/);
+  assert.match(STOPS.find(s => s.id === 'cosmic-web')!.caveat, /人为选取/);
+  assert.match(STOPS.find(s => s.id === 'sloan-wall')!.caveat, /并非引力束缚/);
 });

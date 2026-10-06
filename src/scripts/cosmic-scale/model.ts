@@ -1,7 +1,7 @@
 /** SI metres throughout. View exponent is log10(horizontal field width in metres). */
 export const AU = 149_597_870_700;
 export const LIGHT_YEAR = 299_792_458 * 365.25 * 86_400;
-export type Kind = 'dna' | 'cell' | 'sand' | 'cup' | 'person' | 'block' | 'city' | 'earth' | 'moon-distance' | 'sun' | 'solar' | 'stellar' | 'galaxy' | 'virus' | 'bacterium' | 'pollen' | 'seed' | 'coin' | 'tree' | 'park' | 'region' | 'moon-body' | 'jupiter' | 'giant' | 'orbit' | 'heliosphere' | 'comet-orbit' | 'oort' | 'nebula' | 'cluster' | 'bubble' | 'arm';
+export type Kind = 'dna' | 'cell' | 'sand' | 'cup' | 'person' | 'block' | 'city' | 'earth' | 'moon-distance' | 'sun' | 'solar' | 'stellar' | 'galaxy' | 'virus' | 'bacterium' | 'pollen' | 'seed' | 'coin' | 'tree' | 'park' | 'region' | 'moon-body' | 'jupiter' | 'giant' | 'orbit' | 'heliosphere' | 'comet-orbit' | 'oort' | 'nebula' | 'cluster' | 'bubble' | 'arm' | 'galaxy-distance' | 'galaxy-group' | 'galaxy-cluster' | 'supercluster' | 'laniakea' | 'wall' | 'cosmic-web' | 'observable';
 export interface ScaleStop {
   id: string; name: string; chapter: string; size: number; dimension: string; kind: Kind;
   color: string; fact: string; caveat: string; source?: { name: string; url: string };
@@ -47,7 +47,21 @@ const INTERMEDIATE: readonly ScaleStop[] = [
   { id: 'bubble', name: '本地泡', chapter: '06 / 银河里的风景', size: 1000 * LIGHT_YEAR, dimension: '跨度约 1,000 光年', kind: 'bubble', color: '#91d6d7', fact: '我们身处的星际邻域，有一个巨大的低密度空腔。恒星诞生的云，点缀在它的周围。', caveat: '约 1,000 光年是特征尺度，真实边界不规则；这里的薄壳与亮点为结构示意，不是可见光外观。', source: { name: 'CfA · 本地泡研究', url: 'https://www.cfa.harvard.edu/news/1000-light-year-wide-bubble-surrounding-earth-source-all-nearby-young-stars' } },
   { id: 'arm', name: '一段银河旋臂', chapter: '06 / 银河里的风景', size: 10_000 * LIGHT_YEAR, dimension: '示例切片宽 1 万光年', kind: 'arm', color: '#c8c6f2', fact: '星云、星团与星际空腔，开始汇成更宽阔的纹理。再退一步，整个银河的旋臂就出现了。', caveat: '取 1 万光年宽的虚构旋臂切片作过渡，不代表某条真实旋臂的全长；星点放大，结构与颜色为艺术示意。' },
 ];
-export const STOPS: readonly ScaleStop[] = [...LANDMARKS, ...INTERMEDIATE].sort((a, b) => a.size - b.size);
+/** Extragalactic lengths stay on the same SI line. Region extents are approximate,
+ * and the final horizon describes the observable universe, never the whole universe. */
+export const OBSERVABLE_DIAMETER = 92_000_000_000 * LIGHT_YEAR;
+const EXTRAGALACTIC: readonly ScaleStop[] = [
+  { id: 'andromeda', name: '仙女座星系', chapter: '07 / 银河之外', size: 220_000 * LIGHT_YEAR, dimension: '星盘直径约 22 万光年', kind: 'galaxy', color: '#b9d6f4', fact: '银河系并没有装下所有星星。旁边这个更大的恒星盘，是另一个星系。', caveat: '取 NASA 科普中的约 22 万光年星盘跨度，恒星盘没有清晰硬边界；这里画成正面结构示意，不是从地球看到的倾角，也不含气体晕。', source: { name: 'NASA · 银河与仙女座的尺度', url: 'https://science.nasa.gov/universe/exoplanets/our-milky-way-galaxy-how-big-is-space/' } },
+  { id: 'andromeda-distance', name: '到仙女座的距离', chapter: '07 / 银河之外', size: 2_500_000 * LIGHT_YEAR, dimension: '距离约 250 万光年', kind: 'galaxy-distance', color: '#c9d5f3', fact: '两个星系之间，留着更宽广的空隙。横线比较的是距离，旁边的星盘仍按各自的直径缩小。', caveat: '线段长约 250 万光年，表示我们到仙女座的距离；两端星盘分别按 10 万和 22 万光年绘制，位置与朝向为示意，不是精确星图。', source: { name: 'NASA · 仙女座星系', url: 'https://www.nasa.gov/universe/galaxies/andromeda-galaxy/' } },
+  { id: 'local-group', name: '本星系群', chapter: '07 / 银河之外', size: 10_000_000 * LIGHT_YEAR, dimension: '区域直径约 1,000 万光年', kind: 'galaxy-group', color: '#a7d4e3', fact: '银河、仙女座与许多较小的星系，组成我们的星系邻里。现在，一个光点代表的是星系。', caveat: '以 NASA 给出的接近 1,000 万光年直径为近似参照；虚线圈仅标示区域跨度，成员位置、亮度与数量为示意，星系定位点放大显示。', source: { name: 'NASA · 本星系群', url: 'https://imagine.gsfc.nasa.gov/features/cosmic/local_group_info.html' } },
+  { id: 'coma-cluster', name: '后发座星系团', chapter: '07 / 银河之外', size: 20_000_000 * LIGHT_YEAR, dimension: '跨度约 2,000 万光年量级', kind: 'galaxy-cluster', color: '#e1c9ab', fact: '星系聚成更密集的群落，星系之间还有炽热而稀薄的气体。这个团块包含数以千计的星系。', caveat: 'ESO 描述其跨度超过 2,000 万光年，这里取 2,000 万作量级参照；星系点与气体辉光是放大的结构示意，不是照片或实测成员地图。', source: { name: 'ESO · 星系团的大小与气体', url: 'https://www.eso.org/public/news/eso0320/' } },
+  { id: 'local-supercluster', name: '本超星系团', chapter: '08 / 宇宙的大尺度结构', size: 100_000_000 * LIGHT_YEAR, dimension: '区域直径约 1 亿光年', kind: 'supercluster', color: '#b7bee9', fact: '许多星系群和星系团，连成更大的一片。室女座星系团位于本超星系团的中心区域。', caveat: 'NASA 给出的约 1 亿光年是区域特征尺度，不是坚硬边界；分支、节点与扁平形态为结构示意，非真实三维坐标。后发座星系团只在旁边比较大小，不表示属于此区域。', source: { name: 'NASA · 本超星系团', url: 'https://imagine.gsfc.nasa.gov/features/cosmic/local_supercluster_info.html' } },
+  { id: 'laniakea', name: '拉尼亚凯亚超星系团', chapter: '08 / 宇宙的大尺度结构', size: 520_000_000 * LIGHT_YEAR, dimension: '特征跨度约 5.2 亿光年', kind: 'laniakea', color: '#e3bfa2', fact: '沿着星系的运动，可以勾勒更大的引力流域。我们所在的区域，也连进了这张更宽广的网。', caveat: '依据 Tully 等 2014 年提出的约 160 Mpc（约 5.2 亿光年）流域定义；边界依赖模型，不是单一引力束缚天体。流线与节点为艺术示意，不是实际速度场。', source: { name: 'Nature · 拉尼亚凯亚研究（2014）', url: 'https://www.nature.com/articles/nature13674' } },
+  { id: 'sloan-wall', name: '斯隆长城', chapter: '08 / 宇宙的大尺度结构', size: 1_370_000_000 * LIGHT_YEAR, dimension: '长度约 13.7 亿光年', kind: 'wall', color: '#b8ceee', fact: '星系连成丝状与片状的结构，像宇宙中的一段长城。它不是一道实心的墙。', caveat: '取 Gott 等论文给出的约 13.7 亿光年长度；并非引力束缚在一起的单一天体，也不宣称它是当前最大的结构。弯曲形态、厚度与亮点为示意。', source: { name: 'Gott 等 · 宇宙地图', url: 'https://arxiv.org/abs/astro-ph/0310571' } },
+  { id: 'cosmic-web', name: '宇宙网的一片区域', chapter: '08 / 宇宙的大尺度结构', size: 10_000_000_000 * LIGHT_YEAR, dimension: '示例区域宽 100 亿光年', kind: 'cosmic-web', color: '#a8c8e8', fact: '丝状结构交织，留下大片空洞。再向外看，刚才的超星系团与长城，也只是网中的细小纹理。', caveat: '人为选取 100 亿光年的示例切片作尺度过渡；不是名为“宇宙网”的单一天体直径，也不是这个范围的实测地图。网丝与节点放大显示，展示结构类型，不表示具体星系坐标。', source: { name: 'NASA · 星系网丝、片层与空洞', url: 'https://imagine.gsfc.nasa.gov/features/cosmic/sheets_voids_info.html' } },
+  { id: 'observable', name: '可观测宇宙', chapter: '09 / 我们能看见的范围', size: OBSERVABLE_DIAMETER, dimension: '现今直径约 920 亿光年', kind: 'observable', color: '#c3daf0', fact: '旅程来到我们能观测的范围。因为空间一直在膨胀，现今直径远大于宇宙年龄乘以光速的两倍。', caveat: '采用 NASA 约 920 亿光年的现今直径估计。圆圈表示以观测者为中心的可观测范围，不是宇宙的实体边缘，也不是从宇宙外拍摄的照片。整座宇宙究竟多大、有限还是无限，目前没有可靠答案。', source: { name: 'NASA · 空间究竟有多大？', url: 'https://www.nasa.gov/science-research/astrophysics/how-big-is-space-we-asked-a-nasa-expert-episode-61/' } },
+];
+export const STOPS: readonly ScaleStop[] = [...LANDMARKS, ...INTERMEDIATE, ...EXTRAGALACTIC].sort((a, b) => a.size - b.size);
 export const MIN_EXP = Math.log10(STOPS[0].size * 3);
 export const MAX_EXP = Math.log10(STOPS[STOPS.length - 1].size * 3);
 export const HOME_EXP = Math.log10(STOPS.find(s => s.id === 'cup')!.size * 3);
@@ -63,6 +77,7 @@ export function formatLength(m: number): string {
   if (m === 0) return '0 米';
   if (m >= LIGHT_YEAR * .1) {
     const ly = m / LIGHT_YEAR;
+    if (ly >= 100_000_000) return `${number(ly / 100_000_000)} 亿光年`;
     return ly >= 10_000 ? `${number(ly / 10_000)} 万光年` : `${number(ly)} 光年`;
   }
   if (m >= AU * .1) return `${number(m / AU)} AU`;

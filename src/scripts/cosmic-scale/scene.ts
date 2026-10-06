@@ -2,7 +2,7 @@ import { clamp, projectedSize, STOPS, stopExponent, type ScaleStop } from './mod
 
 /** A comparison lane, not a spatial map. The intervals are in metres and never
  * overlap: the layout changes position, never an object's physical scale. */
-export const heightFactor = (stop: ScaleStop): number => ['dna', 'bacterium'].includes(stop.kind) ? .4 : ['moon-distance', 'stellar'].includes(stop.kind) ? .14 : stop.kind === 'comet-orbit' ? Math.sqrt(1 - .85 ** 2) : ['arm', 'nebula'].includes(stop.kind) ? .7 : 1;
+export const heightFactor = (stop: ScaleStop): number => ['dna', 'bacterium'].includes(stop.kind) ? .4 : ['moon-distance', 'stellar', 'galaxy-distance'].includes(stop.kind) ? .14 : stop.kind === 'comet-orbit' ? Math.sqrt(1 - .85 ** 2) : ['arm', 'nebula', 'wall', 'supercluster'].includes(stop.kind) ? .7 : 1;
 export const widthFactor = (stop: ScaleStop): number => stop.kind === 'person' ? .34 : stop.kind === 'tree' ? .72 : 1;
 const CENTRES: readonly number[] = STOPS.reduce<number[]>((centres, stop, index) => {
   centres.push(index ? centres[index - 1] + .6 * (STOPS[index - 1].size * widthFactor(STOPS[index - 1]) + stop.size * widthFactor(stop)) : 0);
@@ -72,7 +72,9 @@ export function measurementLabel(stop: ScaleStop): string {
     bacterium: '菌体长', block: '边长', park: '边长', city: '区域直径', region: '切片宽',
     'moon-distance': '中心距离', stellar: '距离', orbit: '轨道直径', solar: '轨道直径',
     'comet-orbit': '长轴', heliosphere: '模型跨度', oort: '模型直径', nebula: '切片宽',
-    bubble: '跨度', arm: '切片宽', galaxy: '星盘直径',
+    bubble: '跨度', arm: '切片宽', galaxy: '星盘直径', 'galaxy-distance': '距离',
+    'galaxy-group': '区域直径', 'galaxy-cluster': '跨度', supercluster: '区域直径',
+    laniakea: '跨度', wall: '长', 'cosmic-web': '示例宽', observable: '现今直径',
   };
   return names[stop.kind] ?? '直径';
 }

@@ -1,6 +1,6 @@
 import { DEFAULT_THICKNESS_MM, MAX_FOLDS, journeyFoldLimit, MIN_THICKNESS_MM, MAX_THICKNESS_MM, clampFolds, clampThickness, thicknessMetres, layers, formatLength, scientificMetres, milestoneFold } from './model';
 import { drawScene, viewLog } from './draw';
-import { drawStackFold, foldGeometry, interpolateFoldGeometry, type FoldGeometry } from './stack-fold';
+import { DETAIL_FOLD_END, foldGeometry, interpolateFoldGeometry, type FoldGeometry } from './stack-fold';
 import { JOURNEY_REFERENCES, MILESTONE_REFERENCES, adjacentReferences, projectedReferences, formatRatio } from './references';
 
 let dispose: (() => void) | undefined;
@@ -10,7 +10,6 @@ export function bootPaperFold(): void {
   if (!root) return;
   const get = <T extends HTMLElement>(id: string) => document.querySelector<T>(`#${id}`)!;
   const canvas = get<HTMLCanvasElement>('pf-canvas'), ctx = canvas.getContext('2d');
-  const detailCanvas = get<HTMLCanvasElement>('pf-fold-detail-canvas'), detailCtx = detailCanvas.getContext('2d');
   const range = get<HTMLInputElement>('pf-folds'), initial = get<HTMLInputElement>('pf-initial');
   const play = get<HTMLButtonElement>('pf-play'), step = get<HTMLButtonElement>('pf-step');
   const speed = get<HTMLSelectElement>('pf-speed');
@@ -19,7 +18,7 @@ export function bootPaperFold(): void {
   let folds = 0, thicknessMm = DEFAULT_THICKNESS_MM, playing = false;
   const foldLimit = () => journeyFoldLimit(thicknessMm);
   let exponent = 0, logMm = Math.log2(thicknessMm), logView = viewLog(0, thicknessMm);
-  let width = 800, height = 575, detailWidth = 320, detailHeight = 180, raf = 0, nextFoldAt = 0;
+  let width = 800, height = 575, raf = 0, nextFoldAt = 0;
   let detailPose = (half: number): FoldGeometry => foldGeometry(0, half);
   let detailCustom = false;
   type Motion = { fromExponent: number; toExponent: number; fromLogMm: number; toLogMm: number; fromView: number; toView: number; start: number; duration: number; detailJump: boolean; fromDetail: (half: number) => FoldGeometry };
@@ -31,25 +30,28 @@ export function bootPaperFold(): void {
     root!.dataset.view = logView.toFixed(8);
     root!.dataset.visualFold = exponent.toFixed(6);
     renderReferenceContext();
-    const detail = detailCtx ? drawStackFold(detailCtx, detailWidth, detailHeight, exponent, detailPose) : detailPose(80);
+    const detail = detailPose(80);
     root!.dataset.foldAngle = detail.angle.toFixed(6);
     root!.dataset.foldPhase = detail.phase.toFixed(6);
+    root!.dataset.foldRotation = detail.rotation.toFixed(6);
+    root!.dataset.foldAxis = detail.axis;
+    root!.dataset.foldYaw = (Math.floor(exponent) * Math.PI / 2 + detail.rotation).toFixed(6);
     root!.dataset.foldBundle = String(Math.floor(exponent));
-    root!.dataset.foldMode = motion?.detailJump ? 'journey' : detail.phase > 0 ? 'whole-stack' : 'rest';
-    const layerFold = Math.floor(exponent);
+    root!.dataset.foldMode = motion?.detailJump ? 'journey' : detail.phase >= DETAIL_FOLD_END ? 'rotate' : detail.phase > 0 ? 'whole-stack' : 'rest';
+    const layerFold = Math.floor(exponent) + (detail.phase >= DETAIL_FOLD_END ? 1 : 0);
     const layerText = layerFold < 10 ? `${2 ** layerFold} 层` : superscript(`2^${layerFold} 层`);
     const nextLayerText = layerFold < 9 ? `${2 ** (layerFold + 1)} 层` : superscript(`2^${layerFold + 1} 层`);
     const backward = Boolean(motion && motion.toExponent < motion.fromExponent);
-    get('pf-fold-detail-title').textContent = motion?.detailJump ? `前往第 ${folds} 次的纸叠`
+    get('pf-fold-detail-title').textContent = motion?.detailJump ? `前往第 ${folds} 次`
+      : detail.phase >= DETAIL_FOLD_END ? `${layerText} · 转向 90°`
       : detail.phase > 0 ? backward ? `${nextLayerText} → ${layerText}` : `${layerText} → ${nextLayerText}`
       : `${layerText}，${folds === foldLimit() ? '旅程抵达终点' : '准备对折'}`;
-    get('pf-fold-detail-state').textContent = motion?.detailJump ? '尺度跳转，纸叠从当前形态连续过渡'
-      : backward ? '整叠沿原折痕展开，回看上一折'
-      : detail.phase > .76 ? '整叠已经合拢 · 重新取景，准备下一折'
-      : detail.phase > 0 ? '右半叠的全部已有层，沿同一折痕翻转'
-      : '沿中线折起右半叠，所有层一起落下';
-    detailCanvas.setAttribute('aria-label', `整叠对折动作近景，${layerText}。所有已有层一起折起；近景宽厚和层组纹理为示意，实际厚度比例见上方。`);
-    if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView });
+    get('pf-fold-detail-state').textContent = motion?.detailJump ? '纸叠从当前形态连续过渡'
+      : backward ? '沿同一过程倒放，回看上一折'
+      : detail.phase >= DETAIL_FOLD_END ? '形状保持不变，整叠转向下一轴'
+      : detail.phase > 0 ? '全部已有层一起折起、合拢'
+      : '合拢后转向 90°，再沿下一轴对折';
+    if (ctx) drawScene(ctx, width, height, { exponent, thicknessMm: 2 ** logMm, logView, foldPose: detailPose });
   }
   function renderReferenceContext() {
     // Follow the visible fractional state, not the selected endpoint of a jump.
@@ -102,7 +104,7 @@ export function bootPaperFold(): void {
       root!.querySelector<HTMLElement>(`[data-milestone-fold="${ref.id}"]`)!.textContent = `${first} 次`;
       root!.querySelector<HTMLButtonElement>(`[data-milestone="${ref.id}"]`)!.setAttribute('aria-current', String(reached?.id === ref.id));
     }
-    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。纸叠厚度与参照物的高度、直径或距离共用长度比例尺；下方提供相邻参照与倍数，宽度示意。`);
+    canvas.setAttribute('aria-label', `已选择 ${folds} 次对折，理论厚度 ${formatLength(metres)}，共 ${exactLayers} 层。左侧厚度刻度与参照物的高度、直径或距离共用长度比例尺；整叠交替折叠、转向的形态与层纹为示意。下方提供相邻参照与倍数。`);
   }
   function cancelFrame() { if (raf) cancelAnimationFrame(raf); raf=0; }
   function requestFrame() { if (!raf && !document.hidden && (motion || playing)) raf=requestAnimationFrame(frame); }
@@ -127,7 +129,8 @@ export function bootPaperFold(): void {
     raf=0;if(document.hidden)return;
     if(motion){
       const progress=Math.min(1,(now-motion.start)/motion.duration),ease=progress*progress*(3-2*progress);
-      exponent=motion.fromExponent+(motion.toExponent-motion.fromExponent)*ease;
+      const travel = motion.detailJump ? ease : progress;
+      exponent=motion.fromExponent+(motion.toExponent-motion.fromExponent)*travel;
       logMm=motion.fromLogMm+(motion.toLogMm-motion.fromLogMm)*ease;
       logView=motion.fromView+(motion.toView-motion.fromView)*ease;
       detailCustom=motion.detailJump;
@@ -139,7 +142,7 @@ export function bootPaperFold(): void {
     if(playing&&!motion&&now>=nextFoldAt){
       if(folds>=foldLimit()){pause(`已抵达可观测宇宙尺度 · ${foldLimit()} 次旅程完成`);return;}
       const interval=Number(speed.value);nextFoldAt=now+interval;
-      moveTo(folds+1,Math.min(850,interval*.78));status(`正在折叠 · 第 ${folds} 次`);
+      moveTo(folds+1,interval);status(`正在折叠 · 第 ${folds} 次`);
     }
     requestFrame();
   }
@@ -180,10 +183,9 @@ export function bootPaperFold(): void {
   function resize() {
     const rect=canvas.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);
     const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx?.setTransform(dpr,0,0,dpr,0,0);
-    const detailRect=detailCanvas.getBoundingClientRect();detailWidth=Math.max(1,detailRect.width);detailHeight=Math.max(1,detailRect.height);
-    detailCanvas.width=Math.round(detailWidth*dpr);detailCanvas.height=Math.round(detailHeight*dpr);detailCtx?.setTransform(dpr,0,0,dpr,0,0);paint();
+    paint();
   }
-  const observer=new ResizeObserver(resize);observer.observe(canvas);observer.observe(detailCanvas);
+  const observer=new ResizeObserver(resize);observer.observe(canvas);
   window.addEventListener('resize',resize,{signal});
   get('pf-motion-note').hidden=!media.matches;
   renderValues();resize();

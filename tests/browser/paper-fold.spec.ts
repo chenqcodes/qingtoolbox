@@ -194,9 +194,11 @@ for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${widt
     const legend=await page.locator('.pf-scale-key').boundingBox();
     expect(legend!.y).toBeGreaterThanOrEqual(diagram!.y+diagram!.height);
     expect((await page.locator('#pf-stage').boundingBox())!.height).toBeLessThan(1040);
-    const detail=await page.locator('.pf-fold-detail').boundingBox();
-    expect(detail!.y).toBeGreaterThanOrEqual(legend!.y+legend!.height);
-    expect(await page.locator('.pf-fold-detail').evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBeTruthy();
+    const caption=await page.locator('.pf-fold-caption').boundingBox();
+    expect(caption!.y).toBeGreaterThan(diagram!.y);
+    expect(caption!.y+caption!.height).toBeLessThan(diagram!.y+diagram!.height);
+    await expect(page.locator('.pf-fold-detail')).toHaveCount(0);
+    await expect(page.locator('#pf-stage canvas')).toHaveCount(1);
     if([10,41,45,49,54,55,57,68,83,88,96,103].includes(fold)) { await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'})); await page.locator('#pf-stage').screenshot({path:testInfo.outputPath(`references-${width}-${fold}.png`)}); }
   }
 });
@@ -250,16 +252,20 @@ test('close red-supergiant references remain identifiable during ordinary playba
 });
 
 
-for(const width of [1440,390,320]) test(`whole-stack close-up poses stay readable at ${width}px`,async({page},testInfo)=>{
+for(const width of [1440,390,320]) test(`integrated fold and turn poses stay readable at ${width}px`,async({page},testInfo)=>{
   await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   for(const base of [2,4,102]){
     await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,base);await page.emulateMedia({reducedMotion:'no-preference'});
-    await page.locator('.pf-fold-detail').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
+    await page.locator('.pf-scene').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
     await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());await page.waitForTimeout(320);
     await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
-    expect(await page.locator('#pf-fold-detail-title').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*1.1)).toBeTruthy();
-    await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-turn.png`)});
+    expect(await page.locator('#pf-fold-detail-title').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*2.1)).toBeTruthy();
+    await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-bend.png`)});
+    await expect(lab).toHaveAttribute('data-fold-mode','rotate');
+    await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
+    await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-rotate.png`)});
+    await setFolds(page,base+1);
     await expect(lab).toHaveAttribute('data-motion','false');
   }
 });

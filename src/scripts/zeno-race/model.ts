@@ -171,3 +171,29 @@ export function pursuitFrame(p: RaceParameters, index: number, progress: number)
     logPixelsPerMetre: Math.log(span) - (logQ > 0 ? logQ + Math.log1p(Math.exp(-logQ)) : Math.log1p(Math.exp(logQ))) - stage.logGap,
     glyphScale: .5 + .5 / (1 + decades / 4), decades };
 }
+
+
+/** A single affine lens over a frozen scene, never separate animal tweens.
+ * Linear interpolation of the matrix scale/translation is a zoom about one
+ * invariant focal point (or a pure pan when scale is unchanged). */
+export function pursuitCamera(p: RaceParameters, index: number, progress: number) {
+  if (!Number.isFinite(progress)) throw new RangeError('Camera progress must be finite.');
+  const u = Math.min(1, Math.max(0, progress));
+  const from = pursuitFrame(p, Math.max(0, index - 1), index > 0 ? 1 : 0);
+  const to = pursuitFrame(p, index, 0);
+  if (!index || !u || from.logGap === -Infinity) return { scale: 1, x: 0, y: 0 };
+  const endScale = Math.exp(to.logPixelsPerMetre - from.logPixelsPerMetre);
+  const scale = 1 + (endScale - 1) * u;
+  return { scale, x: (to.rabbitX - endScale * from.rabbitX) * u, y: 235 * (1 - scale) };
+}
+
+/** A fixed world reference, expressed relative to the current finite segment.
+ * The virtual meeting point is stable even when absolute positions have rounded
+ * together. Equal speeds use the start line instead. No tiny gap is subtracted
+ * from a rounded large position. */
+export function groundAnchor(p: RaceParameters, index: number, frame: ReturnType<typeof pursuitFrame>): number {
+  if (!p.lead || !p.rabbit || frame.logGap === -Infinity) return frame.rabbitX;
+  if (p.rabbit === p.turtle) return 140 - index * (pursuitFrame(p, index, 0).screenGap);
+  const logOffset = frame.logGap + frame.logPixelsPerMetre + Math.log(p.rabbit) - Math.log(Math.abs(p.rabbit - p.turtle));
+  return frame.rabbitX + Math.sign(p.rabbit - p.turtle) * Math.exp(logOffset);
+}

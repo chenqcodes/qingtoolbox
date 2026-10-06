@@ -11,14 +11,14 @@ test('the primary experience shrinks through metre, centimetre and microscopic g
   await expect(page.locator('#zr-explanation')).not.toHaveAttribute('open');
   await expect(page.locator('#zr-mode-continuous')).not.toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('zeno-gap-start-desktop.png'), fullPage: true });
-  let previousGap = 561, previousGlyph = 1.01;
+  let previousGap = 561, previousGlyph = 0;
   for (const [stage, gap] of [[1, '1 m'], [2, '10 cm'], [3, '1 cm'], [4, '1 mm'], [5, '100 μm'], [7, '1 μm'], [10, '1 nm'], [17, '1e-16 m'], [20, '1e-19 m']] as const) {
     const current = Number(await lab.getAttribute('data-stage')); await steps(page, stage - current);
     await expect(lab).toHaveAttribute('data-stage', String(stage)); await expect(page.locator('#zr-gap')).toHaveText(gap);
     const scaleNames: Record<number, string> = { 1: '米的尺度', 2: '厘米的尺度', 3: '厘米的尺度', 4: '毫米的尺度', 5: '微米的尺度', 7: '微米的尺度', 10: '纳米的尺度', 17: '继续细分 · 数学尺度', 20: '继续细分 · 数学尺度' };
     await expect(page.locator('#zr-scale-label')).toHaveText(scaleNames[stage]);
     const screenGap = Number(await lab.getAttribute('data-screen-gap')), glyph = Number(await lab.getAttribute('data-glyph-scale'));
-    expect(screenGap).toBeLessThan(previousGap); expect(screenGap).toBeGreaterThan(8); expect(glyph).toBeLessThan(previousGlyph);
+    expect(screenGap).toBeLessThan(previousGap); expect(screenGap).toBeGreaterThan(8); expect(glyph).toBeGreaterThanOrEqual(previousGlyph);
     previousGap = screenGap; previousGlyph = glyph;
     if ([1, 3, 5, 10, 17, 20].includes(stage)) await page.screenshot({ path: testInfo.outputPath(`zeno-gap-stage-${stage}-desktop.png`), fullPage: true });
   }
@@ -184,7 +184,7 @@ test('fixed-camera pursuit visibly closes the gap before a separate frozen-time 
   expect(zoom.gap).toBeGreaterThan(near.gap); await expect(page.locator('#zr-camera-label')).toContainText('时间暂停');
   await track.screenshot({ path: testInfo.outputPath('pursuit-03-lens-only.png') });
   await page.locator('#zr-play').click(); const frozen = await motion(page); await page.clock.runFor(500); expect(await motion(page)).toEqual(frozen);
-  await page.locator('#zr-play').click(); await page.clock.runFor(650); expect((await motion(page)).phase).toBe('chase');
+  await page.locator('#zr-play').click(); await page.clock.runFor(1050); expect((await motion(page)).phase).toBe('chase');
   await page.locator('#zr-reset').click(); await page.clock.runFor(5000); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '0');
 });
 
@@ -194,7 +194,7 @@ for (const ratio of [0.1, .9]) test(`repeated fixed-camera pursuit at deep stage
   for (const stage of [0, 1, 5, 20, 199]) {
     await page.emulateMedia({ reducedMotion: 'reduce' }); await page.locator('#zr-reset').click(); await steps(page, stage);
     await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.locator('#zr-next').click();
-    if (stage) await page.clock.runFor(1050);
+    if (stage) await page.clock.runFor(1450);
     const start = await motion(page); await page.clock.runFor(650); const mid = await motion(page);
     expect(mid.phase).toBe('chase'); expect(mid.rabbit).toBeGreaterThan(start.rabbit); expect(mid.turtle).toBeGreaterThan(start.turtle);
     expect(mid.gap).toBeLessThan(start.gap); expect(mid.camera).toBe(start.camera); expect(mid.target).toBe(start.target);
@@ -224,4 +224,57 @@ test('reduced-motion autoplay holds each completed near-gap rather than reopenin
   await page.clock.runFor(1250); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '2');
   const second = await motion(page); expect(second.gap).toBeLessThan(first.gap);
   await page.locator('#zr-play').click(); await page.clock.runFor(4000); expect((await motion(page)).gap).toBe(second.gap);
+});
+
+
+
+for (const width of [320, 390, 1440]) test(`whole-scene camera zoom remains coherent and continuous at ${width}px`, async ({ page }, testInfo) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width, height: width < 500 ? 844 : 1000 });
+  await page.clock.install({ time: new Date('2026-10-06T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-06T00:00:01Z'));
+  await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab'), track = page.locator('#zr-track');
+  await page.locator('#zr-next').click(); await page.clock.runFor(2900);
+  const near = await motion(page);
+  await track.screenshot({ path: testInfo.outputPath(`camera-${width}-00-near.png`) });
+  await page.locator('#zr-next').click();
+  const initial = await page.locator('#zr-camera').evaluate((node: SVGGElement) => {
+    const item = (selector: string) => node.querySelector(selector)!.getAttribute('transform');
+    return { rabbit: item('#zr-rabbit'), turtle: item('#zr-turtle'), marker: node.querySelector('#zr-old-marker')!.getAttribute('d'), landmark: node.querySelector('#zr-ground-landmark')!.getAttribute('d') };
+  });
+  let previousScale = 1;
+  for (let frame = 1; frame <= 8; frame++) {
+    await page.clock.runFor(150);
+    const m = await motion(page); expect(m.phase).toBe('zoom'); expect(m.physical).toBe(near.physical); expect(m.logGap).toBe(near.logGap);
+    const transform = await page.locator('#zr-camera').evaluate((node: SVGGElement) => {
+      const m = node.transform.baseVal.consolidate()!.matrix;
+      return { a: m.a, d: m.d, e: m.e, f: m.f, rabbit: node.querySelector('#zr-rabbit')!.getAttribute('transform'), turtle: node.querySelector('#zr-turtle')!.getAttribute('transform'), marker: node.querySelector('#zr-old-marker')!.getAttribute('d'), landmark: node.querySelector('#zr-ground-landmark')!.getAttribute('d'), sameParent: ['#zr-world','#zr-rabbit','#zr-turtle','#zr-old-marker','#zr-rabbit-pin','#zr-turtle-pin'].every(s => node.contains(node.querySelector(s))) };
+    });
+    expect(transform.a).toBeGreaterThan(previousScale); previousScale = transform.a;
+    expect(transform.a).toBe(transform.d); expect(transform.f + 235 * transform.a).toBeCloseTo(235, 3);
+    expect(transform.rabbit).toBe(initial.rabbit); expect(transform.turtle).toBe(initial.turtle);
+    expect(transform.marker).toBe(initial.marker); expect(transform.landmark).toBe(initial.landmark); expect(transform.sameParent).toBe(true);
+    expect(m.rabbit).toBeCloseTo(near.rabbit * transform.a + transform.e, 3);
+    expect(m.turtle).toBeCloseTo(near.turtle * transform.a + transform.e, 3);
+    await track.screenshot({ path: testInfo.outputPath(`camera-${width}-${String(frame).padStart(2,'0')}-zoom.png`) });
+  }
+  const zoom = await motion(page); expect(zoom.gap).toBeGreaterThan(near.gap * 8);
+  await page.locator('#zr-play').click(); const frozen = await motion(page); await page.clock.runFor(1000); expect(await motion(page)).toEqual(frozen);
+  await page.locator('#zr-play').click(); await page.clock.runFor(200); expect((await motion(page)).phase).toBe('chase');
+  await track.screenshot({ path: testInfo.outputPath(`camera-${width}-09-next-chase.png`) });
+  await page.locator('#zr-reset').click(); await page.clock.runFor(5000); await expect(lab).toHaveAttribute('data-stage','0');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (let repeat = 0; repeat < 2; repeat++) {
+    await page.locator('#zr-next').click(); await page.clock.runFor(2900); await page.locator('#zr-next').click(); await page.clock.runFor(400);
+    await page.goto('/tools/'); await page.goBack(); await expect(lab).toHaveAttribute('data-running','false');
+    await page.locator('#zr-reset').click();
+  }
+  expect(errors).toEqual([]);
+});
+
+test('record a real-time chase, scene zoom and second chase without time jumps', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/tools/zeno-race/');
+  await page.locator('#zr-track').scrollIntoViewIfNeeded(); await page.locator('#zr-play').click();
+  await expect.poll(() => page.locator('#zeno-race-lab').getAttribute('data-stage'), { timeout: 15_000 }).toBe('2');
+  await page.locator('#zr-play').click(); await page.locator('#zr-track').screenshot({ path: testInfo.outputPath('camera-continuous-two-chases-mobile.png') });
+  await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'false');
 });

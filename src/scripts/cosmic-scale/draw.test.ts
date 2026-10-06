@@ -7,7 +7,7 @@ function mockCanvas() {
   let paths = 0, marks = 0, saves = 0;
   const gradient = { addColorStop: (at: number, color: string) => { assert.ok(at >= 0 && at <= 1); assert.ok(color); } };
   const methods: Record<string, (...args: unknown[]) => unknown> = {};
-  for (const key of ['clearRect', 'fillRect', 'arc', 'ellipse', 'moveTo', 'lineTo', 'bezierCurveTo', 'rect', 'translate', 'scale', 'rotate']) {
+  for (const key of ['clearRect', 'fillRect', 'strokeRect', 'arc', 'ellipse', 'moveTo', 'lineTo', 'bezierCurveTo', 'rect', 'translate', 'scale', 'rotate']) {
     methods[key] = (...args) => { for (const arg of args) if (typeof arg === 'number') assert.ok(Number.isFinite(arg), `${key}: nonfinite geometry`); paths++; };
   }
   for (const key of ['createRadialGradient', 'createLinearGradient']) methods[key] = (...args) => { for (const arg of args) assert.ok(Number.isFinite(arg)); return gradient; };

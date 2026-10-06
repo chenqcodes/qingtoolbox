@@ -1,6 +1,7 @@
 import { formatLength, scaleBar, type ScaleStop } from './model';
 import { sceneAt, measureAxis, sceneLabels, measurementLabel, type SceneObject } from './scene';
 import { paintIntermediate } from './illustrations';
+import { paintExtragalactic } from './extragalactic';
 type C = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const noise = (n: number): number => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -62,23 +63,23 @@ function city(c: C, block: boolean) {
   }
   c.restore(); c.strokeStyle = '#8cc3c177'; c.lineWidth = .004; c.stroke();
 }
-function galaxy(c: C) {
+function galaxy(c: C, andromeda = false) {
   c.save(); c.rotate(-.25);
   disc(c, 0, 0, .57, gradient(c, 0, 0, .57, [[0, '#f8d7b788'], [.14, '#cdb5ed44'], [.55, '#9185d41a'], [1, '#b48beb00']]));
-  for (let arm = 0; arm < 4; arm++) {
+  for (let arm = 0; arm < (andromeda ? 2 : 4); arm++) {
     for (let ribbon = 0; ribbon < 8; ribbon++) {
       c.beginPath();
       for (let j = 0; j < 100; j++) {
-        const r = .02 + j / 100 * .46, a = arm * Math.PI / 2 + r * 9 + (ribbon - 4) * .035;
+        const r = .02 + j / 100 * .46, a = arm * Math.PI / (andromeda ? 1 : 2) + r * (andromeda ? 12 : 9) + (ribbon - 4) * .035;
         const x = Math.cos(a) * r, y = Math.sin(a) * r;
         j ? c.lineTo(x, y) : c.moveTo(x, y);
       }
       c.strokeStyle = ribbon % 2 ? '#a79ddd1c' : '#c2bdf328'; c.lineWidth = .026; c.stroke();
     }
   }
-  for (let arm = 0; arm < 4; arm++) {
+  for (let arm = 0; arm < (andromeda ? 2 : 4); arm++) {
     for (let j = 0; j < 430; j++) {
-      const r = .025 + .475 * Math.sqrt(j / 430); const a = arm * Math.PI / 2 + r * 9 + (noise(j * 7 + arm * 99) - .5) * .53;
+      const r = .025 + .475 * Math.sqrt(j / 430); const a = arm * Math.PI / (andromeda ? 1 : 2) + r * (andromeda ? 12 : 9) + (noise(j * 7 + arm * 99) - .5) * .53;
       const rr = Math.min(.498, r * (.9 + noise(j * 13 + arm) * .13));
       disc(c, Math.cos(a) * rr, Math.sin(a) * rr, .0008 + noise(j + arm * 22) * .003, ['#dbc8fac7', '#adb7e9bb', '#f8dbb6a6', '#fcf0d8de'][j % 4]);
     }
@@ -94,7 +95,13 @@ function paintObject(c: C, stop: ScaleStop) {
     case 'earth': earth(c); break;
     case 'block': city(c, true); break;
     case 'city': city(c, false); break;
-    case 'galaxy': galaxy(c); break;
+    case 'galaxy': galaxy(c, stop.id === 'andromeda'); break;
+    case 'galaxy-group': case 'galaxy-cluster': case 'supercluster': case 'laniakea': case 'wall': case 'cosmic-web': case 'observable': paintExtragalactic(c, stop); break;
+    case 'galaxy-distance': {
+      line(c, [-.5, 0, .5, 0], '#c9d5f377', .0015);
+      for (const [x, size, andromeda] of [[-.5, 100_000 / 2_500_000, false], [.5, 220_000 / 2_500_000, true]] as const) { c.save(); c.translate(x, 0); c.scale(size, size); galaxy(c, andromeda); c.restore(); }
+      break;
+    }
     case 'dna': {
       for (let i = 0; i < 30; i++) { const x = -.5 + i / 29; const y = Math.sin(x * TAU / .34) * .1; line(c, [x, y, x, -y], i % 2 ? '#e6c7a077' : '#aacebb99', .008); }
       for (let strand = 0; strand < 2; strand++) { const p: number[] = []; for (let i = 0; i <= 200; i++) { const x = -.5 + i / 200; p.push(x, Math.sin(x * TAU / .34 + strand * Math.PI) * .1); } line(c, p, strand ? '#e5b894' : '#92dcda', .018); }

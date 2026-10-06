@@ -45,8 +45,8 @@ for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay cont
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-playing','false');await expect(lab).toHaveAttribute('data-folds','103');
   await expect(page.locator('#pf-fold-detail-title')).toContainText('旅程抵达终点');
-  await setFolds(page,102);await expect(lab).toHaveAttribute('data-fold-mode','rotate');
-  await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');await expect(lab).toHaveAttribute('data-motion','false');
+  await setFolds(page,102);await page.waitForFunction(()=>document.querySelector<HTMLElement>('#paper-fold-lab')?.dataset.foldMode==='rotate');
+  await page.waitForFunction(()=>document.querySelector<HTMLElement>('#paper-fold-lab')?.dataset.foldMode==='whole-stack');await expect(lab).toHaveAttribute('data-motion','false');
   await page.locator('#pf-reset').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-folds','0');
 });
@@ -56,7 +56,7 @@ test('pause in a bend or turn, rapid interruption, resize and reduced motion ret
   const lab=page.locator('#paper-fold-lab');
   await page.locator('#pf-speed').selectOption('1600');
   for(const mode of ['whole-stack','rotate']){
-    await page.locator('#pf-play').click();await expect(lab).toHaveAttribute('data-fold-mode',mode);
+    await page.locator('#pf-play').click();await page.waitForFunction(mode=>document.querySelector<HTMLElement>('#paper-fold-lab')?.dataset.foldMode===mode,mode);
     await page.waitForTimeout(100);await page.locator('#pf-play').click();
     const paused=await lab.evaluate(node=>[node.getAttribute('data-visual-fold'),node.getAttribute('data-fold-angle'),node.getAttribute('data-fold-rotation')]);
     await page.waitForTimeout(240);
@@ -74,10 +74,15 @@ test('pause in a bend or turn, rapid interruption, resize and reduced motion ret
   await expect(lab).toHaveAttribute('data-folds','7');await expect(lab).toHaveAttribute('data-fold-mode','rest');
   await setFolds(page,102);await page.emulateMedia({reducedMotion:'no-preference'});
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
-  await expect(lab).toHaveAttribute('data-fold-mode','rotate');
-  await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
+  // Sample the transient turn on RAF and pause in that same browser frame.
+  // Playwright's backed-off assertion polling can skip the entire 512 ms turn.
+  const finalTurn=await page.evaluate(()=>new Promise<number>(resolve=>{
+    const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
+    function sample(){if(lab.dataset.foldMode==='rotate'&&Number(lab.dataset.foldRotation)>.3){(document.querySelector('#pf-play') as HTMLButtonElement).click();resolve(Number(lab.dataset.visualFold));}else requestAnimationFrame(sample);}
+    requestAnimationFrame(sample);
+  }));
   await expect(page.locator('#pf-play')).toContainText('继续折叠');
-  const finalTurn=Number(await lab.getAttribute('data-visual-fold'));expect(finalTurn).toBeGreaterThan(102.6);
+  expect(finalTurn).toBeGreaterThan(102.6);
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
   expect(Number(await lab.getAttribute('data-visual-fold'))).toBeGreaterThanOrEqual(finalTurn);
   await expect(lab).toHaveAttribute('data-playing','false');await expect(lab).toHaveAttribute('data-folds','103');

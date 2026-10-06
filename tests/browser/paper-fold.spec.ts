@@ -262,8 +262,8 @@ for(const width of [1440,390,320]) test(`integrated fold and turn poses stay rea
     await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
     expect(await page.locator('#pf-fold-detail-title').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*2.1)).toBeTruthy();
     await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-bend.png`)});
-    await expect(lab).toHaveAttribute('data-fold-mode','rotate');
-    await expect.poll(async()=>Number(await lab.getAttribute('data-fold-rotation'))).toBeGreaterThan(.35);
+    await page.waitForFunction(()=>document.querySelector<HTMLElement>('#paper-fold-lab')?.dataset.foldMode==='rotate');
+    await page.waitForFunction(()=>Number(document.querySelector<HTMLElement>('#paper-fold-lab')?.dataset.foldRotation)>.35);
     await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
     await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-rotate.png`)});
     await setFolds(page,base+1);

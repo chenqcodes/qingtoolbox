@@ -207,3 +207,12 @@ export function groundAnchor(p: RaceParameters, index: number, frame: ReturnType
   if (p.rabbit === p.turtle) return frame.rabbitX - (index + frame.modelFraction) * frame.screenGap;
   return frame.rabbitX + Math.sign(p.rabbit - p.turtle) * frame.screenGap * p.rabbit / Math.abs(p.rabbit - p.turtle);
 }
+
+/** A displayable numeric clock may round to the meeting event, but never beyond
+ * it during a positive finite-tail step. The log tail carries the distinction. */
+export function pursuitTime(p: RaceParameters, index: number, progress: number): number {
+  const frame = pursuitFrame(p, index, progress), stage = stageAt(p, index);
+  const time = frame.modelFraction === 0 ? stage.time : stage.time + stageAt(p, index + 1).duration * frame.modelFraction;
+  const limit = meetingTime(p);
+  return limit === null ? time : Math.min(limit, time);
+}

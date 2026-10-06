@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame, groundAnchor } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame, pursuitTime, groundAnchor } from './model';
 const close = (a: number, b: number, tolerance = 1e-12) => assert.ok(Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(b)), `${a} ≠ ${b}`);
 test('default stages are 1, 0.1, 0.01 seconds; the finite limit is 10/9', () => {
   close(meetingTime(DEFAULT_RACE)!, 10 / 9);
@@ -237,4 +237,13 @@ test('glyph-to-dot transition stays gradual and leaves visible dots at the finit
   assert.equal(cameraForGap(-Infinity, -Infinity).screenGap, 0);
   assert.throws(() => cameraForGap(NaN, 0), RangeError);
   assert.throws(() => pursuitFrame(DEFAULT_RACE, 0, NaN), RangeError);
+});
+
+test('rounded finite-step clocks never cross the genuine meeting event', () => {
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 11.3, turtle: 1.2 }, { lead: 30, rabbit: 20, turtle: .1 }]) {
+    for (let n = 0; n < MAX_STAGES; n++) for (const v of [0, .1, .5, .9, 1]) {
+      assert.ok(pursuitTime(p, n, v) <= meetingTime(p)!);
+      assert.ok(Number.isFinite(pursuitFrame(p, n, v).logTail));
+    }
+  }
 });

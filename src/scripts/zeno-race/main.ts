@@ -1,4 +1,4 @@
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, groundAnchor, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, pursuitTime, groundAnchor, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
 
 const root = document.querySelector<HTMLElement>('#zeno-race-lab');
 if (root) {
@@ -184,7 +184,7 @@ if (root) {
     root!.dataset.phase = phase; root!.dataset.gap = String(Math.exp(logGap)); root!.dataset.logGap = String(logGap);
     root!.dataset.screenGap = String(screenGap); root!.dataset.glyphScale = String(scale); root!.dataset.logZoom = String(magnification);
     root!.dataset.rabbitX = String(left); root!.dataset.turtleX = String(right); root!.dataset.targetX = String(targetX);
-    root!.dataset.motionTime = String(moving && pending ? stage.time + pending.duration * scene.modelFraction : stage.time);
+    root!.dataset.motionTime = String(moving && pending ? pursuitTime(p, stage.index, progress) : stage.time);
     root!.dataset.logTail = String(scene.logTail); root!.dataset.cameraScale = String(logPixelsPerMetre); root!.dataset.progress = String(progress);
     const key = `${p.lead}/${p.rabbit}/${p.turtle}/${stage.index}`;
     if (historyKey !== key) {
@@ -278,7 +278,7 @@ if (root) {
         }
       }
     }
-    if (mode === 'steps' && pending && !reducedMotion.matches) time = stage.time + pending.duration * pursuitFrame(p, stage.index, progress).modelFraction;
+    if (mode === 'steps' && pending && !reducedMotion.matches) time = pursuitTime(p, stage.index, progress);
     render(); if (running) frame = requestAnimationFrame(tick);
   }
   function runFrames() { running = true; lastFrame = null; render(); frame = requestAnimationFrame(tick); }

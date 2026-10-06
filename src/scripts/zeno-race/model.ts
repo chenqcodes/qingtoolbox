@@ -136,64 +136,74 @@ export function cameraForGap(logGap: number, initialLogGap: number): GapCamera {
   }
   const shrinkLog = Math.min(Number.MAX_VALUE, Math.max(0, initialLogGap - logGap));
   const decades = shrinkLog / Math.LN10;
-  const screenGap = 8 + 552 / (1 + decades / 2);
+  const screenGap = 24 + 536 / (1 + decades / 1.5);
   return {
     screenGap,
     logZoom: Math.max(0, shrinkLog + Math.log(screenGap / 560)),
-    glyphScale: .11 + .89 / (1 + decades / 4),
+    glyphScale: .1 + .9 * Math.exp(-decades / 3),
     decades,
   };
 }
 
 
-/** One chase uses a fixed affine camera. Both animals move forward, and the rabbit
- * arrives at the turtle's marked starting position. Reframing is a separate phase.
- * Positions are calculated relative to this segment, never by subtracting rounded
- * absolute world coordinates. Illustrations sit outside their position markers. */
+/** One continuous slow-motion clock, with no hold or camera-only phase.
+ * A fractional stage v follows gap = L q^(n+v). Its physical segment fraction
+ * is (q^v - 1)/(q - 1), so model time advances strictly while its rate decreases
+ * smoothly toward the finite meeting limit. Integer boundaries have the same
+ * position, lens, and velocity on both sides. Logarithms retain the finite tail.
+ *
+ * One affine lens projects every world position. Its gap is compressed gradually
+ * to keep the narrowing visible. Illustration size is a separate, labeled visual
+ * schematic; it is never used to measure the physical gap. */
 export function pursuitFrame(p: RaceParameters, index: number, progress: number) {
   if (!Number.isFinite(progress)) throw new RangeError('Progress must be finite.');
-  const stage = stageAt(p, index), u = p.rabbit === 0 ? 0 : Math.min(1, Math.max(0, progress));
-  if (stage.logGap === -Infinity) return { rabbitX: 450, turtleX: 450, targetX: 450, screenGap: 0,
-    logGap: -Infinity, logPixelsPerMetre: 0, glyphScale: 1, decades: 0 };
-  const logQ = p.rabbit === 0 ? 0 : p.turtle === 0 ? -Infinity : ratioLog(p);
-  const decades = Math.max(0, (Math.log(p.lead) - stage.logGap) / Math.LN10);
-  const span = 340 + 240 / (1 + decades / 6);
-  // Logistic shares avoid overflowing the raw speed ratio or their sum.
-  const rabbitShare = logQ > 0 ? Math.exp(-logQ) / (1 + Math.exp(-logQ)) : 1 / (1 + Math.exp(logQ));
-  const turtleShare = logQ > 0 ? 1 / (1 + Math.exp(-logQ)) : Math.exp(logQ) / (1 + Math.exp(logQ));
-  const travel = span * rabbitShare, turtleTravel = span * turtleShare;
-  const a = Math.log1p(-u), b = logQ + Math.log(u), high = Math.max(a, b);
-  const logFactor = u === 0 ? 0 : high === -Infinity ? -Infinity : high + Math.log(Math.exp(a - high) + Math.exp(b - high));
-  const logGap = stage.logGap + logFactor;
-  const rabbitX = 140 + travel * u, turtleX = 140 + travel + turtleTravel * u;
-  return { rabbitX, turtleX, targetX: 140 + travel,
-    screenGap: travel * (1 - u) + turtleTravel * u, logGap,
-    logPixelsPerMetre: Math.log(span) - (logQ > 0 ? logQ + Math.log1p(Math.exp(-logQ)) : Math.log1p(Math.exp(logQ))) - stage.logGap,
-    glyphScale: .5 + .5 / (1 + decades / 4), decades };
+  const stage = stageAt(p, index), v = p.rabbit === 0 ? 0 : Math.min(1, Math.max(0, progress));
+  const sequence = index + v;
+  if (p.lead === 0 || p.turtle === 0 && index > 0) return { rabbitX: 700, turtleX: 700, targetX: 700,
+    originRabbitX: 700, screenGap: 0, logGap: -Infinity, logPixelsPerMetre: p.lead > 0 ? Math.log(560 / p.lead) : 0,
+    glyphScale: 1, decades: 0, bodyOpacity: 1, pointMix: 0, modelFraction: 0, logTail: -Infinity };
+  if (p.turtle === 0 && p.rabbit > 0) {
+    const screenGap = 560 * (1 - v), rabbitX = 140 + 560 * v;
+    return { rabbitX, turtleX: 700, targetX: 700, originRabbitX: 140, screenGap,
+      logGap: Math.log(p.lead) + Math.log1p(-v), logPixelsPerMetre: Math.log(560 / p.lead),
+      glyphScale: 1, decades: 0, bodyOpacity: 1, pointMix: 0, modelFraction: v,
+      logTail: Math.log(p.lead / p.rabbit) + Math.log1p(-v) };
+  }
+  const logQ = p.rabbit === 0 ? 0 : ratioLog(p);
+  const logGap = stage.logGap + logQ * v;
+  // expm1 retains accurate fractions when the speeds nearly match.
+  const modelFraction = logQ === 0 ? v : logQ > 50
+    ? Math.exp(logQ * (v - 1)) * -Math.expm1(-logQ * v) / -Math.expm1(-logQ)
+    : Math.expm1(logQ * v) / Math.expm1(logQ);
+  const shrinking = logQ < 0, camera = cameraForGap(logGap, Math.log(p.lead));
+  const growth = Math.max(0, logGap - Math.log(p.lead));
+  const screenGap = shrinking ? camera.screenGap : 560 + 60 * -Math.expm1(-growth / 4);
+  // Both screen positions move forward throughout a shrinking pursuit, including
+  // stage boundaries. Its drift also exceeds the shrinking illustration’s full
+  // right-side extent, so even its nose never appears to retreat.
+  const turtleX = shrinking ? 700 + 88 * (1 - camera.glyphScale) + 10 * camera.decades / (camera.decades + 3)
+    : 140 + (p.rabbit === 0 ? 0 : 40 * sequence / (sequence + 5)) + screenGap;
+  const rabbitX = turtleX - screenGap;
+  const logPixelsPerMetre = Math.log(screenGap) - logGap;
+  const logRemaining = v === 1 ? -Infinity : logQ < 0
+    ? logQ * v + Math.log(-Math.expm1(logQ * (1 - v))) - Math.log(-Math.expm1(logQ))
+    : Math.log1p(-modelFraction);
+  // The old segment origin can be arbitrarily far outside this viewport for
+  // extreme finite input ratios. Bound only offscreen annotation coordinates.
+  const offset = (logFraction: number) => Math.exp(Math.min(Math.log(1e12), stage.logGap + logPixelsPerMetre + logFraction));
+  const fade = Math.min(1, Math.max(0, (camera.decades - 3) / 6));
+  const pointMix = fade * fade * (3 - 2 * fade);
+  return { rabbitX, turtleX, targetX: rabbitX + offset(logRemaining),
+    originRabbitX: rabbitX - offset(Math.log(modelFraction)), screenGap, logGap, logPixelsPerMetre,
+    glyphScale: camera.glyphScale, decades: camera.decades, bodyOpacity: 1 - pointMix, pointMix,
+    modelFraction, logTail: stage.logTail === null ? null : stage.logTail + logQ * v };
 }
 
-
-/** A single affine lens over a frozen scene, never separate animal tweens.
- * Linear interpolation of the matrix scale/translation is a zoom about one
- * invariant focal point (or a pure pan when scale is unchanged). */
-export function pursuitCamera(p: RaceParameters, index: number, progress: number) {
-  if (!Number.isFinite(progress)) throw new RangeError('Camera progress must be finite.');
-  const u = Math.min(1, Math.max(0, progress));
-  const from = pursuitFrame(p, Math.max(0, index - 1), index > 0 ? 1 : 0);
-  const to = pursuitFrame(p, index, 0);
-  if (!index || !u || from.logGap === -Infinity) return { scale: 1, x: 0, y: 0 };
-  const endScale = Math.exp(to.logPixelsPerMetre - from.logPixelsPerMetre);
-  const scale = 1 + (endScale - 1) * u;
-  return { scale, x: (to.rabbitX - endScale * from.rabbitX) * u, y: 235 * (1 - scale) };
-}
-
-/** A fixed world reference, expressed relative to the current finite segment.
- * The virtual meeting point is stable even when absolute positions have rounded
- * together. Equal speeds use the start line instead. No tiny gap is subtracted
- * from a rounded large position. */
+/** Project one fixed world origin through the same continuously moving lens.
+ * The virtual meeting point remains usable after absolute positions round equal.
+ * Equal speeds use the starting line. No rounded world positions are subtracted. */
 export function groundAnchor(p: RaceParameters, index: number, frame: ReturnType<typeof pursuitFrame>): number {
   if (!p.lead || !p.rabbit || frame.logGap === -Infinity) return frame.rabbitX;
-  if (p.rabbit === p.turtle) return 140 - index * (pursuitFrame(p, index, 0).screenGap);
-  const logOffset = frame.logGap + frame.logPixelsPerMetre + Math.log(p.rabbit) - Math.log(Math.abs(p.rabbit - p.turtle));
-  return frame.rabbitX + Math.sign(p.rabbit - p.turtle) * Math.exp(logOffset);
+  if (p.rabbit === p.turtle) return frame.rabbitX - (index + frame.modelFraction) * frame.screenGap;
+  return frame.rabbitX + Math.sign(p.rabbit - p.turtle) * frame.screenGap * p.rabbit / Math.abs(p.rabbit - p.turtle);
 }

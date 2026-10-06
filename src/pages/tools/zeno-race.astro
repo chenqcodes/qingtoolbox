@@ -2,7 +2,7 @@
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import '../../styles/zeno-race.css';
 ---
-<ToolLayout title="追上那只乌龟 · 越来越小的芝诺悖论" description="还差一点，再靠近一点。固定镜头看兔子向前追近乌龟，再放大剩余的缝，从米到微米，看见芝诺悖论里始终还有的下一段。展开解释，还能探索完整时间与有限的相遇时刻。" currentSlug="zeno-race">
+<ToolLayout title="追上那只乌龟 · 越来越小的芝诺悖论" description="还差一点，再靠近一点。兔子不停向前追近乌龟，镜头同时平滑放大剩余的缝，从米到微米，看见芝诺悖论里始终还有的下一段。展开解释，还能探索完整时间与有限的相遇时刻。" currentSlug="zeno-race">
   <header class="zr-intro" slot="header">
     <span class="zr-eyebrow">追上那只乌龟 / ZENO’S PARADOX</span>
     <h1>还差一点。<br /><em>那就再靠近一点。</em></h1>
@@ -12,9 +12,9 @@ import '../../styles/zeno-race.css';
     <div class="zr-scene">
       <div class="zr-scene-top"><span>ALWAYS A LITTLE CLOSER</span><span id="zr-stage-label">起点 · 第 0 段</span></div>
       <div class="zr-gap-heading"><span id="zr-gap-label">还差</span><strong id="zr-gap">10 m</strong><span id="zr-gap-context">每一段之后，都还有下一段</span></div>
-      <div class="zr-phase"><i aria-hidden="true"></i><span id="zr-phase-label">① 先盯住乌龟的旧位置</span></div>
+      <div class="zr-phase"><i aria-hidden="true"></i><span id="zr-phase-label">边追近，边放大 · 脚步不停</span></div>
       <svg id="zr-track" viewBox="0 100 900 280" role="img" aria-labelledby="zr-track-title zr-track-desc">
-        <title id="zr-track-title">越来越小的间距</title><desc id="zr-track-desc">每次追赶时镜头和地面固定，两只动物都向右移动，兔子更快。兔子到达虚线标出的乌龟旧位置时，先停留观察余下的间距，再在时间定格时通过同一个镜头放大地面、角色和位置标记。位置由地面上的紫色与绿色标记确定，插画在间距外侧。</desc>
+        <title id="zr-track-title">越来越小的间距</title><desc id="zr-track-desc">两只动物连续向前，镜头同时平滑放大地面，屏幕上的间距仍然逐渐缩小。紫色与绿色标记表示精确位置，插画在间距外侧逐渐缩小并过渡为持久的小点。插画大小是示意，不代表真实动物体积。</desc>
         <defs>
           <radialGradient id="zr-glow"><stop stop-color="#ded4e8" stop-opacity=".7"/><stop offset="1" stop-color="#ded4e8" stop-opacity="0"/></radialGradient>
           <linearGradient id="zr-gap-fill"><stop stop-color="#a78bad" stop-opacity=".12"/><stop offset="1" stop-color="#9ba883" stop-opacity=".2"/></linearGradient>
@@ -61,7 +61,7 @@ import '../../styles/zeno-race.css';
       <div class="zr-camera-caption"><span id="zr-scale-label">米的尺度</span><span id="zr-camera-label">镜头 ×1</span></div>
       <div class="zr-observation"><p id="zr-observation">先跑到乌龟现在的位置。到那里时，它会在哪儿？</p></div>
       <div class="zr-main-actions"><button type="button" class="zr-primary" id="zr-next">再靠近一点 <span>→</span></button><button type="button" id="zr-play" aria-pressed="false">自动追赶</button><button type="button" id="zr-reset" aria-label="回到起点">↺ <span>重来</span></button></div>
-      <p id="zr-play-note" class="zr-play-note">每段慢放约 1.6 秒，方便看清；不是实际赛跑用时。</p>
+      <p id="zr-play-note" class="zr-play-note">连续慢放与放大同时进行；插画逐渐缩成位置点，不代表动物体积。</p>
       <p id="zr-status" class="zr-status" role="status" aria-live="polite">准备好了，试着再靠近一点。</p>
       <p class="zr-resolution" id="zr-resolution" hidden></p>
     </div>
@@ -73,7 +73,7 @@ import '../../styles/zeno-race.css';
       <p class="zr-control-note">匀速、同向、不停步。调整参数会暂停，并回到起点。</p>
       <div class="zr-shrink-history"><span id="zr-history-heading">距离，一次次缩小</span><div id="zr-gap-history" aria-label="最近几段的剩余距离"></div><p id="zr-ratio-note">每到一个旧位置，间距缩成原来的 1/10。</p></div>
       <div class="zr-legend"><span><i class="zr-dot rabbit"></i>兔子</span><span><i class="zr-dot turtle"></i>乌龟</span></div>
-      <p class="zr-control-note">紫、绿标记是两者的位置。追赶时地面不动；停留后再放大间距。地面格线与角色共用镜头。放大后角色移出视野，小点继续标出位置；插画不代表真实动物体积。</p>
+      <p class="zr-control-note">紫、绿标记是两者的位置。追赶与镜头放大同时进行，格线不断展开，间距仍然缩小。插画平滑缩小成持久的位置点；这是便于观察的示意大小，不代表动物体积。</p>
       <p class="zr-model-note">这里一直观察“追到旧位置”的有限步骤。每步还差一点，是这个观察方法的特点。</p>
     </aside>
     <details id="zr-explanation" class="zr-explanation">
@@ -106,7 +106,7 @@ import '../../styles/zeno-race.css';
       <div id="zr-continuous-controls" hidden><label for="zr-scrub">拖动完整时钟 <output id="zr-scrub-value">0 s</output></label><input id="zr-scrub" type="range" min="0" max="1000" step="1" value="0" /><p>拖动会暂停。模型时间连续变化；相遇线之后，兔子还会接着跑。</p></div>
 
         <div class="zr-sequence" id="zr-sequence" aria-label="已选择的截图时刻"></div></section>
-        <div class="zr-notes"><section><h3>把相遇直接算出来</h3><p>领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，相遇时刻 t* = L / (a − b)。</p><p>当 0 &lt; b &lt; a，令 q = b/a，第 n 段后的间距为 Lqⁿ，距相遇还需 t*qⁿ。每个有限 n 的余量都大于零，但它们的极限是零。</p></section><section><h3>这个画面有哪些约定？</h3><p>每段追赶使用固定镜头，两者按速度比例向前移动。到达旧位置后会定格，再放大整个画面。格线、旧位置和角色共用一个连续镜头；画面下方的文字与标尺读数保持可读。定格与慢放是观察手段，动物并没有真的停下；不能用动画播放时长推算真实用时。很小的距离是理想连续模型的数学延伸，不是动物能缩成这样的现实实验。</p><p>页面最多展示 200 个有限步骤。微小余量用对数独立计算；累计时间即使四舍五入到相遇时刻，也不表示这一步真的追上。</p><p>L = 0 时起点已相遇；乌龟静止且兔子向前时第一段追上；兔子不比乌龟快时，正的领先距离不会收敛到零。</p></section></div>
+        <div class="zr-notes"><section><h3>把相遇直接算出来</h3><p>领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，相遇时刻 t* = L / (a − b)。</p><p>当 0 &lt; b &lt; a，令 q = b/a，第 n 段后的间距为 Lqⁿ，距相遇还需 t*qⁿ。每个有限 n 的余量都大于零，但它们的极限是零。</p></section><section><h3>这个画面有哪些约定？</h3><p>追赶和镜头放大连续发生，经过一个旧位置时不会为放大而停步。模型时间不断前进，但慢放倍数逐渐增加，让越来越短的下一段仍然看得清。位置、格线和旧位置使用同一套投影；插画另用平滑缩小的示意尺寸，最后保留成位置点。屏幕间距采用连续压缩尺度，实际间距请看数字与标尺。动画播放时长不等于真实用时；持续展示相遇之前的区间，不表示真实赛跑永远追不上。微小距离是理想连续模型的数学延伸。</p><p>页面最多展示 200 个有限步骤。微小余量用对数独立计算；累计时间即使四舍五入到相遇时刻，也不表示这一步真的追上。</p><p>L = 0 时起点已相遇；乌龟静止且兔子向前时第一段追上；兔子不比乌龟快时，正的领先距离不会收敛到零。</p></section></div>
         <div class="zr-sources"><a href="https://sites.pitt.edu/~jdnorton/teaching/paradox/chapters/Zeno/Zeno.html" target="_blank" rel="noopener noreferrer">匹兹堡大学 · 芝诺悖论 ↗</a><a href="https://pi.math.cornell.edu/~mec/Summer2009/ABjorndahl/tools.html" target="_blank" rel="noopener noreferrer">康奈尔大学 · 几何级数 ↗</a></div>
       </div>
     </details>

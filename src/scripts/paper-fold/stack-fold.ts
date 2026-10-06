@@ -1,3 +1,5 @@
+import { MAX_FOLDS } from './model';
+
 /** Whole-bundle mechanics schematic. The footprint halves along alternating
  * material axes; closure is followed by a rigid quarter turn. A uniform √2
  * footprint zoom is spread over each cycle, never a one-axis stretch/reset.
@@ -10,7 +12,16 @@ const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const smooth = (n: number) => { const t = clamp(n); return t * t * t * (t * (t * 6 - 15) + 10); };
 export const DETAIL_MAX_BANDS = 12;
 export const DETAIL_FOLD_END = .68;
-export function detailThickness(fold: number): number { return Math.min(11, 2.5 * 2 ** Math.min(3, Math.max(0, fold))); }
+export const DETAIL_MAX_THICKNESS = 30;
+/** Screen-space schematic only, independent of the physical metre-scale camera.
+ * The first few folds build a readable edge; a gentle continuing increase makes
+ * later bundles visibly thicker too. Keep a finite budget through the entire
+ * journey instead of cancelling all growth after the third fold.
+ */
+export function detailThickness(fold: number): number {
+  const n = Math.min(MAX_FOLDS, Math.max(0, Number.isFinite(fold) ? fold : 0));
+  return 2.5 + 7.5 * (1 - 2 ** (-n / 3)) + (DETAIL_MAX_THICKNESS - 10) * n / MAX_FOLDS;
+}
 export interface FoldGeometry {
   fold: number; phase: number; angle: number; rotation: number; zoom: number; axis: 'x' | 'y';
   thickness: number; nextThickness: number; bands: number;

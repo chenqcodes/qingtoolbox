@@ -2,6 +2,15 @@ import { test, expect } from '@playwright/test';
 
 test.use({video:'on'});
 const route='/tools/paper-fold/';
+// Emulation changes matchMedia immediately, but its change event is queued.
+// Wait for the app's own acknowledgement before sending the next control input.
+async function setMotion(page: import('@playwright/test').Page, value: 'reduce' | 'no-preference') {
+  await page.emulateMedia({reducedMotion:value});
+  if(page.url().endsWith(route)){
+    if(value==='reduce')await expect(page.locator('#pf-motion-note')).toBeVisible();
+    else await expect(page.locator('#pf-motion-note')).toBeHidden();
+  }
+}
 async function setFolds(page: import('@playwright/test').Page, n: number) {
   await page.locator('#pf-folds').evaluate((input: HTMLInputElement,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},n);
 }
@@ -10,7 +19,7 @@ async function setFolds(page: import('@playwright/test').Page, n: number) {
 // mocking. Still captures have their own non-recording suite because Chromium
 // screenshots can interrupt the video recorder even when the app keeps moving.
 for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay continuous at ${width}px`,async({page},testInfo)=>{
-  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
+  await page.setViewportSize({width,height:1000});await setMotion(page,'no-preference');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   await page.locator('.pf-scene').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
   await page.locator('#pf-speed').selectOption('1000');
@@ -41,7 +50,7 @@ for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay cont
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await expect(page.locator('#pf-stage canvas')).toHaveCount(1);
-  await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,100);await page.emulateMedia({reducedMotion:'no-preference'});
+  await setMotion(page,'reduce');await setFolds(page,100);await setMotion(page,'no-preference');
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-playing','false');await expect(lab).toHaveAttribute('data-folds','103');
   await expect(page.locator('#pf-fold-detail-title')).toContainText('旅程抵达终点');
@@ -52,7 +61,7 @@ for(const width of [1440,390,320]) test(`integrated fold rotate cycles stay cont
 });
 
 test('pause in a bend or turn, rapid interruption, resize and reduced motion retain a coherent scene',async({page})=>{
-  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
+  await setMotion(page,'no-preference');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   await page.locator('#pf-speed').selectOption('1600');
   for(const mode of ['whole-stack','rotate']){
@@ -68,11 +77,11 @@ test('pause in a bend or turn, rapid interruption, resize and reduced motion ret
   await page.locator('[data-milestone="sun"]').evaluate((button:HTMLButtonElement)=>button.click());await expect(lab).toHaveAttribute('data-fold-mode','journey');
   await page.waitForTimeout(120);await page.locator('#pf-reset').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-fold-angle','0.000000');
-  await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,6);
+  await setMotion(page,'reduce');await setFolds(page,6);
   await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-fold-rotation','0.000000');
   await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-folds','7');await expect(lab).toHaveAttribute('data-fold-mode','rest');
-  await setFolds(page,102);await page.emulateMedia({reducedMotion:'no-preference'});
+  await setFolds(page,102);await setMotion(page,'no-preference');
   await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
   // Sample the transient turn on RAF and pause in that same browser frame.
   // Playwright's backed-off assertion polling can skip the entire 512 ms turn.

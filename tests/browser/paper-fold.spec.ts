@@ -1,13 +1,22 @@
 import { test, expect } from '@playwright/test';
 
 const route='/tools/paper-fold/';
+// Emulation changes matchMedia immediately, but its change event is queued.
+// Wait for the app's own acknowledgement before sending the next control input.
+async function setMotion(page: import('@playwright/test').Page, value: 'reduce' | 'no-preference') {
+  await page.emulateMedia({reducedMotion:value});
+  if(page.url().endsWith(route)){
+    if(value==='reduce')await expect(page.locator('#pf-motion-note')).toBeVisible();
+    else await expect(page.locator('#pf-motion-note')).toBeHidden();
+  }
+}
 async function setFolds(page: import('@playwright/test').Page, n: number) {
   await page.locator('#pf-folds').evaluate((input: HTMLInputElement,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},n);
 }
 
 test('initial sheet, doubling, exact layer count and scientific units', async ({page},testInfo)=>{
   const errors: string[]=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   await expect(lab).toHaveAttribute('data-folds','0');await expect(lab).toHaveAttribute('data-thickness','0.0001');
   await expect(page.locator('#pf-layers')).toHaveText('1');
@@ -24,7 +33,7 @@ test('initial sheet, doubling, exact layer count and scientific units', async ({
 });
 
 test('play, pause and manual navigation never leave an old playback loop', async ({page})=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   await page.locator('#pf-speed').selectOption('500');await page.locator('#pf-play').click();
   await expect.poll(async()=>Number(await lab.getAttribute('data-folds'))).toBeGreaterThan(1);
@@ -39,7 +48,7 @@ test('play, pause and manual navigation never leave an old playback loop', async
 });
 
 test('reference milestones are first crossings and solar-system extent is explicit', async ({page},testInfo)=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   for(const [id,folds] of [['person',15],['house',17],['earth',37],['sun',44],['solar',57]] as const){
     await page.locator(`[data-milestone="${id}"]`).click();
@@ -53,7 +62,7 @@ test('reference milestones are first crossings and solar-system extent is explic
 });
 
 test('changing thickness while playing pauses and recalculates all milestones', async ({page})=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   await page.locator('#pf-play').click();await expect(lab).toHaveAttribute('data-playing','true');
   await page.locator('#pf-initial').fill('0.2');await page.locator('#pf-initial').press('Enter');
@@ -67,7 +76,7 @@ test('changing thickness while playing pauses and recalculates all milestones', 
 });
 
 test('smooth logarithmic zoom survives interrupted jumps and reset', async ({page})=>{
-  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
+  await setMotion(page,'no-preference');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');const starting=Number(await lab.getAttribute('data-view'));
   await page.locator('[data-milestone="earth"]').click();await expect(lab).toHaveAttribute('data-motion','true');
   await expect.poll(async()=>Number(await lab.getAttribute('data-view'))).toBeGreaterThan(starting);
@@ -78,7 +87,7 @@ test('smooth logarithmic zoom survives interrupted jumps and reset', async ({pag
 });
 
 test('reduced-motion mode is immediate, retains manual play, and stops at the bound', async ({page})=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');await expect(page.locator('#pf-motion-note')).toBeVisible();
   await setFolds(page,102);await expect(lab).toHaveAttribute('data-motion','false');
   await page.locator('#pf-speed').selectOption('500');await page.locator('#pf-play').click();
@@ -90,7 +99,7 @@ test('reduced-motion mode is immediate, retains manual play, and stops at the bo
 
 test('mobile layout and keyboard controls remain usable', async ({page},testInfo)=>{
   const errors: string[]=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await page.setViewportSize({width:390,height:844});await setMotion(page,'reduce');await page.goto(route);
   await page.locator('#pf-folds').focus();await page.keyboard.press('ArrowRight');await expect(page.locator('#pf-count')).toHaveText('1');
   await page.keyboard.press('End');await expect(page.locator('#pf-count')).toHaveText('103');await page.keyboard.press('Home');await expect(page.locator('#pf-count')).toHaveText('0');
   await page.locator('[data-milestone="earth"]').click();await expect(page.locator('#pf-count')).toHaveText('37');
@@ -101,7 +110,7 @@ test('mobile layout and keyboard controls remain usable', async ({page},testInfo
 });
 
 test('all folds and paper extremes keep visible shapes plus nearest comparison cards', async ({page}) => {
-  await page.emulateMedia({reducedMotion:'reduce'}); await page.goto(route);
+  await setMotion(page,'reduce'); await page.goto(route);
   const failures = await page.evaluate(() => {
     const lab = document.querySelector<HTMLElement>('#paper-fold-lab')!;
     const input = document.querySelector<HTMLInputElement>('#pf-initial')!;
@@ -131,7 +140,7 @@ test('all folds and paper extremes keep visible shapes plus nearest comparison c
 });
 
 test('smooth playback through former long gap never loses a reference', async ({page}) => {
-  await page.emulateMedia({reducedMotion:'no-preference'}); await page.goto(route);
+  await setMotion(page,'no-preference'); await page.goto(route);
   await setFolds(page, 18); await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-motion','false');
   await page.locator('#pf-speed').selectOption('500'); await page.locator('#pf-play').click();
   const sampled = await page.evaluate(async () => {
@@ -153,12 +162,12 @@ test('smooth playback through former long gap never loses a reference', async ({
 });
 
 test('reference navigation and interrupted thickness changes use current visible state', async ({page}) => {
-  await page.emulateMedia({reducedMotion:'reduce'}); await page.goto(route);
+  await setMotion(page,'reduce'); await page.goto(route);
   await page.locator('#pf-reference-next').focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#pf-count')).toHaveText('3');
   await expect(page.locator('#pf-previous-name')).toHaveText('一张卡片');
   await expect(page.locator('#pf-reference-previous')).toHaveAccessibleDescription(/当前约为它的 1 倍 同尺可见/);
-  await page.emulateMedia({reducedMotion:'no-preference'});
+  await setMotion(page,'no-preference');
   const failures=await page.evaluate(async()=>{
     const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
     const range=document.querySelector<HTMLInputElement>('#pf-folds')!;
@@ -179,7 +188,7 @@ test('reference navigation and interrupted thickness changes use current visible
 });
 
 for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${width}px`, async ({page},testInfo)=>{
-  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await page.setViewportSize({width,height:1000});await setMotion(page,'reduce');await page.goto(route);
   for(const fold of [3,10,24,29,34,41,45,49,54,55,57,68,80,83,88,96,103]) {
     await setFolds(page,fold);
     await expect(page.locator('#paper-fold-lab')).not.toHaveAttribute('data-reference-visible','');
@@ -205,7 +214,7 @@ for(const width of [1440,390,320]) test(`reference scenes and rail fit at ${widt
 
 
 for(const width of [1440,390,320]) test(`cosmic endpoint recalculates safely at ${width}px`, async ({page},testInfo) => {
-  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await page.setViewportSize({width,height:1000});await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   for(const [mm,limit] of [[.01,107],[.1,103],[1,100]]) {
     await page.locator('#pf-initial').fill(String(mm));await page.locator('#pf-initial').press('Enter');
@@ -230,7 +239,7 @@ for(const width of [1440,390,320]) test(`cosmic endpoint recalculates safely at 
 });
 
 test('stellar and cosmic jumps preserve a fully visible reference throughout animation', async ({page}) => {
-  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
+  await setMotion(page,'no-preference');await page.goto(route);
   const result=await page.evaluate(async()=>{
     const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;
     const failures:string[]=[];const seen=new Set<string>();
@@ -245,18 +254,18 @@ test('stellar and cosmic jumps preserve a fully visible reference throughout ani
 });
 
 test('close red-supergiant references remain identifiable during ordinary playback', async ({page}) => {
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);await setFolds(page,52);
-  await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('#pf-speed').selectOption('1000');await page.locator('#pf-play').click();
+  await setMotion(page,'reduce');await page.goto(route);await setFolds(page,52);
+  await setMotion(page,'no-preference');await page.locator('#pf-speed').selectOption('1000');await page.locator('#pf-play').click();
   const seen=await page.evaluate(async()=>{const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;const seen=new Set<string>();await new Promise<void>(resolve=>{function sample(){(lab.dataset.referenceVisible??'').split(',').forEach(x=>seen.add(x));if(Number(lab.dataset.visualFold)>=56)resolve();else requestAnimationFrame(sample);}requestAnimationFrame(sample);});return [...seen];});
   await page.locator('#pf-play').click();expect(seen).toEqual(expect.arrayContaining(['antares','betelgeuse','vy-cma','jupiter-orbit']));
 });
 
 
 for(const width of [1440,390,320]) test(`integrated fold and turn poses stay readable at ${width}px`,async({page},testInfo)=>{
-  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  await page.setViewportSize({width,height:1000});await setMotion(page,'reduce');await page.goto(route);
   const lab=page.locator('#paper-fold-lab');
   for(const base of [2,4,102]){
-    await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,base);await page.emulateMedia({reducedMotion:'no-preference'});
+    await setMotion(page,'reduce');await setFolds(page,base);await setMotion(page,'no-preference');
     await page.locator('.pf-scene').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
     await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());await page.waitForTimeout(320);
     await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');

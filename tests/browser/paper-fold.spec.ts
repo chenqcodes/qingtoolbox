@@ -280,3 +280,19 @@ for(const width of [1440,390,320]) test(`integrated fold and turn poses stay rea
     if(base===102)await expect(page.locator('#pf-play')).toContainText('重新旅行');
   }
 });
+
+
+for(const width of [1440,390,320]) test(`bounded paper thickness remains legible through the journey at ${width}px`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:1000});await setMotion(page,'reduce');await page.goto(route);
+  for(const fold of [0,1,3,12,50,103]){
+    await setFolds(page,fold);
+    await expect(page.locator('#paper-fold-lab')).toHaveAttribute('data-motion','false');
+    await expect(page.locator('#paper-fold-lab')).not.toHaveAttribute('data-reference-visible','');
+    await expect(page.locator('body')).not.toContainText('转向');
+    await expect(page.locator('[aria-label*="转向"],[title*="转向"]')).toHaveCount(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.locator('.pf-scene').screenshot({path:testInfo.outputPath(`thickness-${width}-${fold}.png`)});
+  }
+  await expect(page.locator('.pf-scale-annotation')).toHaveText('纸叠形态、厚度与层纹为示意');
+  await expect(page.locator('#pf-canvas')).toHaveAttribute('aria-label',/左侧厚度刻度与参照物.*共用长度比例尺/);
+});

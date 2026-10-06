@@ -14,7 +14,7 @@ import '../../styles/zeno-race.css';
       <div class="zr-gap-heading"><span id="zr-gap-label">还差</span><strong id="zr-gap">10 m</strong><span id="zr-gap-context">每一段之后，都还有下一段</span></div>
       <div class="zr-phase"><i aria-hidden="true"></i><span id="zr-phase-label">① 先盯住乌龟的旧位置</span></div>
       <svg id="zr-track" viewBox="0 100 900 280" role="img" aria-labelledby="zr-track-title zr-track-desc">
-        <title id="zr-track-title">越来越小的间距</title><desc id="zr-track-desc">每次追赶时镜头和地面固定，两只动物都向右移动，兔子更快。兔子到达虚线标出的乌龟旧位置时，先停留观察余下的间距，再在时间定格时单独放大。位置由地面上的紫色与绿色标记确定，插画在间距外侧。</desc>
+        <title id="zr-track-title">越来越小的间距</title><desc id="zr-track-desc">每次追赶时镜头和地面固定，两只动物都向右移动，兔子更快。兔子到达虚线标出的乌龟旧位置时，先停留观察余下的间距，再在时间定格时通过同一个镜头放大地面、角色和位置标记。位置由地面上的紫色与绿色标记确定，插画在间距外侧。</desc>
         <defs>
           <radialGradient id="zr-glow"><stop stop-color="#ded4e8" stop-opacity=".7"/><stop offset="1" stop-color="#ded4e8" stop-opacity="0"/></radialGradient>
           <linearGradient id="zr-gap-fill"><stop stop-color="#a78bad" stop-opacity=".12"/><stop offset="1" stop-color="#9ba883" stop-opacity=".2"/></linearGradient>
@@ -44,14 +44,15 @@ import '../../styles/zeno-race.css';
           <symbol id="zr-rabbit-head" viewBox="-22 -43 44 58"><ellipse cx="-9" cy="-26" rx="5" ry="16" transform="rotate(-13 -9 -26)" fill="#fffaf7" stroke="#807087" stroke-width="1.5"/><ellipse cx="8" cy="-28" rx="5" ry="16" transform="rotate(10 8 -28)" fill="#fffaf7" stroke="#807087" stroke-width="1.5"/><circle cy="0" r="17" fill="#fffaf7" stroke="#807087" stroke-width="1.5"/><circle cx="7" cy="-3" r="2" fill="#685571"/><path d="m15 3 4 1-4 2" fill="#c893a8"/></symbol>
           <symbol id="zr-turtle-shell" viewBox="-23 -19 46 38"><ellipse rx="22" ry="18" fill="#879664" stroke="#637649" stroke-width="1.7"/><path d="m0-17 10 9-3 17-7 8-11-9 2-17ZM-20-7l11-2M10-8l11 2M7 9l12 3M-11 8l-9 4" fill="none" stroke="#bec89d" stroke-width="1.4"/></symbol>
         </defs>
-        <ellipse cx="450" cy="202" rx="330" ry="195" fill="url(#zr-glow)"/>
-        <g id="zr-world"><rect x="48" y="160" width="805" height="89" rx="44" fill="#ebe8df" opacity=".6"/><path d="M60 235H840" stroke="#b6b0a6" stroke-width="1.4"/><path d="M100 235v8M200 235v8M300 235v8M400 235v8M500 235v8M600 235v8M700 235v8M800 235v8" stroke="#b6b0a6" stroke-width="1.4"/><path d="m102 224-4-11m4 11 5-7M812 225l-4-9m4 9 5-6" stroke="#a9af95" stroke-width="2" fill="none"/></g>
+        <g id="zr-camera">
+        <g id="zr-world"><g id="zr-ground-grid"></g></g>
         <g id="zr-history-outlines" fill="none" stroke="#a99ab6" stroke-width="1"></g>
         <rect id="zr-gap-wash" x="170" y="196" width="560" height="65" rx="15" fill="url(#zr-gap-fill)"/>
         <path id="zr-old-marker" d="M730 172V285" stroke="#baa789" stroke-dasharray="3 5"/>
         <g id="zr-rabbit" transform="translate(170 224)"><g class="zr-whole"><use href="#zr-rabbit-art" x="-44" y="-62" width="88" height="74"/></g><g class="zr-head" opacity="0"><use href="#zr-rabbit-head" x="-22" y="-43" width="44" height="58"/></g><circle class="zr-point" cy="-5" r="6" fill="#9c7bad" stroke="#fcf9ff" stroke-width="3" opacity="0"/></g>
         <g id="zr-turtle" transform="translate(730 224)"><g class="zr-whole"><use href="#zr-turtle-art" x="-44" y="-40" width="88" height="52"/></g><g class="zr-head" opacity="0"><use href="#zr-turtle-shell" x="-23" y="-24" width="46" height="38"/></g><circle class="zr-point" cy="-5" r="6" fill="#849362" stroke="#fcf9ff" stroke-width="3" opacity="0"/></g>
         <circle id="zr-rabbit-pin" cy="235" r="2" fill="#876096"/><circle id="zr-turtle-pin" cy="235" r="2" fill="#6d804a"/>
+        </g>
         <path id="zr-gap-bracket" d="M170 270v9H730v-9" fill="none" stroke="#a58aae" stroke-width="1.5"/>
         <text id="zr-gap-svg" x="450" y="311" text-anchor="middle" fill="#83708e" font-size="17" font-family="ui-monospace,monospace">10 m</text>
         <text id="zr-old-label" x="730" y="157" text-anchor="middle" fill="#a39174" font-size="12">它刚才的位置</text>
@@ -72,7 +73,7 @@ import '../../styles/zeno-race.css';
       <p class="zr-control-note">匀速、同向、不停步。调整参数会暂停，并回到起点。</p>
       <div class="zr-shrink-history"><span id="zr-history-heading">距离，一次次缩小</span><div id="zr-gap-history" aria-label="最近几段的剩余距离"></div><p id="zr-ratio-note">每到一个旧位置，间距缩成原来的 1/10。</p></div>
       <div class="zr-legend"><span><i class="zr-dot rabbit"></i>兔子</span><span><i class="zr-dot turtle"></i>乌龟</span></div>
-      <p class="zr-control-note">紫、绿标记是两者的位置。追赶时地面不动；停留后再放大间距。角色会简化成头像和小点，插画大小不代表实际体积。</p>
+      <p class="zr-control-note">紫、绿标记是两者的位置。追赶时地面不动；停留后再放大间距。地面格线与角色共用镜头。放大后角色移出视野，小点继续标出位置；插画不代表真实动物体积。</p>
       <p class="zr-model-note">这里一直观察“追到旧位置”的有限步骤。每步还差一点，是这个观察方法的特点。</p>
     </aside>
     <details id="zr-explanation" class="zr-explanation">
@@ -105,7 +106,7 @@ import '../../styles/zeno-race.css';
       <div id="zr-continuous-controls" hidden><label for="zr-scrub">拖动完整时钟 <output id="zr-scrub-value">0 s</output></label><input id="zr-scrub" type="range" min="0" max="1000" step="1" value="0" /><p>拖动会暂停。模型时间连续变化；相遇线之后，兔子还会接着跑。</p></div>
 
         <div class="zr-sequence" id="zr-sequence" aria-label="已选择的截图时刻"></div></section>
-        <div class="zr-notes"><section><h3>把相遇直接算出来</h3><p>领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，相遇时刻 t* = L / (a − b)。</p><p>当 0 &lt; b &lt; a，令 q = b/a，第 n 段后的间距为 Lqⁿ，距相遇还需 t*qⁿ。每个有限 n 的余量都大于零，但它们的极限是零。</p></section><section><h3>这个画面有哪些约定？</h3><p>每段追赶使用固定镜头，两者按速度比例向前移动。到达旧位置后会定格，再单独调整镜头。定格与慢放是观察手段，动物并没有真的停下；不能用动画播放时长推算真实用时。很小的距离是理想连续模型的数学延伸，不是动物能缩成这样的现实实验。</p><p>页面最多展示 200 个有限步骤。微小余量用对数独立计算；累计时间即使四舍五入到相遇时刻，也不表示这一步真的追上。</p><p>L = 0 时起点已相遇；乌龟静止且兔子向前时第一段追上；兔子不比乌龟快时，正的领先距离不会收敛到零。</p></section></div>
+        <div class="zr-notes"><section><h3>把相遇直接算出来</h3><p>领先距离为 L，兔速为 a，龟速为 b。两者位置是 x兔 = at、x龟 = L + bt。若 L &gt; 0 且 a &gt; b，相遇时刻 t* = L / (a − b)。</p><p>当 0 &lt; b &lt; a，令 q = b/a，第 n 段后的间距为 Lqⁿ，距相遇还需 t*qⁿ。每个有限 n 的余量都大于零，但它们的极限是零。</p></section><section><h3>这个画面有哪些约定？</h3><p>每段追赶使用固定镜头，两者按速度比例向前移动。到达旧位置后会定格，再放大整个画面。格线、旧位置和角色共用一个连续镜头；画面下方的文字与标尺读数保持可读。定格与慢放是观察手段，动物并没有真的停下；不能用动画播放时长推算真实用时。很小的距离是理想连续模型的数学延伸，不是动物能缩成这样的现实实验。</p><p>页面最多展示 200 个有限步骤。微小余量用对数独立计算；累计时间即使四舍五入到相遇时刻，也不表示这一步真的追上。</p><p>L = 0 时起点已相遇；乌龟静止且兔子向前时第一段追上；兔子不比乌龟快时，正的领先距离不会收敛到零。</p></section></div>
         <div class="zr-sources"><a href="https://sites.pitt.edu/~jdnorton/teaching/paradox/chapters/Zeno/Zeno.html" target="_blank" rel="noopener noreferrer">匹兹堡大学 · 芝诺悖论 ↗</a><a href="https://pi.math.cornell.edu/~mec/Summer2009/ABjorndahl/tools.html" target="_blank" rel="noopener noreferrer">康奈尔大学 · 几何级数 ↗</a></div>
       </div>
     </details>
@@ -114,4 +115,3 @@ import '../../styles/zeno-race.css';
   <noscript><p>启用 JavaScript 后可以观察逐段收缩的间距。默认第 n 段后还差 10×0.1ⁿ 米，每个有限步骤仍有余量；完整赛跑则在 10/9 秒相遇。</p></noscript>
 </ToolLayout>
 <script>import '../../scripts/zeno-race/main';</script>
-

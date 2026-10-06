@@ -66,14 +66,26 @@ export function stopwatchReading(logValue: number, kind: 'distance' | 'time'): S
   const units = kind === 'distance'
     ? [[3, 'km'], [0, 'm'], [-2, 'cm'], [-3, 'mm'], [-6, 'μm'], [-9, 'nm'], [-12, 'pm']] as const
     : [[0, 's'], [-3, 'ms'], [-6, 'μs'], [-9, 'ns'], [-12, 'ps']] as const;
-  let unit = units.find(([exponent]) => power >= exponent);
+  let unitIndex = units.findIndex(([exponent]) => power >= exponent);
+  let unit: (typeof units)[number] | undefined = units[unitIndex];
   let exponent: number | null = null;
   let amount = Math.exp(logValue - (unit?.[0] ?? power) * Math.LN10);
+  if (unit && unitIndex > 0) {
+    const next = units[unitIndex - 1];
+    // Carry the rounded hundredths straight into the adjacent SI unit. Never
+    // flash 1.00e0 s between 999.99 ms and 1.00 s.
+    if (amount >= 10 ** (next[0] - unit[0]) - .005) {
+      unit = next; amount = Math.exp(logValue - unit[0] * Math.LN10);
+    }
+  }
   if (!unit || amount >= 999.995) {
-    // Scientific notation is normalized, but padded to the identical face.
-    unit = undefined; amount = Math.exp(logValue - power * Math.LN10);
+    amount = Math.exp(logValue - power * Math.LN10);
     if (amount >= 9.995) { amount = 1; power++; }
-    exponent = power;
+    // The rounded mantissa can also enter the smallest supported SI unit.
+    unitIndex = units.findIndex(([unitPower]) => power >= unitPower);
+    unit = units[unitIndex];
+    if (unit && power - unit[0] < 3) amount *= 10 ** (power - unit[0]);
+    else { unit = undefined; exponent = power; }
   }
   const fixed = amount.toFixed(2), label = unit?.[1] ?? base;
   return { digits: fixed.padStart(6, '0'), unit: label, exponent,

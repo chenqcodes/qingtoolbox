@@ -253,7 +253,7 @@ for (const width of [320, 390, 1440]) test(`live segment and accumulated metrics
   await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab');
   await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
   await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '0 m');
-  await expect(page.locator('#zr-segment-duration')).toHaveText('1 s');
+  await expect(page.locator('#zr-segment-duration')).toHaveText('1.00 s');
   await page.locator('#zr-play').click();
   let previousTotal = 0, previousDistance = -Infinity;
   for (let i = 0; i < 24; i++) {
@@ -280,7 +280,7 @@ for (const width of [320, 390, 1440]) test(`live segment and accumulated metrics
   await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '10.00 m'); await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '0.00 s');
   await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s'); await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '0 m');
   await page.locator('#zr-play').click(); await page.clock.runFor(450); await setRange(page, '#zr-lead', 20);
-  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '20.00 m'); await expect(page.locator('#zr-segment-duration')).toHaveText('2 s');
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '20.00 m'); await expect(page.locator('#zr-segment-duration')).toHaveText('2.00 s');
   await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -288,7 +288,7 @@ for (const width of [320, 390, 1440]) test(`live segment and accumulated metrics
 test('completed and microscopic metric snapshots never confuse rounded totals with reaching the turtle', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/'); await steps(page, 1);
   await expect(page.locator('#zr-segment-label')).toHaveText('第 1 段已用');
-  await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '1.00 s'); await expect(page.locator('#zr-segment-duration')).toHaveText('1 s');
+  await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '1.00 s'); await expect(page.locator('#zr-segment-duration')).toHaveText('1.00 s');
   await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '1 s'); await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '10 m');
   await expect(page.locator('#zr-segment-state')).toContainText('完成');
   await steps(page, 29); await expect(page.locator('#zr-segment-elapsed')).not.toHaveAttribute('data-value', '0.00 s');

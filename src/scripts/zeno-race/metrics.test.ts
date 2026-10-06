@@ -45,6 +45,9 @@ test('stopwatch slots retain hundredths, fixed integer columns and scientific ex
     [Math.log(.001), 'time', '001.00', 'ms', null], [Math.log(.0001), 'time', '100.00', 'μs', null],
     [-460 * Math.LN10, 'time', '001.00', 's', -460], [300 * Math.LN10, 'distance', '001.00', 'm', 300],
     [Math.log(9.999e-16), 'distance', '001.00', 'm', -15],
+    [Math.log(.999999), 'time', '001.00', 's', null],
+    [Math.log(.00999999), 'distance', '001.00', 'cm', null],
+    [Math.log(9.999e-13), 'time', '001.00', 'ps', null],
   ] as const) {
     const reading = stopwatchReading(log, kind);
     assert.equal(reading.digits, digits); assert.equal(reading.unit, unit); assert.equal(reading.exponent, exponent);

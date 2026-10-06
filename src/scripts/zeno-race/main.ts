@@ -158,14 +158,14 @@ if (root) {
     el('zr-total-time').dataset.value = displayTime;
     el('zr-total-distance').dataset.value = formatLogDistance(metrics.logTotalDistance);
     text('zr-segment-label', metrics.possible ? `第 ${metrics.segment} 段已用` : p.lead === 0 ? '起点已相遇' : '当前段已用');
-    text('zr-segment-duration', metrics.possible ? formatMetricTime(metrics.logDuration) : p.lead === 0 ? '0 s' : '无法到达');
+    text('zr-segment-duration', metrics.possible ? stopwatchReading(metrics.logDuration, 'time').value : p.lead === 0 ? '0.00 s' : '无法到达');
     text('zr-segment-state', !metrics.possible ? p.lead === 0 ? '无需追赶' : '兔子静止，无法到达下一条线'
       : metrics.completed ? `第 ${metrics.segment} 段完成 · 已到达这条线`
       : pending ? `第 ${metrics.segment} 段 · ${running ? '正在跑向' : '暂停在通往'}下一条线` : '从上一条线，跑到下一条线');
     const meter = el<HTMLElement>('zr-segment-progress');
     meter.style.setProperty('--zr-segment-progress', String(metrics.fraction));
     meter.setAttribute('aria-valuenow', String(Math.round(metrics.fraction * 100)));
-    meter.setAttribute('aria-valuetext', p.lead === 0 ? '起点已相遇，无需追赶' : !metrics.possible ? '兔子静止，无法到达下一条线' : `第 ${metrics.segment} 段已用 ${formatMetricTime(metrics.logElapsed)}，本段共 ${formatMetricTime(metrics.logDuration)}`);
+    meter.setAttribute('aria-valuetext', p.lead === 0 ? '起点已相遇，无需追赶' : !metrics.possible ? '兔子静止，无法到达下一条线' : `第 ${metrics.segment} 段已用 ${stopwatchReading(metrics.logElapsed, 'time').value}，本段共 ${stopwatchReading(metrics.logDuration, 'time').value}`);
     const roundedToLimit = scene.logTail !== null && Number.isFinite(scene.logTail) && metrics.totalTime > 0
       && formatMetricTime(Math.log(meetingTime(p) ?? 0)) === displayTime;
     text('zr-metric-note', mode === 'continuous' ? '这里保留逐段画面的读数；下方完整时钟可越过相遇'

@@ -354,6 +354,7 @@ test('visible rolling ink resets with its segment and fits deep scientific readi
   }
   await page.locator('#zr-reset').click(); await page.emulateMedia({ reducedMotion: 'reduce' }); await steps(page, 16);
   await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.locator('#zr-play').click();
+  let scientificSamples = 0;
   for (let i = 0; i < 30; i++) {
     await page.clock.runFor(100);
     for (const id of ['#zr-gap', '#zr-segment-elapsed']) {
@@ -361,8 +362,17 @@ test('visible rolling ink resets with its segment and fits deep scientific readi
         const cell = node.getBoundingClientRect(), ink = node.querySelector('.zr-number-ink')!.getBoundingClientRect();
         return ink.left >= cell.left - 1 && ink.right <= cell.right + 1;
       }); expect(fits).toBe(true);
-      await expect(page.locator(id)).toHaveAttribute('data-compact', 'true');
-      expect(await page.locator(id).evaluate(node => getComputedStyle(node).fontSize)).toBe('17px');
+      const rendered = await page.locator(id).evaluate(node => {
+        const ink = node.querySelector('.zr-number-ink')!.cloneNode(true) as HTMLElement;
+        ink.querySelectorAll('.zr-number-outgoing').forEach(n => n.remove());
+        return { value: ink.textContent!, compact: (node as HTMLElement).dataset.compact, fontSize: getComputedStyle(node).fontSize };
+      });
+      // The initial zero remains visible until the first 140ms sample; measure
+      // font stability only once the painted reading is scientific notation.
+      if (/e[+-]?\d/.test(rendered.value)) {
+        scientificSamples++; expect(rendered.compact).toBe('true'); expect(rendered.fontSize).toBe('17px');
+      }
     }
   }
+  expect(scientificSamples).toBeGreaterThanOrEqual(50);
 });

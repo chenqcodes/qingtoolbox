@@ -119,11 +119,22 @@ test('interrupted layer sampling crossfades without losing or duplicating opacit
       const g=interpolateFoldGeometry(from,to,amount);
       close(weights(g).reduce((sum,item)=>sum+item.alpha,0),1);
       for(const item of weights(g)){assert.ok(item.alpha>=0&&item.alpha<=1);assert.ok(item.bands>=1&&item.bands<=DETAIL_MAX_BANDS);}
-      const first=weights(g)[0],last=weights(g).at(-1)!;
-      close(first.alpha,1-amount);close(last.alpha,amount);
+      const expected=new Map<number,number>();
+      expected.set(from.bands,(expected.get(from.bands)??0)+(1-amount));
+      expected.set(to.bands,(expected.get(to.bands)??0)+amount);
+      const actual=new Map(weights(g).map(item=>[item.bands,item.alpha]));
+      assert.equal(actual.size,weights(g).length,'equivalent layer groups must be merged rather than painted twice');
+      assert.equal(actual.size,expected.size);
+      for(const [bands,alpha]of expected)close(actual.get(bands)!,alpha);
       const interrupted=interpolateFoldGeometry(g,foldGeometry(2,82),.4);
       close(weights(interrupted).reduce((sum,item)=>sum+item.alpha,0),1);
-      weights(g).forEach((item,i)=>{assert.equal(weights(interrupted)[i].bands,item.bands);close(weights(interrupted)[i].alpha,item.alpha*.6);});
+      const repeatedExpected=new Map(weights(g).map(item=>[item.bands,item.alpha*.6]));
+      const finalBands=foldGeometry(2,82).bands;
+      repeatedExpected.set(finalBands,(repeatedExpected.get(finalBands)??0)+.4);
+      const repeatedActual=new Map(weights(interrupted).map(item=>[item.bands,item.alpha]));
+      assert.equal(repeatedActual.size,weights(interrupted).length);
+      assert.equal(repeatedActual.size,repeatedExpected.size);
+      for(const [bands,alpha]of repeatedExpected)close(repeatedActual.get(bands)!,alpha);
     }
   }
 });

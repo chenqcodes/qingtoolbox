@@ -43,7 +43,7 @@ export function bootCosmicScale(): void {
     const scene = sceneAt(exponent, width, height);
     root!.dataset.visibleObjects = scene.objects.map(object => object.stop.id).join(',');
     root!.dataset.sceneCoverage = String(Math.max(...scene.objects.map(object => object.visibleExtent / Math.min(width, height)), 0));
-    get('cosmic-art-note').textContent = scene.objects.some(object => ['solar', 'stellar', 'orbit', 'heliosphere', 'comet-orbit', 'oort', 'nebula', 'cluster', 'bubble', 'arm', 'galaxy'].includes(object.stop.kind) && object.visibleSpan > width * .08) ? '区域 / 距离按比例 · 光点放大示意' : '尺寸按比例 · 插画非照片';
+    get('cosmic-art-note').textContent = stop.kind === 'observable' ? '观测范围示意 · 不是宇宙的实体边缘' : scene.objects.some(object => ['solar', 'stellar', 'orbit', 'heliosphere', 'comet-orbit', 'oort', 'nebula', 'cluster', 'bubble', 'arm', 'galaxy', 'galaxy-distance', 'galaxy-group', 'galaxy-cluster', 'supercluster', 'laniakea', 'wall', 'cosmic-web', 'observable'].includes(object.stop.kind) && object.visibleSpan > width * .08) ? '区域 / 距离按比例 · 光点放大示意' : '尺寸按比例 · 插画非照片';
     get('cosmic-lane-caption').textContent = scene.lower.id === scene.upper.id ? `已抵达 ${scene.upper.name}` : `${scene.lower.name} → ${scene.upper.name}`;
     get('cosmic-progress').style.setProperty('--journey-progress', `${(exponent - MIN_EXP) / (MAX_EXP - MIN_EXP) * 100}%`);
     if (stop.id !== lastStop) {
@@ -84,7 +84,7 @@ export function bootCosmicScale(): void {
     previousTime = now;
     if (playing) {
       exponent = clamp(exponent + dt * .5);
-      if (exponent >= MAX_EXP) pause('已抵达银河系。旅程结束，你仍可以向内探索。');
+      if (exponent >= MAX_EXP) pause('已抵达可观测宇宙。这里是观测范围，不是整个宇宙的边缘；仍可以向内探索。');
     } else if (motion) {
       const t = Math.min(1, (now - motion.start) / motion.duration);
       const ease = t * t * (3 - 2 * t);

@@ -13,7 +13,7 @@ test.describe('whole-stack motion evidence',()=>{
     await page.setViewportSize({width,height:1000});
     await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
     const lab=page.locator('#paper-fold-lab');
-    await page.locator('.pf-fold-detail').scrollIntoViewIfNeeded();
+    await page.locator('.pf-fold-detail').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
     for(let fold=1;fold<=5;fold++){
       await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());
       await expect(lab).toHaveAttribute('data-folds',String(fold));
@@ -26,6 +26,7 @@ test.describe('whole-stack motion evidence',()=>{
       await expect(lab).toHaveAttribute('data-fold-angle','0.000000');
       await expect(page.locator('#pf-layers')).toHaveText(String(2**fold));
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+      expect(await page.locator('#pf-fold-detail-title').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*1.1)).toBeTruthy();
     }
     await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath(`whole-stack-${width}-five-folds.png`)});
     await setFolds(page,4);await page.waitForTimeout(350);
@@ -52,7 +53,7 @@ test.describe('whole-stack motion evidence',()=>{
     await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-fold-angle','0.000000');
     await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,102);
     await page.emulateMedia({reducedMotion:'no-preference'});
-    await page.locator('.pf-fold-detail').scrollIntoViewIfNeeded();
+    await page.locator('.pf-fold-detail').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
     await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());await page.waitForTimeout(350);
     await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
     await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath('whole-stack-cosmic-bundle-turn.png')});

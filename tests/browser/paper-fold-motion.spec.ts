@@ -72,4 +72,13 @@ test('pause in a bend or turn, rapid interruption, resize and reduced motion ret
   await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-fold-rotation','0.000000');
   await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());
   await expect(lab).toHaveAttribute('data-folds','7');await expect(lab).toHaveAttribute('data-fold-mode','rest');
+  await setFolds(page,102);await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
+  await expect(lab).toHaveAttribute('data-fold-mode','rotate');
+  await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
+  await expect(page.locator('#pf-play')).toContainText('继续折叠');
+  const finalTurn=Number(await lab.getAttribute('data-visual-fold'));expect(finalTurn).toBeGreaterThan(102.6);
+  await page.locator('#pf-play').evaluate((button:HTMLButtonElement)=>button.click());
+  expect(Number(await lab.getAttribute('data-visual-fold'))).toBeGreaterThanOrEqual(finalTurn);
+  await expect(lab).toHaveAttribute('data-playing','false');await expect(lab).toHaveAttribute('data-folds','103');
 });

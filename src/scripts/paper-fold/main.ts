@@ -85,6 +85,7 @@ export function bootPaperFold(): void {
   }
   function renderValues() {
     const metres = thicknessMetres(folds, thicknessMm), exactLayers = layers(folds).toLocaleString('zh-CN');
+    const atEnd = folds === foldLimit() && Math.abs(exponent-folds) < 1e-8 && !motion;
     root!.dataset.folds = String(folds); root!.dataset.playing = String(playing); root!.dataset.thickness = String(metres);
     get('pf-count').textContent = String(folds); get('pf-thickness').textContent = formatLength(metres);
     get('pf-scientific').textContent = superscript(scientificMetres(metres));
@@ -96,7 +97,7 @@ export function bootPaperFold(): void {
     root!.dataset.foldLimit = String(foldLimit());
     get('pf-ticks').innerHTML = [0,20,40,60,80,foldLimit()].map(n => `<span style="left:${n / foldLimit() * 100}%">${n}</span>`).join('');
     range.setAttribute('aria-valuetext', `${folds} 次对折，厚度 ${formatLength(metres)}`);
-    play.innerHTML = `<span aria-hidden="true">${playing?'Ⅱ':'▶'}</span> ${playing?'暂停折叠':folds===foldLimit()?'重新旅行':folds===0?'开始折叠':'继续折叠'}`;
+    play.innerHTML = `<span aria-hidden="true">${playing?'Ⅱ':'▶'}</span> ${playing?'暂停折叠':atEnd?'重新旅行':folds===0?'开始折叠':'继续折叠'}`;
     play.setAttribute('aria-pressed', String(playing)); step.disabled = folds === foldLimit() || !ctx; play.disabled = !ctx;
     const reached = [...MILESTONE_REFERENCES].reverse().find(ref => metres >= ref.metres);
     for (const ref of MILESTONE_REFERENCES) {
@@ -148,7 +149,7 @@ export function bootPaperFold(): void {
   }
   play.addEventListener('click',()=>{
     if(playing){pause('已暂停 · 可以细看这一刻');return;}
-    if(folds===foldLimit()){folds=0;finishMotion();renderValues();paint();}
+    if(folds===foldLimit()&&Math.abs(exponent-folds)<1e-8){folds=0;finishMotion();renderValues();paint();}
     if(Math.abs(exponent-folds)>1e-8)moveTo(folds,650);
     playing=true;nextFoldAt=0;renderValues();status(media.matches?'逐步播放 · 已减少动态效果':'镜头会随纸叠一起向外');requestFrame();
   },{signal});
@@ -177,7 +178,12 @@ export function bootPaperFold(): void {
     moveTo(Math.min(folds,foldLimit()),650);status(`新纸张 ${thicknessMm} mm · 里程碑已重算`);
   },{signal});
   initial.addEventListener('keydown',event=>{if(event.key==='Enter')initial.blur();},{signal});
-  speed.addEventListener('change',()=>{if(playing)nextFoldAt=performance.now()+Number(speed.value);},{signal});
+  speed.addEventListener('change',()=>{
+    if(!playing)return;
+    const now=performance.now(),interval=Number(speed.value);
+    if(motion&&!motion.detailJump){const progress=Math.min(1,(now-motion.start)/motion.duration);motion.duration=interval;motion.start=now-progress*interval;nextFoldAt=0;}
+    else nextFoldAt=media.matches?now+interval:0;
+  },{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause('离开页面 · 已为你暂停');},{signal});
   media.addEventListener('change',()=>{get('pf-motion-note').hidden=!media.matches;pause(media.matches?'已减少动态效果':'已恢复平滑缩放',true);},{signal});
   function resize() {

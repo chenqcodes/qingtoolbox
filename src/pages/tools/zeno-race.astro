@@ -11,7 +11,14 @@ import '../../styles/zeno-race.css';
   <section class="zr-lab" id="zeno-race-lab" aria-label="兔子追乌龟交互实验" data-mode="steps" data-stage="0" data-running="false">
     <div class="zr-scene">
       <div class="zr-scene-top"><span>ALWAYS A LITTLE CLOSER</span><span id="zr-stage-label">起点 · 第 0 段</span></div>
-      <div class="zr-gap-heading"><span id="zr-gap-label">还差</span><strong id="zr-gap">10 m</strong><span id="zr-gap-context">每一段之后，都还有下一段</span></div>
+      <div class="zr-live-metrics" aria-label="逐段追赶的模型读数">
+        <div class="zr-gap-heading"><span id="zr-gap-label">还差</span><strong id="zr-gap">10 m</strong><span>兔子与乌龟的当前间距</span></div>
+        <div class="zr-segment-heading"><span id="zr-segment-label">第 1 段已用</span><strong id="zr-segment-elapsed">0 s</strong><span>本段共 <b id="zr-segment-duration">1 s</b></span></div>
+      </div>
+      <div class="zr-segment-meter"><div id="zr-segment-progress" role="progressbar" aria-label="当前段的模型时间进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="zr-segment-state">从上一条线，跑到下一条线</span></div>
+      <div class="zr-total-metrics"><span>累计用时 <b id="zr-total-time">0 s</b></span><span>兔子累计跑过 <b id="zr-total-distance">0 m</b></span></div>
+      <p class="zr-metric-note" id="zr-metric-note">模型读数取约 3 位有效数字；慢放时长不等于赛跑用时</p>
+      <p class="zr-gap-context" id="zr-gap-context">每一段之后，都还有下一段</p>
       <div class="zr-phase"><i aria-hidden="true"></i><span id="zr-phase-label">边追近，边放大 · 脚步不停</span></div>
       <svg id="zr-track" viewBox="0 100 900 280" role="img" aria-labelledby="zr-track-title zr-track-desc">
         <title id="zr-track-title">越来越小的间距</title><desc id="zr-track-desc">两只动物连续向前，镜头同时平滑放大地面，屏幕上的间距仍然逐渐缩小。紫色与绿色标记表示精确位置，插画在间距外侧逐渐缩小并过渡为持久的小点。插画大小是示意，不代表真实动物体积。</desc>
@@ -87,7 +94,7 @@ import '../../styles/zeno-race.css';
           <p id="zr-full-observation"></p>
           <button type="button" id="zr-continuous-play" aria-pressed="false">播放完整时间</button>
         </div>
-        <div class="zr-explain-metrics"><div><span>这一段用了</span><strong id="zr-segment">尚未开始</strong></div><div><span>累计模型时间</span><strong id="zr-time">0 s</strong></div><div><span id="zr-tail-label">距相遇还需</span><strong id="zr-tail">≈ 1.111111 s</strong></div><div><span id="zr-limit-heading">相遇发生在</span><strong id="zr-limit-time">10/9 s</strong><p id="zr-limit-detail">≈ 1.111111… 秒 · 100/9 米处</p></div></div>
+        <div class="zr-explain-metrics"><div><span>上一完整段用时</span><strong id="zr-segment">尚未开始</strong></div><div><span>累计模型时间</span><strong id="zr-time">0 s</strong></div><div><span id="zr-tail-label">距相遇还需</span><strong id="zr-tail">≈ 1.111111 s</strong></div><div><span id="zr-limit-heading">相遇发生在</span><strong id="zr-limit-time">10/9 s</strong><p id="zr-limit-detail">≈ 1.111111… 秒 · 100/9 米处</p></div></div>
         <div class="zr-explain-actions"><button type="button" id="zr-meet">把时钟拨到相遇 →</button><button type="button" id="zr-compare">直接看默认的 1.2 秒 ↗</button><button type="button" id="zr-replay">从头重播当前观察</button></div>
         <section class="zr-time-section" aria-label="选定截图与完整连续时间的对照"><div class="zr-time-heading"><h2>两种观察，同一段时间</h2><span id="zr-timeline-caption">有限步骤越来越靠近相遇线</span></div>
       <svg id="zr-timeline" viewBox="0 0 1100 180" role="img" aria-labelledby="zr-timeline-title zr-timeline-desc">

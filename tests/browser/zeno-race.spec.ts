@@ -14,7 +14,7 @@ test('the primary experience shrinks through metre, centimetre and microscopic g
   let previousGap = 561, previousGlyph = 1;
   for (const [stage, gap] of [[1, '1 m'], [2, '10 cm'], [3, '1 cm'], [4, '1 mm'], [5, '100 μm'], [7, '1 μm'], [10, '1 nm'], [17, '1e-16 m'], [20, '1e-19 m']] as const) {
     const current = Number(await lab.getAttribute('data-stage')); await steps(page, stage - current);
-    await expect(lab).toHaveAttribute('data-stage', String(stage)); await expect(page.locator('#zr-gap')).toHaveText(gap);
+    await expect(lab).toHaveAttribute('data-stage', String(stage)); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', gap);
     const scaleNames: Record<number, string> = { 1: '米的尺度', 2: '厘米的尺度', 3: '厘米的尺度', 4: '毫米的尺度', 5: '微米的尺度', 7: '微米的尺度', 10: '纳米的尺度', 17: '继续细分 · 数学尺度', 20: '继续细分 · 数学尺度' };
     await expect(page.locator('#zr-scale-label')).toHaveText(scaleNames[stage]);
     const screenGap = Number(await lab.getAttribute('data-screen-gap')), glyph = Number(await lab.getAttribute('data-glyph-scale'));
@@ -40,7 +40,7 @@ test('one step moves continuously; pause, resume and rapid interruptions do not 
   await page.locator('#zr-reset').click(); await expect(lab).toHaveAttribute('data-stage', '0');
   await page.locator('#zr-play').click(); await setRange(page, '#zr-lead', 20);
   await page.clock.runFor(250); await expect(lab).toHaveAttribute('data-running', 'false'); await expect(lab).toHaveAttribute('data-stage', '0');
-  await expect(page.locator('#zr-gap')).toHaveText('20 m');
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '20 m');
   await page.locator('#zr-next').evaluate((node: HTMLButtonElement) => { node.click(); node.click(); node.click(); });
   await page.locator('#zr-reset').click(); await page.clock.runFor(1800);
   await expect(lab).toHaveAttribute('data-stage', '0'); await expect(lab).toHaveAttribute('data-running', 'false');
@@ -52,7 +52,7 @@ test('complete time stays secondary and preserves a separate finite meeting demo
   await steps(page, 3); await openExplanation(page);
   await expect(page.locator('#zr-segment')).toHaveText('0.01 s'); await expect(page.locator('#zr-time')).toHaveText('1.11 s');
   await page.locator('#zr-meet').click(); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-mode', 'continuous');
-  await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇'); await expect(page.locator('#zr-gap')).toHaveText('1 cm');
+  await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇'); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '1 cm');
   await page.locator('#zr-compare').click(); await expect(page.locator('#zr-time')).toHaveText('1.2 s');
   await expect(page.locator('#zr-rabbit-position')).toHaveText('12 m'); await expect(page.locator('#zr-turtle-position')).toHaveText('11.2 m');
   await expect(page.locator('#zr-full-gap')).toContainText('兔子已领先 0.8 m');
@@ -61,19 +61,19 @@ test('complete time stays secondary and preserves a separate finite meeting demo
   await page.locator('#zr-continuous-play').click(); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'true');
   await page.locator('#zr-explanation>summary').click(); await page.waitForTimeout(250);
   await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-mode', 'steps');
-  await expect(page.locator('#zr-gap')).toHaveText('1 cm');
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '1 cm');
 });
 
 test('zero lead, stationary animals, equal and slower speeds remain truthful', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
   await setRange(page, '#zr-turtle-speed', 0); await steps(page, 1);
-  await expect(page.locator('#zr-gap')).toHaveText('0 m'); await expect(page.locator('#zr-next')).toBeDisabled(); await expect(page.locator('#zr-observation')).toContainText('第一段'); await expect(page.locator('#zr-stage-label')).toContainText('已追上');
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '0 m'); await expect(page.locator('#zr-next')).toBeDisabled(); await expect(page.locator('#zr-observation')).toContainText('第一段'); await expect(page.locator('#zr-stage-label')).toContainText('已追上');
   await setRange(page, '#zr-rabbit-speed', 0); await expect(page.locator('#zr-next')).toBeDisabled();
   await setRange(page, '#zr-turtle-speed', 1); await expect(page.locator('#zr-observation')).toContainText('兔子不动');
-  await setRange(page, '#zr-rabbit-speed', 1); await steps(page, 1); await expect(page.locator('#zr-gap')).toHaveText('10 m');
-  await setRange(page, '#zr-turtle-speed', 2); await steps(page, 1); await expect(page.locator('#zr-gap')).toHaveText('20 m');
+  await setRange(page, '#zr-rabbit-speed', 1); await steps(page, 1); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '10 m');
+  await setRange(page, '#zr-turtle-speed', 2); await steps(page, 1); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '20 m');
   await openExplanation(page); await expect(page.locator('#zr-meet')).toBeDisabled();
-  await setRange(page, '#zr-lead', 0); await expect(page.locator('#zr-gap')).toHaveText('0 m'); await expect(page.locator('#zr-next')).toBeDisabled();
+  await setRange(page, '#zr-lead', 0); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '0 m'); await expect(page.locator('#zr-next')).toBeDisabled();
   await page.locator('#zr-mode-continuous').click(); await setRange(page, '#zr-scrub', 400); await expect(page.locator('#zr-time')).toHaveText('2 s');
   await setRange(page, '#zr-lead', 17); await setRange(page, '#zr-rabbit-speed', 3.7); await setRange(page, '#zr-turtle-speed', 2.9);
   await page.locator('#zr-meet').click(); await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇');
@@ -85,7 +85,7 @@ test('200-stage cap retains logarithmic positive separation beyond floating-poin
   await setRange(page, '#zr-rabbit-speed', 20); await setRange(page, '#zr-turtle-speed', .1);
   await steps(page, 200); const lab = page.locator('#zeno-race-lab');
   await expect(lab).toHaveAttribute('data-stage', '200'); await expect(page.locator('#zr-next')).toBeDisabled();
-  await expect(page.locator('#zr-resolution')).toContainText('没有完成'); await expect(page.locator('#zr-gap')).not.toHaveText('0 m');
+  await expect(page.locator('#zr-resolution')).toContainText('没有完成'); await expect(page.locator('#zr-gap')).not.toHaveAttribute('data-value', '0 m');
   expect(Number(await lab.getAttribute('data-log-gap'))).toBeLessThan(-1000); expect(Number(await lab.getAttribute('data-screen-gap'))).toBeGreaterThan(0);
   await openExplanation(page); await expect(page.locator('#zr-tail')).not.toHaveText('0 s');
   await page.locator('#zr-explanation>summary').click(); await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await page.screenshot({ path: testInfo.outputPath('zeno-gap-stage-200-desktop.png'), fullPage: true });
@@ -94,7 +94,7 @@ test('200-stage cap retains logarithmic positive separation beyond floating-poin
 for (const width of [390, 320]) test(`mobile ${width}px keyboard, reduced motion and deep gap stay usable`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 844 }); await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
   await page.locator('#zr-lead').focus(); await page.keyboard.press('ArrowRight'); await expect(page.locator('#zr-lead-value')).toHaveText('11 m');
-  await page.locator('#zr-next').focus(); await page.keyboard.press('Enter'); await expect(page.locator('#zr-gap')).toHaveText('1.1 m');
+  await page.locator('#zr-next').focus(); await page.keyboard.press('Enter'); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '1.1 m');
   await steps(page, 9); await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
   await page.screenshot({ path: testInfo.outputPath(`zeno-gap-micro-${width}.png`), fullPage: true });
   await steps(page, 190); await expect(page.locator('#zeno-race-lab')).toHaveAttribute('data-stage', '200');
@@ -113,7 +113,7 @@ test('rounded microscopic stage never becomes an exact meeting merely by opening
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/');
   await steps(page, 30); await openExplanation(page); await page.locator('#zr-mode-continuous').click();
   await expect(page.locator('#zr-time')).toHaveText('0 s'); await expect(page.locator('#zr-full-gap')).toHaveText('仍差 10 m');
-  await expect(page.locator('#zr-gap')).toHaveText('1e-29 m');
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '1e-29 m');
   await page.locator('#zr-meet').click(); await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇');
 });
 
@@ -244,5 +244,121 @@ for (const stage of [1, 20, 199]) test(`deep-stage handover at ${stage} retains 
   expect(middle.rabbit).toBeGreaterThan(before.rabbit); expect(middle.turtle).toBeGreaterThan(before.turtle); expect(middle.gap).toBeLessThan(before.gap);
   expect(middle.logGap).toBeLessThan(before.logGap); expect(middle.camera).toBeGreaterThan(before.camera);
   await page.clock.runFor(1450); await expect(lab).toHaveAttribute('data-stage', String(stage + 1));
-  await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-gap')).not.toHaveText('0 m');
+  await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-gap')).not.toHaveAttribute('data-value', '0 m');
+});
+
+for (const width of [320, 390, 1440]) test(`live segment and accumulated metrics stay distinct at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: width < 720 ? 844 : 1000 });
+  await page.clock.install({ time: new Date('2026-10-06T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-06T00:00:01Z'));
+  await page.goto('/tools/zeno-race/'); const lab = page.locator('#zeno-race-lab');
+  await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
+  await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '0 m');
+  await expect(page.locator('#zr-segment-duration')).toHaveText('1 s');
+  await page.locator('#zr-play').click();
+  let previousTotal = 0, previousDistance = -Infinity;
+  for (let i = 0; i < 24; i++) {
+    await page.clock.runFor(400);
+    const m = await lab.evaluate(node => ({ ...node.dataset }));
+    const t = Number(m.totalTime), d = Number(m.logTotalDistance), elapsed = Number(m.logSegmentElapsed), duration = Number(m.logSegmentDuration);
+    expect(t).toBeGreaterThan(previousTotal); expect(d).toBeGreaterThan(previousDistance); expect(elapsed).toBeLessThan(duration);
+    expect(Number(m.segment)).toBe(Number(m.stage) + 1);
+    expect(Math.exp(d)).toBeCloseTo(t * 10, 8);
+    expect(Math.exp(elapsed - duration)).toBeCloseTo(Number(m.segmentFraction), 10);
+    await expect(page.locator('#zr-segment-label')).toHaveText(`第 ${m.segment} 段已用`);
+    previousTotal = t; previousDistance = d;
+  }
+  await page.locator('#zr-play').click();
+  const readout = () => page.locator('.zr-live-metrics,.zr-total-metrics').allTextContents();
+  const paused = await readout(); await page.clock.runFor(1000); expect(await readout()).toEqual(paused);
+  expect(await page.locator('.zr-rolling-number').evaluateAll(nodes => nodes.flatMap(n => n.getAnimations({ subtree: true })).length)).toBe(0);
+  await page.locator('.zr-live-metrics').screenshot({ path: testInfo.outputPath(`live-metrics-${width}-paused.png`) });
+  for (const id of ['zr-gap', 'zr-segment-elapsed', 'zr-total-time', 'zr-total-distance']) {
+    const bounds = await page.locator(`#${id}`).evaluate(node => ({ scroll: node.scrollWidth, client: node.clientWidth, label: node.querySelector('.zr-number-accessible')?.textContent, value: (node as HTMLElement).dataset.value }));
+    expect(bounds.scroll).toBeLessThanOrEqual(bounds.client + 1); expect(bounds.label).toBe(bounds.value);
+  }
+  await page.locator('#zr-reset').click(); await page.clock.runFor(500);
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '10 m'); await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '0 s');
+  await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s'); await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '0 m');
+  await page.locator('#zr-play').click(); await page.clock.runFor(450); await setRange(page, '#zr-lead', 20);
+  await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '20 m'); await expect(page.locator('#zr-segment-duration')).toHaveText('2 s');
+  await expect(lab).toHaveAttribute('data-running', 'false'); await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('completed and microscopic metric snapshots never confuse rounded totals with reaching the turtle', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/tools/zeno-race/'); await steps(page, 1);
+  await expect(page.locator('#zr-segment-label')).toHaveText('第 1 段已用');
+  await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '1 s'); await expect(page.locator('#zr-segment-duration')).toHaveText('1 s');
+  await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '1 s'); await expect(page.locator('#zr-total-distance')).toHaveAttribute('data-value', '10 m');
+  await expect(page.locator('#zr-segment-state')).toContainText('完成');
+  await steps(page, 29); await expect(page.locator('#zr-segment-elapsed')).not.toHaveAttribute('data-value', '0 s');
+  await expect(page.locator('#zr-metric-note')).toContainText('四舍五入');
+  expect(await page.locator('.zr-rolling-number').evaluateAll(nodes => nodes.flatMap(n => n.getAnimations({ subtree: true })).length)).toBe(0);
+  await setRange(page, '#zr-rabbit-speed', 20); await setRange(page, '#zr-turtle-speed', .1); await steps(page, 200);
+  await expect(page.locator('#zr-segment-label')).toHaveText('第 200 段已用'); await expect(page.locator('#zr-segment-elapsed')).not.toHaveAttribute('data-value', '0 s');
+  await expect(page.locator('#zr-gap')).not.toHaveAttribute('data-value', '0 m');
+  await openExplanation(page); await page.locator('#zr-meet').click(); await expect(page.locator('#zr-full-gap')).toContainText('此刻相遇');
+  await expect(page.locator('#zr-metric-note')).toContainText('保留逐段');
+  await page.locator('#zr-compare').click(); await expect(page.locator('#zr-full-gap')).toContainText('兔子已领先');
+  await setRange(page, '#zr-turtle-speed', 0); await page.locator('#zr-mode-steps').click(); await steps(page, 1);
+  await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '1 s'); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '0 m');
+  await setRange(page, '#zr-rabbit-speed', 0); await expect(page.locator('#zr-segment-duration')).toHaveText('无法到达');
+  await setRange(page, '#zr-lead', 0); await expect(page.locator('#zr-segment-state')).toHaveText('无需追赶');
+  await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
+});
+
+for (const width of [320, 390, 1440]) test(`record rolling metrics with three live line crossings at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: width < 720 ? 844 : 1000 }); await page.goto('/tools/zeno-race/');
+  await page.locator('#zr-play').click();
+  await page.locator('.zr-scene-top').evaluate(node => node.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => {
+    type Sample = { stage: number; elapsed: string; total: string; gap: string; animated: number; top: number; height: number };
+    const samples: Sample[] = []; (window as unknown as { metricSamples: Sample[] }).metricSamples = samples;
+    const sample = () => {
+      const lab = document.querySelector<HTMLElement>('#zeno-race-lab')!, grid = document.querySelector('.zr-live-metrics')!.getBoundingClientRect();
+      const value = (id: string) => document.querySelector<HTMLElement>(id)!.dataset.value!;
+      samples.push({ stage: Number(lab.dataset.stage), elapsed: value('#zr-segment-elapsed'), total: value('#zr-total-time'), gap: value('#zr-gap'), animated: document.querySelector('.zr-live-metrics')!.getAnimations({ subtree: true }).filter(a => a.playState === 'running').length, top: grid.top, height: grid.height });
+      if (lab.dataset.running === 'true') requestAnimationFrame(sample);
+    }; requestAnimationFrame(sample);
+  });
+  await expect.poll(async () => Number(await page.locator('#zeno-race-lab').getAttribute('data-stage')), { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
+  await page.locator('#zr-play').click();
+  const samples = await page.evaluate(() => (window as unknown as { metricSamples: { stage: number; elapsed: string; total: string; gap: string; animated: number; top: number; height: number }[] }).metricSamples);
+  expect(samples.length).toBeGreaterThan(100); expect(samples.some(s => s.animated > 0)).toBe(true);
+  expect(new Set(samples.map(s => s.elapsed)).size).toBeGreaterThan(30);
+  expect(Math.max(...samples.map(s => s.height)) - Math.min(...samples.map(s => s.height))).toBeLessThan(2);
+  await testInfo.attach('rolling-metric-samples', { body: JSON.stringify(samples), contentType: 'application/json' });
+  await page.locator('.zr-scene').screenshot({ path: testInfo.outputPath(`rolling-metrics-${width}-three-segments.png`) });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('visible rolling ink resets with its segment and fits deep scientific readings at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.clock.install({ time: new Date('2026-10-06T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-06T00:00:01Z'));
+  await page.goto('/tools/zeno-race/'); await page.locator('#zr-play').click();
+  const read = () => page.locator('#zr-segment-elapsed').evaluate(node => {
+    const copy = node.querySelector('.zr-number-ink')!.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll('.zr-number-outgoing').forEach(n => n.remove());
+    return copy.textContent!;
+  });
+  const seconds = (value: string) => {
+    const [number, unit] = value.split(' '), factor: Record<string, number> = { s: 1, ms: 1e-3, 'μs': 1e-6, ns: 1e-9, ps: 1e-12 };
+    return Number(number) * factor[unit];
+  };
+  for (let i = 0; i < 190; i++) {
+    await page.clock.runFor(32);
+    const duration = Number(await page.locator('#zeno-race-lab').getAttribute('data-log-segment-duration'));
+    expect(seconds(await read())).toBeLessThanOrEqual(Math.exp(duration) * 1.005);
+  }
+  await page.locator('#zr-reset').click(); await page.emulateMedia({ reducedMotion: 'reduce' }); await steps(page, 16);
+  await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.locator('#zr-play').click();
+  for (let i = 0; i < 10; i++) {
+    await page.clock.runFor(300);
+    for (const id of ['#zr-gap', '#zr-segment-elapsed']) {
+      const fits = await page.locator(id).evaluate(node => {
+        const cell = node.getBoundingClientRect(), ink = node.querySelector('.zr-number-ink')!.getBoundingClientRect();
+        return ink.left >= cell.left - 1 && ink.right <= cell.right + 1;
+      }); expect(fits).toBe(true);
+    }
+  }
 });

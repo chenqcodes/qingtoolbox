@@ -1,3 +1,5 @@
+import { pursuitMetrics, formatMetricTime } from './metrics';
+import { RollingNumber } from './rolling-number';
 import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, cameraForGap, pursuitFrame, pursuitTime, groundAnchor, formatLogDistance, type RaceParameters, type Stage, type StepStop } from './model';
 
 const root = document.querySelector<HTMLElement>('#zeno-race-lab');
@@ -25,9 +27,11 @@ if (root) {
   let pending: Stage | null = null, progress = 0, autoplay = false, resumeAutoplay = false, historyKey = '';
   let phase: 'idle' | 'chase' = 'idle', phaseTime = 0;
   const STEP_SECONDS = 2.8;
+  let metricSegment = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const play = el<HTMLButtonElement>('zr-play'), next = el<HTMLButtonElement>('zr-next');
   const scrub = el<HTMLInputElement>('zr-scrub'), explanation = el<HTMLDetailsElement>('zr-explanation');
+  const counters = new Map(['zr-gap', 'zr-segment-elapsed', 'zr-total-time', 'zr-total-distance'].map(id => [id, new RollingNumber(el<HTMLElement>(id))]));
   const ns = 'http://www.w3.org/2000/svg';
   const svgElement = (tag: string, attrs: Record<string, string | number>, value?: string): SVGElement => {
     const node = document.createElementNS(ns, tag);
@@ -143,7 +147,32 @@ if (root) {
     el('zr-gap-bracket').setAttribute('d', `M${left} 259v9H${right}v-9`);
     el('zr-gap-svg').setAttribute('x', String((left + right) / 2)); el('zr-gap-svg').setAttribute('y', '300');
     const distance = formatLogDistance(logGap);
-    text('zr-gap', distance); text('zr-gap-svg', distance);
+    const animateMetrics = running && mode === 'steps' && !reducedMotion.matches;
+    counters.get('zr-gap')!.set(distance, animateMetrics);
+    text('zr-gap-svg', distance);
+    const metrics = pursuitMetrics(p, stage.index, moving ? progress : 0, !!pending);
+    const displayTime = formatMetricTime(Math.log(metrics.totalTime));
+    counters.get('zr-segment-elapsed')!.set(formatMetricTime(metrics.logElapsed), animateMetrics && metricSegment === metrics.segment);
+    metricSegment = metrics.segment;
+    counters.get('zr-total-time')!.set(displayTime, animateMetrics);
+    counters.get('zr-total-distance')!.set(formatLogDistance(metrics.logTotalDistance), animateMetrics);
+    text('zr-segment-label', metrics.possible ? `第 ${metrics.segment} 段已用` : p.lead === 0 ? '起点已相遇' : '当前段已用');
+    text('zr-segment-duration', metrics.possible ? formatMetricTime(metrics.logDuration) : p.lead === 0 ? '0 s' : '无法到达');
+    text('zr-segment-state', !metrics.possible ? p.lead === 0 ? '无需追赶' : '兔子静止，无法到达下一条线'
+      : metrics.completed ? `第 ${metrics.segment} 段完成 · 已到达这条线`
+      : pending ? `第 ${metrics.segment} 段 · ${running ? '正在跑向' : '暂停在通往'}下一条线` : '从上一条线，跑到下一条线');
+    const meter = el<HTMLElement>('zr-segment-progress');
+    meter.style.setProperty('--zr-segment-progress', String(metrics.fraction));
+    meter.setAttribute('aria-valuenow', String(Math.round(metrics.fraction * 100)));
+    meter.setAttribute('aria-valuetext', `第 ${metrics.segment} 段已用 ${formatMetricTime(metrics.logElapsed)}，本段共 ${metrics.possible ? formatMetricTime(metrics.logDuration) : '无法到达'}`);
+    const roundedToLimit = scene.logTail !== null && Number.isFinite(scene.logTail) && metrics.totalTime > 0
+      && formatMetricTime(Math.log(meetingTime(p) ?? 0)) === displayTime;
+    text('zr-metric-note', mode === 'continuous' ? '这里保留逐段画面的读数；下方完整时钟可越过相遇'
+      : roundedToLimit ? '累计读数已四舍五入；本段与间距仍在变化，尚未相遇'
+      : '模型读数取约 3 位有效数字；慢放时长不等于赛跑用时');
+    root!.dataset.segment = String(metrics.segment); root!.dataset.segmentFraction = String(metrics.fraction);
+    root!.dataset.logSegmentElapsed = String(metrics.logElapsed); root!.dataset.logSegmentDuration = String(metrics.logDuration);
+    root!.dataset.totalTime = String(metrics.totalTime); root!.dataset.logTotalDistance = String(metrics.logTotalDistance);
     text('zr-gap-label', logGap === -Infinity ? '此刻间距' : '还差');
     text('zr-gap-context', p.lead === 0 || logGap === -Infinity ? '这组条件下，它们已经相遇' : p.rabbit <= p.turtle ? '这组速度下，间距不会收敛到零' : '一直向前，镜头也一直靠近');
     const unit = distance.split(' ').at(-1) ?? 'm';

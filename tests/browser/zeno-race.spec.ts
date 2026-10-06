@@ -304,6 +304,7 @@ test('completed and microscopic metric snapshots never confuse rounded totals wi
   await expect(page.locator('#zr-segment-elapsed')).toHaveAttribute('data-value', '1 s'); await expect(page.locator('#zr-gap')).toHaveAttribute('data-value', '0 m');
   await setRange(page, '#zr-rabbit-speed', 0); await expect(page.locator('#zr-segment-duration')).toHaveText('无法到达');
   await setRange(page, '#zr-lead', 0); await expect(page.locator('#zr-segment-state')).toHaveText('无需追赶');
+  await expect(page.locator('#zr-segment-progress')).toHaveAttribute('aria-valuetext', '起点已相遇，无需追赶');
   await expect(page.locator('#zr-total-time')).toHaveAttribute('data-value', '0 s');
 });
 

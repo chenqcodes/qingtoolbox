@@ -164,7 +164,7 @@ if (root) {
     const meter = el<HTMLElement>('zr-segment-progress');
     meter.style.setProperty('--zr-segment-progress', String(metrics.fraction));
     meter.setAttribute('aria-valuenow', String(Math.round(metrics.fraction * 100)));
-    meter.setAttribute('aria-valuetext', `第 ${metrics.segment} 段已用 ${formatMetricTime(metrics.logElapsed)}，本段共 ${metrics.possible ? formatMetricTime(metrics.logDuration) : '无法到达'}`);
+    meter.setAttribute('aria-valuetext', p.lead === 0 ? '起点已相遇，无需追赶' : !metrics.possible ? '兔子静止，无法到达下一条线' : `第 ${metrics.segment} 段已用 ${formatMetricTime(metrics.logElapsed)}，本段共 ${formatMetricTime(metrics.logDuration)}`);
     const roundedToLimit = scene.logTail !== null && Number.isFinite(scene.logTail) && metrics.totalTime > 0
       && formatMetricTime(Math.log(meetingTime(p) ?? 0)) === displayTime;
     text('zr-metric-note', mode === 'continuous' ? '这里保留逐段画面的读数；下方完整时钟可越过相遇'

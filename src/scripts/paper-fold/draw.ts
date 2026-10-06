@@ -1,7 +1,8 @@
 import { formatLength, niceScale } from './model';
+import { drawStackFold, foldGeometry, type FoldGeometry } from './stack-fold';
 import { projectedReferences, type JourneyReference } from './references';
 
-export interface SceneState { exponent: number; thicknessMm: number; logView: number }
+export interface SceneState { exponent: number; thicknessMm: number; logView: number; foldPose?: (half: number) => FoldGeometry }
 const clamp = (value: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, value));
 export function viewLog(exponent: number, thicknessMm: number): number {
   return Math.log2(thicknessMm / 1000) + Math.max(6, exponent + .65);
@@ -14,13 +15,6 @@ function line(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number,
 }
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color = '#acbbc1', align: CanvasTextAlign = 'center', size = 10) {
   ctx.font = `${size}px system-ui, sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(text, x, y);
-}
-function measure(ctx: CanvasRenderingContext2D, x: number, bottom: number, height: number, text: string, color: string, topLimit: number) {
-  if (height < 9 || height > bottom - topLimit) return;
-  const top = bottom - height;
-  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.globalAlpha *= .7;
-  line(ctx, x, top, x, bottom); line(ctx, x - 4, top, x + 4, top); line(ctx, x - 4, bottom, x + 4, bottom);
-  ctx.save(); ctx.translate(x - 10, bottom - height / 2); ctx.rotate(-Math.PI / 2); label(ctx, text, 0, 0, color, 'center', 9); ctx.restore();
 }
 function drawPerson(ctx: CanvasRenderingContext2D, x: number, bottom: number, h: number) {
   ctx.save(); ctx.translate(x, bottom); ctx.scale(h / 170, h / 170);
@@ -199,20 +193,23 @@ export function drawScene(ctx: CanvasRenderingContext2D, width: number, height: 
       label(ctx,formatLength(ref.metres),labelX,baseline+36,'#a7bbc5','center',10);
     }
   }
-  // The side's height is physical; width/depth are schematic, never volume claims.
-  const px=width*(mobile?.275:.30),pw=mobile?84:132,depth=mobile?13:21,slant=mobile?15:25,sy=baseline-stackHeight;
+  // The mechanics live in the original paper bay, with a slim metre-scale
+  // thickness guide beside them. Both the guide and reference use pixels/metre;
+  // the layered folding mesh is explicitly schematic and never covers the bay
+  // reserved for the reference objects.
+  const px=width*(mobile?.265:.275), half=Math.min(82,width*.125);
+  const gaugeX=mobile?24:42, sy=baseline-stackHeight;
   ctx.save();
-  const shadow=ctx.createRadialGradient(px,baseline+4,0,px,baseline+4,pw*.85);shadow.addColorStop(0,'#d3b37720');shadow.addColorStop(1,'#d3b37700');ctx.fillStyle=shadow;ctx.beginPath();ctx.ellipse(px,baseline+3,pw*.85,18,0,0,Math.PI*2);ctx.fill();
-  const side=ctx.createLinearGradient(px-pw/2,sy,px+pw/2,baseline);side.addColorStop(0,'#e3c59b');side.addColorStop(.4,'#c7a875');side.addColorStop(1,'#a1845e');
-  ctx.fillStyle=side;ctx.fillRect(px-pw/2,sy,pw,stackHeight);
-  ctx.fillStyle='#a08867';path(ctx,[[px+pw/2,sy],[px+pw/2+slant,sy-depth],[px+pw/2+slant,baseline-depth],[px+pw/2,baseline]]);ctx.fill();
-  ctx.save();ctx.beginPath();ctx.rect(px-pw/2,sy,pw,stackHeight);ctx.clip();
-  const nLines=Math.min(32,Math.max(0,Math.round(2**Math.min(5,state.exponent))-1));ctx.strokeStyle='#604f343f';ctx.lineWidth=.8;
-  for(let i=1;i<=nLines;i++)line(ctx,px-pw/2,sy+stackHeight*i/(nLines+1),px+pw/2,sy+stackHeight*i/(nLines+1));ctx.restore();
-  const topColor=ctx.createLinearGradient(px,sy-depth,px,sy);topColor.addColorStop(0,'#f1e2c2');topColor.addColorStop(1,'#e3d3ad');ctx.fillStyle=topColor;
-  path(ctx,[[px-pw/2,sy],[px-pw/2+slant,sy-depth],[px+pw/2+slant,sy-depth],[px+pw/2,sy]]);ctx.fill();ctx.strokeStyle='#f3e6c33f';ctx.lineWidth=.7;ctx.stroke();
-  measure(ctx,px-pw/2-17,baseline,stackHeight,formatLength(thickness),'#dfbf8e',top-20);
-  label(ctx,'纸叠 · 厚度',px+slant*.4,baseline+22,'#d6bc94','center',mobile?9:11);
+  const guide=ctx.createLinearGradient(0,sy,0,baseline);guide.addColorStop(0,'#ead4ad');guide.addColorStop(1,'#ac8857');
+  ctx.fillStyle=guide;ctx.fillRect(gaugeX-3,sy,6,stackHeight);
+  ctx.strokeStyle='#e4c59499';ctx.lineWidth=1;line(ctx,gaugeX-6,sy,gaugeX+6,sy);line(ctx,gaugeX-6,baseline,gaugeX+6,baseline);
+  if(stackHeight>36){ctx.save();ctx.translate(gaugeX-9,baseline-stackHeight/2);ctx.rotate(-Math.PI/2);label(ctx,formatLength(thickness),0,0,'#dfbf8e','center',9);ctx.restore();}
+  const geometry=state.foldPose?state.foldPose(half):foldGeometry(state.exponent,half);
+  // Bound the projected paper to the left comparison bay without a clipping
+  // mask hiding bad geometry. Tests cover its actual projected bounds.
+  drawStackFold(ctx,px,baseline-half*.68,half,geometry);
+  label(ctx,'整叠对折',px,baseline+21,'#d6bc94','center',mobile?10:12);
+  label(ctx,'动作示意 · 左侧为同尺厚度',px,baseline+36,'#a7bbc5','center',mobile?8:10);
   ctx.restore();
   // A live ruler is the persistent visual anchor during every camera transition.
   const rulerMetres=niceScale(2**state.logView*.3),rulerPixels=rulerMetres*pixelsPerMetre;

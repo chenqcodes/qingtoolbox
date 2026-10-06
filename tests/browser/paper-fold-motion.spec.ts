@@ -7,7 +7,9 @@ async function setFolds(page: import('@playwright/test').Page, n: number) {
 }
 
 // Record actual consecutive folds, not just before/after screenshots. These
-// videos and mid-turn frames are retained in the existing CI browser artifact.
+// uninterrupted videos are retained in the existing CI browser artifact.
+// Mid-turn screenshots live in the non-recording suite: screenshot capture can
+// temporarily blank Chromium screencast frames and must not interrupt this film.
 test.describe('whole-stack motion evidence',()=>{
   for(const width of [1440,390,320]) test(`the complete layered bundle folds repeatedly at ${width}px`,async({page},testInfo)=>{
     await page.setViewportSize({width,height:1000});
@@ -21,7 +23,6 @@ test.describe('whole-stack motion evidence',()=>{
       const angle=Number(await lab.getAttribute('data-fold-angle'));
       expect(angle).toBeGreaterThan(.1);expect(angle).toBeLessThan(Math.PI);
       await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
-      await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${fold}-turn.png`)});
       await expect(lab).toHaveAttribute('data-motion','false');
       await expect(lab).toHaveAttribute('data-fold-angle','0.000000');
       await expect(page.locator('#pf-layers')).toHaveText(String(2**fold));
@@ -39,7 +40,7 @@ test.describe('whole-stack motion evidence',()=>{
     await expect(lab).toHaveAttribute('data-folds','0');
   });
 
-  test('pause, resumed folds, interrupted jumps and reduced motion keep one coherent bundle',async({page},testInfo)=>{
+  test('pause, resumed folds, interrupted jumps and reduced motion keep one coherent bundle',async({page})=>{
     await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(route);
     const lab=page.locator('#paper-fold-lab');
     await page.locator('#pf-speed').selectOption('1600');await page.locator('#pf-play').click();
@@ -56,7 +57,6 @@ test.describe('whole-stack motion evidence',()=>{
     await page.locator('.pf-fold-detail').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
     await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());await page.waitForTimeout(350);
     await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
-    await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath('whole-stack-cosmic-bundle-turn.png')});
     await expect(lab).toHaveAttribute('data-motion','false');await expect(lab).toHaveAttribute('data-folds','103');
     await expect(page.locator('#pf-fold-detail-title')).toContainText('旅程抵达终点');
     await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,6);

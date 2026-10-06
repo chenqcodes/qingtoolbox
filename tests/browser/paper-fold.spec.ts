@@ -248,3 +248,18 @@ test('close red-supergiant references remain identifiable during ordinary playba
   const seen=await page.evaluate(async()=>{const lab=document.querySelector<HTMLElement>('#paper-fold-lab')!;const seen=new Set<string>();await new Promise<void>(resolve=>{function sample(){(lab.dataset.referenceVisible??'').split(',').forEach(x=>seen.add(x));if(Number(lab.dataset.visualFold)>=56)resolve();else requestAnimationFrame(sample);}requestAnimationFrame(sample);});return [...seen];});
   await page.locator('#pf-play').click();expect(seen).toEqual(expect.arrayContaining(['antares','betelgeuse','vy-cma','jupiter-orbit']));
 });
+
+
+for(const width of [1440,390,320]) test(`whole-stack close-up poses stay readable at ${width}px`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:1000});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(route);
+  const lab=page.locator('#paper-fold-lab');
+  for(const base of [2,4,102]){
+    await page.emulateMedia({reducedMotion:'reduce'});await setFolds(page,base);await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.locator('.pf-fold-detail').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
+    await page.locator('#pf-step').evaluate((button:HTMLButtonElement)=>button.click());await page.waitForTimeout(320);
+    await expect(lab).toHaveAttribute('data-fold-mode','whole-stack');
+    expect(await page.locator('#pf-fold-detail-title').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)*1.1)).toBeTruthy();
+    await page.locator('.pf-fold-detail').screenshot({path:testInfo.outputPath(`whole-stack-${width}-fold-${base+1}-turn.png`)});
+    await expect(lab).toHaveAttribute('data-motion','false');
+  }
+});

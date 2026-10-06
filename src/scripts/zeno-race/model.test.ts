@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame, pursuitCamera, groundAnchor } from './model';
+import { DEFAULT_RACE, MAX_STAGES, meetingTime, positionsAt, stageAt, nextStage, observationEnd, formatLogDistance, cameraForGap, pursuitFrame, pursuitTime, groundAnchor } from './model';
 const close = (a: number, b: number, tolerance = 1e-12) => assert.ok(Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(b)), `${a} ≠ ${b}`);
 test('default stages are 1, 0.1, 0.01 seconds; the finite limit is 10/9', () => {
   close(meetingTime(DEFAULT_RACE)!, 10 / 9);
@@ -139,215 +139,111 @@ test('distance labels adapt units and stay nonzero hundreds of decades below und
   assert.equal(formatLogDistance(Infinity), '超出显示范围');
 });
 
-test('zoom camera continuously shrinks the visible gap and both glyphs through all stages', () => {
+test('continuous camera narrows the gap and shrinks schematic glyphs without a reset', () => {
   for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: .1 }, { lead: .1, rabbit: 20, turtle: 19.9 }]) {
-    const initialLogGap = Math.log(p.lead);
-    let previous = cameraForGap(initialLogGap, initialLogGap);
-    assert.equal(previous.screenGap, 560); assert.equal(previous.glyphScale, 1); assert.equal(previous.logZoom, 0);
-    for (let index = 1; index <= MAX_STAGES; index++) {
-      const s = stageAt(p, index), current = cameraForGap(s.logGap, initialLogGap);
-      assert.ok(Object.values(current).every(Number.isFinite));
-      assert.ok(current.screenGap < previous.screenGap); assert.ok(current.screenGap > 8);
-      assert.ok(current.glyphScale < previous.glyphScale); assert.ok(current.glyphScale > .11);
-      assert.ok(current.logZoom > previous.logZoom);
-      close(current.logZoom, initialLogGap - s.logGap + Math.log(current.screenGap / 560));
-      previous = current;
-    }
-  }
-  const deep = cameraForGap(-460 * Math.LN10, 0);
-  assert.ok(deep.screenGap < 11); assert.ok(deep.glyphScale < .12);
-});
-
-test('camera handles genuine zero, equal or growing gaps without invalid geometry', () => {
-  assert.deepEqual(cameraForGap(-Infinity, -Infinity), { screenGap: 0, logZoom: 0, glyphScale: 1, decades: 0 });
-  assert.deepEqual(cameraForGap(-Infinity, Math.log(10)), { screenGap: 0, logZoom: 0, glyphScale: 1, decades: 0 });
-  assert.deepEqual(cameraForGap(Math.log(20), Math.log(10)), cameraForGap(Math.log(10), Math.log(10)));
-  assert.ok(Object.values(cameraForGap(-Number.MAX_VALUE, Number.MAX_VALUE)).every(Number.isFinite));
-  assert.throws(() => cameraForGap(NaN, 0), RangeError);
-  assert.throws(() => cameraForGap(0, Infinity), RangeError);
-});
-
-const pursuitStages = [0, 1, 5, 20, 199] as const;
-const pursuitSamples = [0, .001, .125, .25, .5, .75, .875, .999, 1] as const;
-const pursuitCases = [
-  DEFAULT_RACE,
-  { lead: 30, rabbit: 20, turtle: 19.9 },
-  { lead: 30, rabbit: 20, turtle: .1 },
-  { lead: 10, rabbit: 1, turtle: 1 },
-  { lead: 10, rabbit: 1, turtle: 2 },
-] as const;
-
-test('each pursuit keeps its camera and old-position target fixed while both animals move forward', () => {
-  for (const p of pursuitCases) for (const index of pursuitStages) {
-    const initial = pursuitFrame(p, index, 0), end = pursuitFrame(p, index, 1);
-    const q = p.turtle / p.rabbit, travel = initial.targetX - initial.rabbitX;
-    close(initial.turtleX, initial.targetX);
-    close(end.rabbitX, initial.targetX);
-    close(end.turtleX - initial.turtleX, q * travel);
-    let previous = initial;
-    for (const u of pursuitSamples) {
-      const current = pursuitFrame(p, index, u);
-      assert.ok(Object.values(current).every(Number.isFinite), `non-finite frame at stage ${index}, u=${u}`);
-      assert.equal(current.targetX, initial.targetX);
-      assert.equal(current.logPixelsPerMetre, initial.logPixelsPerMetre);
-      assert.equal(current.glyphScale, initial.glyphScale);
-      assert.equal(current.decades, initial.decades);
-      close(current.rabbitX, initial.rabbitX + travel * u);
-      close(current.turtleX, initial.turtleX + q * travel * u);
-      assert.ok(current.rabbitX >= previous.rabbitX);
-      assert.ok(current.turtleX >= previous.turtleX);
-      assert.ok(current.rabbitX >= 140 && current.turtleX <= 720 + 1e-10);
-      assert.ok(current.screenGap > 0);
-      close(current.screenGap, current.turtleX - current.rabbitX);
-      if (q < 1) assert.ok(current.screenGap <= previous.screenGap + 1e-10);
-      if (q === 1) close(current.screenGap, initial.screenGap);
-      if (q > 1) assert.ok(current.screenGap >= previous.screenGap - 1e-10);
-      previous = current;
-    }
-  }
-});
-
-test('pursuit screen distances and logarithmic gaps use the same fixed affine camera', () => {
-  for (const p of pursuitCases) for (const index of pursuitStages) {
-    const stage = stageAt(p, index), q = p.turtle / p.rabbit;
-    for (const u of pursuitSamples) {
-      const current = pursuitFrame(p, index, u);
-      close(current.logGap, stage.logGap + Math.log(1 - u + q * u));
-      close(Math.log(current.screenGap), current.logGap + current.logPixelsPerMetre);
-      if (u === 1) close(current.logGap, stageAt(p, index + 1).logGap);
-      assert.notEqual(formatLogDistance(current.logGap), '0 m');
-    }
-  }
-});
-
-test('successive completed pursuits shrink gently without hiding a finite logarithmic gap', () => {
-  for (const p of pursuitCases.filter(p => p.rabbit > p.turtle)) {
-    let previous = pursuitFrame(p, 0, 1);
-    for (let index = 1; index < MAX_STAGES; index++) {
-      const current = pursuitFrame(p, index, 1);
+    let previous = pursuitFrame(p, 0, 0);
+    for (let n = 0; n < MAX_STAGES; n++) for (const v of [.001, .125, .5, .875, 1]) {
+      const current = pursuitFrame(p, n, v);
       assert.ok(current.screenGap < previous.screenGap);
-      assert.ok(current.glyphScale < previous.glyphScale);
-      assert.ok(current.glyphScale > .5);
-      assert.ok(current.logGap < previous.logGap);
+      assert.ok(current.screenGap > 24);
+      assert.ok(current.rabbitX > previous.rabbitX);
+      assert.ok(current.turtleX > previous.turtleX);
+      assert.ok(current.turtleX + 88 * current.glyphScale >= previous.turtleX + 88 * previous.glyphScale);
+      assert.ok(current.rabbitX >= 140 && current.turtleX < 790);
+      assert.ok(current.glyphScale <= previous.glyphScale && current.glyphScale >= .1);
       assert.ok(current.logPixelsPerMetre > previous.logPixelsPerMetre);
-      assert.ok(current.screenGap > 0);
+      assert.ok(current.logGap < previous.logGap && current.logTail! < previous.logTail!);
+      close(current.screenGap, current.turtleX - current.rabbitX);
+      close(Math.log(current.screenGap), current.logGap + current.logPixelsPerMetre);
       assert.notEqual(formatLogDistance(current.logGap), '0 m');
       previous = current;
     }
   }
-  const underflow = { lead: 30, rabbit: 20, turtle: .1 };
-  assert.equal(stageAt(underflow, MAX_STAGES).gap, 0);
-  const frame = pursuitFrame(underflow, MAX_STAGES - 1, 1);
-  assert.ok(Number.isFinite(frame.logGap));
-  assert.ok(frame.screenGap > 0);
-  assert.notEqual(formatLogDistance(frame.logGap), '0 m');
 });
 
-test('stationary animals and genuine meetings preserve static or exactly coincident positions', () => {
-  for (const turtle of [0, 1, 20]) for (const index of pursuitStages) {
-    const p = { lead: 10, rabbit: 0, turtle }, initial = pursuitFrame(p, index, 0);
-    for (const u of pursuitSamples) {
-      const current = pursuitFrame(p, index, u);
-      assert.deepEqual(current, initial);
-      assert.ok(Object.values(current).every(Number.isFinite));
-      close(current.logGap, Math.log(10));
-    }
-  }
-  const stationaryTurtle = { lead: 10, rabbit: 10, turtle: 0 };
-  const first = pursuitFrame(stationaryTurtle, 0, 0);
-  for (const u of pursuitSamples) {
-    const current = pursuitFrame(stationaryTurtle, 0, u);
-    assert.equal(current.turtleX, first.turtleX);
-    assert.equal(current.targetX, first.targetX);
-    assert.equal(current.logPixelsPerMetre, first.logPixelsPerMetre);
-    if (u < 1) {
-      assert.ok(current.screenGap > 0);
-      close(current.logGap, Math.log(10) + Math.log1p(-u));
-    } else {
-      assert.equal(current.rabbitX, current.turtleX);
-      assert.equal(current.screenGap, 0);
-      assert.equal(current.logGap, -Infinity);
-    }
-  }
-  for (const p of [stationaryTurtle, { lead: 0, rabbit: 0, turtle: 0 }, { lead: 0, rabbit: 10, turtle: 1 }]) {
-    for (const index of pursuitStages.filter(index => p.lead === 0 || index > 0)) for (const u of pursuitSamples) {
-      const current = pursuitFrame(p, index, u);
-      assert.equal(current.rabbitX, current.turtleX);
-      assert.equal(current.targetX, current.rabbitX);
-      assert.equal(current.screenGap, 0);
-      assert.equal(current.logGap, -Infinity);
-      for (const [key, value] of Object.entries(current)) if (key !== 'logGap') assert.ok(Number.isFinite(value), `${key} must be finite at a genuine meeting`);
+test('a fractional stage advances real model time while pursuing the old position', () => {
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: 19.9 }, { lead: 30, rabbit: 20, turtle: .1 }, { lead: 10, rabbit: 1, turtle: 2 }]) {
+    for (const n of [0, 1, 5, 20, 199]) {
+      let previous = 0;
+      for (const v of [.001, .125, .5, .875, .999, 1]) {
+        const frame = pursuitFrame(p, n, v), q = p.turtle / p.rabbit;
+        assert.ok(frame.modelFraction > previous); previous = frame.modelFraction;
+        close(frame.logGap, stageAt(p, n).logGap + Math.log(1 + (q - 1) * frame.modelFraction));
+        const initialGapPixels = Math.exp(stageAt(p, n).logGap + frame.logPixelsPerMetre);
+        close(frame.rabbitX - frame.originRabbitX, initialGapPixels * frame.modelFraction);
+        close(frame.turtleX - frame.targetX, initialGapPixels * q * frame.modelFraction, 1e-10);
+        if (v === 1) { close(frame.rabbitX, frame.targetX); close(frame.logGap, stageAt(p, n + 1).logGap); }
+      }
     }
   }
 });
 
-test('pursuit handles supported speed extremes without non-finite geometry', () => {
-  for (const p of [{ lead: 30, rabbit: .1, turtle: 20 }, { lead: 30, rabbit: 20, turtle: .1 }]) {
+test('position, magnification, glyphs and velocity remain continuous through every stage handover', () => {
+  const fields = ['rabbitX', 'turtleX', 'screenGap', 'logGap', 'logPixelsPerMetre', 'glyphScale', 'bodyOpacity', 'pointMix'] as const;
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: .1 }, { lead: 30, rabbit: 20, turtle: 19.9 }, { lead: 10, rabbit: 1, turtle: 1 }, { lead: 10, rabbit: 1, turtle: 2 }]) {
+    for (const n of [1, 2, 5, 20, 199]) {
+      const before = pursuitFrame(p, n - 1, 1), after = pursuitFrame(p, n, 0);
+      const epsilon = 1e-4, left = pursuitFrame(p, n - 1, 1 - epsilon), right = pursuitFrame(p, n, epsilon);
+      for (const key of fields) {
+        close(before[key], after[key]);
+        close((before[key] - left[key]) / epsilon, (right[key] - after[key]) / epsilon, 5e-4);
+      }
+      close(groundAnchor(p, n - 1, before), groundAnchor(p, n, after), 1e-10);
+      // Fixed physical landmarks project continuously, too.
+      close((groundAnchor(p, n - 1, before) - groundAnchor(p, n - 1, left)) / epsilon,
+        (groundAnchor(p, n, right) - groundAnchor(p, n, after)) / epsilon, 5e-4);
+    }
+  }
+});
+
+test('stationary and non-catching cases remain honest and contained', () => {
+  for (const turtle of [0, 1, 20]) {
+    const p = { lead: 10, rabbit: 0, turtle };
+    for (const v of [0, .1, .5, 1]) assert.deepEqual(pursuitFrame(p, 0, v), pursuitFrame(p, 0, 0));
+  }
+  const p = { lead: 10, rabbit: 10, turtle: 0 };
+  for (const v of [0, .1, .5, .9, 1]) {
+    const f = pursuitFrame(p, 0, v);
+    assert.equal(f.turtleX, 700); assert.equal(f.targetX, 700); close(f.screenGap, 560 * (1 - v));
+    if (v < 1) assert.ok(Number.isFinite(f.logGap)); else assert.equal(f.logGap, -Infinity);
+  }
+  for (const p of [{ lead: 0, rabbit: 0, turtle: 0 }, { lead: 10, rabbit: 10, turtle: 0 }]) {
+    const f = pursuitFrame(p, 1, 0); assert.equal(f.rabbitX, f.turtleX); assert.equal(f.logGap, -Infinity);
+  }
+  for (const p of [{ lead: 10, rabbit: 2, turtle: 2 }, { lead: 30, rabbit: .1, turtle: 20 }]) {
     let stage = stageAt(p, 0);
     while (true) {
-      for (const u of [0, .5, 1]) {
-        const current = pursuitFrame(p, stage.index, u);
-        assert.ok(Object.values(current).every(Number.isFinite));
-        assert.ok(current.screenGap > 0);
-        assert.ok(current.rabbitX >= 140 && current.turtleX <= 720 + 1e-10);
+      for (const v of [0, .5, 1]) {
+        const f = pursuitFrame(p, stage.index, v);
+        for (const [key, value] of Object.entries(f)) if (value !== null) assert.ok(Number.isFinite(value), key);
+        assert.ok(f.rabbitX >= 140 && f.turtleX <= 800);
       }
-      const next = nextStage(p, stage);
-      if (next.stop) break;
-      stage = next.stage;
+      const next = nextStage(p, stage); if (next.stop) break; stage = next.stage;
     }
   }
 });
 
-test('extreme finite speed ratios never turn a positive gap into a mathematical meeting', () => {
-  for (const p of [
-    { lead: 1e100, rabbit: 1e100, turtle: 1e-300 },
-    { lead: 1e-100, rabbit: 1e-300, turtle: 1e100 },
-  ]) {
-    for (const u of [0, .5, 1]) {
-      const current = pursuitFrame(p, 0, u);
-      assert.ok(Number.isFinite(current.logGap));
-      assert.ok(Object.values(current).every(Number.isFinite));
-      assert.ok(current.screenGap >= 0);
-      assert.notEqual(formatLogDistance(current.logGap), '0 m');
-      if (u === 0) close(current.logGap, Math.log(p.lead));
-      if (u === 1) close(current.logGap, stageAt(p, 1).logGap);
-    }
+test('glyph-to-dot transition stays gradual and leaves visible dots at the finite cap', () => {
+  let previous = pursuitFrame(DEFAULT_RACE, 0, 0);
+  for (let n = 1; n <= 2000; n++) {
+    const sequence = n / 10, f = pursuitFrame(DEFAULT_RACE, Math.floor(sequence), sequence % 1);
+    assert.ok(f.bodyOpacity <= previous.bodyOpacity); assert.ok(f.pointMix >= previous.pointMix);
+    assert.ok(Math.abs(f.bodyOpacity - previous.bodyOpacity) < .03);
+    assert.ok(Math.abs(f.glyphScale - previous.glyphScale) < .031);
+    close(f.bodyOpacity + f.pointMix, 1);
+    previous = f;
   }
+  assert.equal(previous.pointMix, 1); assert.equal(previous.bodyOpacity, 0); assert.ok(previous.screenGap > 24);
+  assert.equal(cameraForGap(-Infinity, -Infinity).screenGap, 0);
+  assert.throws(() => cameraForGap(NaN, 0), RangeError);
+  assert.throws(() => pursuitFrame(DEFAULT_RACE, 0, NaN), RangeError);
 });
 
-
-
-test('one camera maps every frozen coordinate coherently into the next chase', () => {
-  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 20, turtle: .1 }, { lead: 10, rabbit: 10, turtle: 9 }, { lead: 10, rabbit: 1, turtle: 2 }, { lead: 10, rabbit: 2, turtle: 2 }]) {
-    for (const index of [1, 2, 5, 20, 100, 199]) {
-      const before = pursuitFrame(p, index - 1, 1), after = pursuitFrame(p, index, 0);
-      if (!Number.isFinite(stageAt(p, index).time)) continue;
-      const start = pursuitCamera(p, index, 0), end = pursuitCamera(p, index, 1);
-      assert.deepEqual(start, { scale: 1, x: 0, y: 0 });
-      close(before.rabbitX * end.scale + end.x, after.rabbitX, 1e-10);
-      close(before.turtleX * end.scale + end.x, after.turtleX, 1e-10);
-      const anchor = groundAnchor(p, index - 1, before), nextAnchor = groundAnchor(p, index, after);
-      close(anchor * end.scale + end.x, nextAnchor, 1e-10);
-      let previous = start.scale;
-      for (let u = 0; u <= 1; u += .025) {
-        const camera = pursuitCamera(p, index, u);
-        assert.ok(Object.values(camera).every(Number.isFinite)); assert.ok(camera.scale > 0);
-        close(235 * camera.scale + camera.y, 235);
-        close(camera.x, end.x * u); close(camera.scale, 1 + (end.scale - 1) * u);
-        if (p.turtle < p.rabbit) assert.ok(camera.scale >= previous);
-        previous = camera.scale;
-        close((before.turtleX - before.rabbitX) * camera.scale, before.screenGap * camera.scale, 1e-10);
-      }
+test('rounded finite-step clocks never cross the genuine meeting event', () => {
+  for (const p of [DEFAULT_RACE, { lead: 30, rabbit: 11.3, turtle: 1.2 }, { lead: 30, rabbit: 20, turtle: .1 }]) {
+    for (let n = 0; n < MAX_STAGES; n++) for (const v of [0, .1, .5, .9, 1]) {
+      assert.ok(pursuitTime(p, n, v) <= meetingTime(p)!);
+      assert.ok(Number.isFinite(pursuitFrame(p, n, v).logTail));
     }
   }
-});
-
-test('ground landmarks remain stationary through a chase and share the zoom focal point', () => {
-  for (const p of [DEFAULT_RACE, { lead: 10, rabbit: 10, turtle: 9.9 }, { lead: 10, rabbit: 1, turtle: 2 }, { lead: 10, rabbit: 2, turtle: 2 }]) {
-    for (const index of [0, 1, 20, 199]) {
-      const origin = groundAnchor(p, index, pursuitFrame(p, index, 0));
-      for (const u of [0, .2, .5, .8, 1]) close(groundAnchor(p, index, pursuitFrame(p, index, u)), origin, 1e-10);
-    }
-  }
-  assert.throws(() => pursuitCamera(DEFAULT_RACE, 1, NaN), RangeError);
 });

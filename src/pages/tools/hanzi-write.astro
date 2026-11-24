@@ -8,7 +8,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   currentSlug="hanzi-write"
 >
   <h1 slot="header">汉字笔顺练习</h1>
-  <p class="intro">添加要学的汉字，先看笔顺动画，再在田字格里跟写。生字保存在本机浏览器，不会上传。</p>
+  <p class="intro">添加要学的汉字，先看笔顺动画，再在田字格里跟写。生字本仅保存在本机浏览器，不会整本上传。查看某个字的笔顺时，若未缓存，浏览器会向第三方 CDN（jsDelivr）请求这个字的笔顺数据，请求地址包含该字。</p>
 
   <p class="field-hint" style="margin-bottom:16px">纸上巩固：<a href="/tools/hanzi-worksheet/" id="hanzi-worksheet-link">把生字本排成 A4 练习纸</a> · 可描红、听写、打印或保存 PDF</p>
 

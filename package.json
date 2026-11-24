@@ -37,6 +37,7 @@
     "js-md5": "^0.8.3",
     "jsonrepair": "^3.12.0",
     "jszip": "^3.10.1",
+    "lossless-json": "4.3.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
     "pinyin-pro": "^3.28.2",

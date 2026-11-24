@@ -60,6 +60,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
 <script>
   import { jsonrepair } from 'jsonrepair';
+  import { isLosslessNumber, parse, stringify } from 'lossless-json';
   import { createJSONEditor, Mode, expandAll, expandNone } from 'vanilla-jsoneditor';
 
   type JsonPath = Array<string | number>;
@@ -79,8 +80,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   const expandRulesEl = document.getElementById('path-expand-rules') as HTMLTextAreaElement;
   const fieldFilterEl = document.getElementById('field-filter-rules') as HTMLTextAreaElement;
 
-  let rawData: any = null;
-  let lastData: any = null;
+  let rawData: unknown = undefined;
+  let lastData: unknown = undefined;
   let treeExpanded = false;
   let forceManualCollapse = false;
   let previewTimer: number | null = null;
@@ -97,6 +98,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       target: editorHost,
       props: {
         mode: Mode.tree,
+        parser: { parse, stringify },
         readOnly: true,
         mainMenuBar: false,
         navigationBar: false,
@@ -199,7 +201,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function isPlainObject(value: unknown) {
-    return value != null && typeof value == 'object' && !Array.isArray(value);
+    return value != null && typeof value == 'object' && !Array.isArray(value) && !isLosslessNumber(value);
   }
 
   function filterDataByKeys(data: unknown, keys: Set<string>): unknown {
@@ -216,7 +218,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
     if (!isPlainObject(data)) return undefined;
 
-    const next: Record<string, unknown> = {};
+    const next: Record<string, unknown> = Object.create(null);
     Object.entries(data as Record<string, unknown>).forEach(([key, value]) => {
       if (keyHit(key)) {
         next[key] = value;
@@ -239,7 +241,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function forceCollapseAll() {
-    if (!editor || lastData == null) return;
+    if (!editor || lastData === undefined) return;
     editor.expand([], expandNone);
     const paths = collectPaths(lastData).sort((a, b) => b.length - a.length);
     paths.forEach((path) => {
@@ -248,7 +250,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function applyPathRules() {
-    if (!editor || lastData == null || !pathConfig.expandPaths.length) return;
+    if (!editor || lastData === undefined || !pathConfig.expandPaths.length) return;
     const paths = collectPaths(lastData);
     const matched: JsonPath[] = [];
 
@@ -292,7 +294,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function runExpandState() {
-    if (!editor || lastData == null) return;
+    if (!editor || lastData === undefined) return;
     if (treeExpanded) {
       editor.expand([], expandAll);
       toggleBtn.textContent = '全部折叠';
@@ -318,16 +320,16 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function applyTreeExpandState() {
-    if (!editor || lastData == null) return;
+    if (!editor || lastData === undefined) return;
     // 深拷贝，避免编辑器复用旧树结构导致清空筛选后不刷新
-    const view = JSON.parse(JSON.stringify(lastData));
+    const view = parse(stringify(lastData)!);
     editor.set({ json: view });
     editor.refresh();
     requestAnimationFrame(() => runExpandState());
   }
 
   function renderView() {
-    if (rawData == null) {
+    if (rawData === undefined) {
       renderEmpty();
       return;
     }
@@ -336,7 +338,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     showTreeView();
     ensureEditor();
     applyTreeExpandState();
-    updateStats(JSON.stringify(lastData, null, 2), outputStats);
+    updateStats(stringify(lastData, null, 2)!, outputStats);
   }
 
   function collectPaths(data: unknown, prefix: JsonPath = []): JsonPath[] {
@@ -346,7 +348,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
       data.forEach((item, i) => {
         paths.push(...collectPaths(item, [...prefix, i]));
       });
-    } else if (data != null && typeof data == 'object') {
+    } else if (isPlainObject(data)) {
       Object.keys(data as object).forEach((key) => {
         paths.push(...collectPaths((data as Record<string, unknown>)[key], [...prefix, key]));
       });
@@ -362,7 +364,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     if (pathTimer) window.clearTimeout(pathTimer);
     pathTimer = window.setTimeout(() => {
       syncPathRulesFromInput();
-      if (lastData == null || treeExpanded || !editor || fieldConfig.includeKeys.length) return;
+      if (lastData === undefined || treeExpanded || !editor || fieldConfig.includeKeys.length) return;
       forceManualCollapse = false;
       runExpandState();
     }, 400);
@@ -372,7 +374,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     if (filterTimer) window.clearTimeout(filterTimer);
     filterTimer = window.setTimeout(() => {
       syncFieldRulesFromInput();
-      if (rawData == null) return;
+      if (rawData === undefined) return;
       treeExpanded = false;
       forceManualCollapse = false;
       renderView();
@@ -385,21 +387,21 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   }
 
   function renderEmpty() {
-    rawData = null;
-    lastData = null;
+    rawData = undefined;
+    lastData = undefined;
     showPlaceholder();
     updateStats('', outputStats);
   }
 
   function parseOrRepair(raw: string) {
     try {
-      return { data: JSON.parse(raw), repaired: false };
+      return { data: parse(raw), repaired: false };
     } catch (e) {
       const err = e as Error;
       const line = getErrorLine(raw, err);
       const errDesc = line ? `第 ${line} 行附近：${err.message}` : err.message;
       try {
-        return { data: JSON.parse(jsonrepair(raw)), repaired: true, errDesc };
+        return { data: parse(jsonrepair(raw)), repaired: true, errDesc };
       } catch {
         throw new Error(errDesc + ' → 自动修复失败，请人工检查');
       }
@@ -414,7 +416,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     }
     try {
       const { data, repaired, errDesc } = parseOrRepair(raw);
-      input.value = JSON.stringify(data, null, 2);
+      input.value = stringify(data, null, 2)!;
       updateStats(input.value, inputStats);
       renderTree(data);
       input.classList.remove('error-line');
@@ -435,7 +437,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     }
     try {
       const { data, repaired, errDesc } = parseOrRepair(raw);
-      input.value = JSON.stringify(data);
+      input.value = stringify(data)!;
       updateStats(input.value, inputStats);
       renderTree(data);
       input.classList.remove('error-line');
@@ -481,6 +483,8 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
 
   input.addEventListener('input', () => {
     updateStats(input.value, inputStats);
+    // Do not copy the previous document while this input waits to be parsed.
+    renderEmpty();
     scheduleAutoPreview();
   });
 
@@ -504,11 +508,11 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   });
 
   document.getElementById('btn-copy-output')!.addEventListener('click', async () => {
-    if (lastData == null) {
+    if (lastData === undefined) {
       showMsg('当前没有可复制的输出内容', 'error');
       return;
     }
-    await navigator.clipboard.writeText(JSON.stringify(lastData, null, 2));
+    await navigator.clipboard.writeText(stringify(lastData, null, 2)!);
     showMsg('已复制当前输出 JSON', 'success');
   });
 
@@ -517,7 +521,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
     fieldFilterEl.value = '';
     fieldConfig.includeKeys = [];
     localStorage.setItem(FILTER_KEY, JSON.stringify(fieldConfig));
-    if (rawData == null) return;
+    if (rawData === undefined) return;
     treeExpanded = false;
     forceManualCollapse = false;
     renderView();
@@ -525,7 +529,7 @@ import ToolLayout from '../../layouts/ToolLayout.astro';
   });
 
   toggleBtn.addEventListener('click', () => {
-    if (lastData == null) return;
+    if (lastData === undefined) return;
     if (fieldConfig.includeKeys.length) {
       forceManualCollapse = !forceManualCollapse;
       treeExpanded = false;
